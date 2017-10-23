@@ -3,14 +3,19 @@
 Detours is a software package for re-routing Win32 APIs underneath applications.
 Under commercial release for 15 years, Detours has been licensed by over 100 ISVs
 and used within nearly every product team at Microsoft.  The goodness of Detours
-is now open source.   Detours works on Windows 10 and all recent versions of Windows.
+is now open source. 
+
+Detours is compatible with the Windows NT family of 
+operating systems: Windows NT, Windows XP, Windows Server 2003, Windows 7,
+Windows 8, Windows 10, etc.  It cannot be used by Window Store apps
+because Detours requires APIs not available to those applications. 
 This repo contains the source code for version 4.0.1 of Detours.
 
 For technical documentation on Detours, see the [Detours Wiki](https://github.com/microsoft/Detours/wiki).
 For directions on how to build and run samples, see the
 samples [README.txt](https://github.com/Microsoft/Detours/blob/master/samples/README.TXT) file.
 
-The [`detours`](https://github.com/microsoft/detours) repository is where we do
+The [`Detours`](https://github.com/microsoft/detours) repository is where we do
 development and there are many ways you can participate in the project, for example:
 
 * [Submit bugs and feature requests](https://github.com/microsoft/detours/issues) and help us verify fixes and changes they are checked in.
