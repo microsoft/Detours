@@ -1,9 +1,10 @@
-# Detours, Version 4.0.1
+# Microsoft Research Detours Package
 
 Detours is a software package for re-routing Win32 APIs underneath applications.
 Under commercial release for 15 years, Detours has been licensed by over 100 ISVs
 and used within nearly every product team at Microsoft.  The goodness of Detours
-is now open source.  Detours works on Windows 10 and all recent versions of Windows.
+is now open source.   Detours works on Windows 10 and all recent versions of Windows.
+This repo contains the source code for version 4.0.1 of Detours.
 
 For technical documentation on Detours, see the [Detours Wiki](https://github.com/microsoft/Detours/wiki).
 For directions on how to build and run samples, see the
