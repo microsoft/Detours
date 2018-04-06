@@ -1,8 +1,8 @@
 # Microsoft Research Detours Package
 
-Detours is a software package for monitoring and instrumenting API calls on Windows.  
-Detours has been used by many ISVs and  is also  used by product teams at Microsoft. Detours is now available under
-a standard open source  license (MIT).  This simplifies licensing for programmers using Detours 
+Detours is a software package for monitoring and instrumenting API calls on Windows. Detours
+has been used by many ISVs and  is also  used by product teams at Microsoft. Detours is now available under
+a standard open source  license (MIT).  This simplifies licensing for programmers using Detours
 and allows the community to support Detours using open source tools and processes.
 
 Detours is compatible with the Windows NT family of 
