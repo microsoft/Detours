@@ -1665,6 +1665,26 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
 
                         SetThreadContext(t->hThread, &cxt);
                     }
+#ifdef DETOURS_X64
+                    else
+                    {
+                        // in x64:
+                        // jmp dest1
+
+                        //         real address of hook
+                        // dest1:  jmp [rip -0xe]
+                        //   
+                        // if rip is already on dest1, we are doing to segfault because hook removal
+                        // zeroes out what is at rip-0xe
+                        // change rip to point to the beginning of the original function (complete hook removal)
+                        if (cxt.DETOURS_EIP == (DETOURS_EIP_TYPE)(ULONG_PTR)o->pTrampoline->rbCodeIn )
+                        {
+                            cxt.DETOURS_EIP = (DETOURS_EIP_TYPE)
+                                ((ULONG_PTR)o->pbTarget); // go to beginning of original function
+                            SetThreadContext(t->hThread, &cxt);
+                        }
+                    }
+#endif					
                 }
                 else {
                     if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pbTarget &&
