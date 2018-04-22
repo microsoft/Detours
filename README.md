@@ -31,6 +31,16 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 * Open an issue on [GitHub Issues](https://github.com/Microsoft/detours/issues).
 
+## Mailing list for announcements
+
+The detours-announce mailing list is a low-traffic email list for important announcements 
+about the project, such as the availability of new versions of Detours.  To join it, send 
+an email to listserv@lists.research.microsoft.com with a 
+message body containing only the text SUBSCRIBE DETOURS-ANNOUNCE.
+To leave it, send an email to listserv@lists.research.microsoft.com with a 
+message body containing only the text UNSUBSCRIBE DETOURS-ANNOUNCE.
+
+
 ## License
 
 Copyright (c) Microsoft Corporation. All rights reserved.
