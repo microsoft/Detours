@@ -893,7 +893,7 @@ struct _DETOUR_TRAMPOLINE
 C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 120);
 
 enum {
-    SIZE_OF_JMP = 8
+    SIZE_OF_JMP = 16
 };
 
 inline ULONG fetch_opcode(PBYTE pbCode)
@@ -915,7 +915,7 @@ PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE *ppPool, PBYTE pbJmpVal)
         pbLiteral = *ppPool;
     }
     else {
-        pbLiteral = pbCode + 2*4;
+        pbLiteral = pbCode + 8;
     }
 
     *((PBYTE*&)pbLiteral) = pbJmpVal;
