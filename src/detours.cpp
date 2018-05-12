@@ -938,6 +938,15 @@ inline PBYTE detour_gen_brk(PBYTE pbCode, PBYTE pbLimit)
     return pbCode;
 }
 
+inline INT64 detour_sign_extend(UINT64 value, UINT bits)
+{
+    const UINT left = 64 - bits;
+    const INT64 m1 = -1;
+    const INT64 wide = (INT64)(value << left);
+    const INT64 sign = (wide < 0) ? (m1 << left) : 0;
+    return value | sign;
+}
+
 inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
 {
     if (pbCode == NULL) {
@@ -950,19 +959,72 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
     // Skip over the import jump if there is one.
     pbCode = (PBYTE)pbCode;
     ULONG Opcode = fetch_opcode(pbCode);
+
     if ((Opcode & 0x9f00001f) == 0x90000010) {           // adrp  x16, IAT
-        ULONG Opcode2 = fetch_opcode(pbCode+4);
+        ULONG Opcode2 = fetch_opcode(pbCode + 4);
 
         if ((Opcode2 & 0xffe003ff) == 0xf9400210) {      // ldr   x16, [x16, IAT]
-            ULONG Opcode3 = fetch_opcode(pbCode+8);
+            ULONG Opcode3 = fetch_opcode(pbCode + 8);
 
             if (Opcode3 == 0xd61f0200) {                 // br    x16
 
-                ULONG PageOffset = ((Opcode & 0x60000000) >> 29) | ((Opcode & 0x00ffffe0) >> 3);
-                PageOffset = (LONG)(Opcode << 11) >> 11;
+/* https://static.docs.arm.com/ddi0487/bb/DDI0487B_b_armv8_arm.pdf
+    The ADRP instruction shifts a signed, 21-bit immediate left by 12 bits, adds it to the value of the program counter with
+    the bottom 12 bits cleared to zero, and then writes the result to a general-purpose register. This permits the
+    calculation of the address at a 4KB aligned memory region. In conjunction with an ADD (immediate) instruction, or
+    a Load/Store instruction with a 12-bit immediate offset, this allows for the calculation of, or access to, any address
+    within ±4GB of the current PC.
 
-                PBYTE pbTarget = (PBYTE)(((ULONG64)pbCode & 0xfffffffffffff000ULL) + PageOffset +
-                                         ((Opcode2 >> 10) & 0xfff));
+PC-rel. addressing
+    This section describes the encoding of the PC-rel. addressing instruction class. The encodings in this section are
+    decoded from Data Processing -- Immediate on page C4-226.
+    Add/subtract (immediate)
+    This section describes the encoding of the Add/subtract (immediate) instruction class. The encodings in this section
+    are decoded from Data Processing -- Immediate on page C4-226.
+    Decode fields
+    Instruction page
+    op
+    0 ADR
+    1 ADRP
+
+C6.2.10 ADRP
+    Form PC-relative address to 4KB page adds an immediate value that is shifted left by 12 bits, to the PC value to
+    form a PC-relative address, with the bottom 12 bits masked out, and writes the result to the destination register.
+    ADRP <Xd>, <label>
+    imm = SignExtend(immhi:immlo:Zeros(12), 64);
+
+    31  30 29 28 27 26 25 24 23 5    4 0
+    1   immlo  1  0  0  0  0  immhi  Rd
+         9             0
+
+Rd is hardcoded as 0x10 above.
+Immediate is 21 signed bits split into 2 bits and 19 bits, and is scaled by 4K.
+*/
+                UINT64 const pageLow2 = (Opcode >> 29) & 3;
+                UINT64 const pageHigh19 = (Opcode >> 5) & ~(~0ui64 << 19);
+                INT64 const page = detour_sign_extend((pageHigh19 << 2) | pageLow2, 21) << 12;
+
+/* https://static.docs.arm.com/ddi0487/bb/DDI0487B_b_armv8_arm.pdf
+
+    C6.2.101 LDR (immediate)
+    Load Register (immediate) loads a word or doubleword from memory and writes it to a register. The address that is
+    used for the load is calculated from a base register and an immediate offset.
+    The Unsigned offset variant scales the immediate offset value by the size of the value accessed before adding it
+    to the base register value.
+
+Unsigned offset
+64-bit variant Applies when size == 11.
+    31 30 29 28  27 26 25 24  23 22  21   10   9 5   4 0
+     1  x  1  1   1  0  0  1   0  1  imm12      Rn    Rt
+         F             9        4              200    10
+
+That is, two low 5 bit fields are registers, hardcoded as 0x10 and 0x10 << 5 above,
+then unsigned size-unscaled (8) 12-bit offset, then opcode bits 0xF94.
+*/
+                UINT64 const offset = ((Opcode2 >> 10) & ~(~0ui64 << 12)) << 3;
+
+                PBYTE const pbTarget = (PBYTE)((ULONG64)pbCode & 0xfffffffffffff000ULL) + page + offset;
+
                 if (detour_is_imported(pbCode, pbTarget)) {
                     PBYTE pbNew = *(PBYTE *)pbTarget;
                     DETOUR_TRACE(("%p->%p: skipped over import table.\n", pbCode, pbNew));
