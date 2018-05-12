@@ -879,7 +879,29 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 struct _DETOUR_TRAMPOLINE
 {
     // An ARM64 instruction is 4 bytes long.
-    BYTE            rbCode[64];     // target code + jmp to pbRemain
+    //
+    // The overwrite is always 2 instructions plus a literal, so 16 bytes, 4 instructions.
+    //
+    // Copied instructions can expand.
+    //
+    // The scheme using MovImmediate can cause an instruction
+    // to grow as much as 6 times.
+    // That would be Bcc or Tbz with a large address space:
+    //   4 instructions to form immediate
+    //   inverted tbz/bcc
+    //   br
+    //
+    // An expansion of 4 is not uncommon -- bl/blr and small address space:
+    //   3 instructions to form immediate
+    //   br or brl
+    //
+    // A theoretical maximum for rbCode is thefore 4*4*6 + 16 = 112 (another 16 for jmp to pbRemain).
+    //
+    // With literals, the maximum expansion is 5, including the literals: 4*4*5 + 16 = 96.
+    //
+    // The number is rounded up to 128. m_rbScratchDst should match this.
+    //
+    BYTE            rbCode[128];    // target code + jmp to pbRemain
     BYTE            cbCode;         // size of moved target code.
     BYTE            cbCodeBreak[3]; // padding to make debugging easier.
     BYTE            rbRestore[24];  // original target code.
@@ -890,7 +912,7 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbDetour;       // first instruction of detour function.
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 120);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 184);
 
 enum {
     SIZE_OF_JMP = 8
