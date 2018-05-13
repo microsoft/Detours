@@ -196,6 +196,7 @@ class CDetourDis
     };
 
   protected:
+<<<<<<< HEAD
 // These macros define common uses of nFixedSize, nFixedSize16, nModOffset, nRelOffset, nFlagBits, pfCopy.
 #define ENTRY_DataIgnored           0, 0, 0, 0, 0,
 #define ENTRY_CopyBytes1            1, 1, 0, 0, 0, &CDetourDis::CopyBytes
@@ -595,8 +596,8 @@ PBYTE CDetourDis::Copy0F78(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
 {
     // vmread, 66/extrq, F2/insertq
 
-    static const COPYENTRY vmread = { /* 78 */ ENTRY_CopyBytes2Mod };
-    static const COPYENTRY extrq_insertq = { /* 78 */ ENTRY_CopyBytes4 };
+    static const COPYENTRY vmread = /* 78 */ ENTRY_CopyBytes2Mod;
+    static const COPYENTRY extrq_insertq = /* 78 */ ENTRY_CopyBytes4;
 
     ASSERT(!(m_bF2 && m_bOperandOverride));
 
@@ -614,8 +615,8 @@ PBYTE CDetourDis::Copy0F00(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
     // jmpe is 32bit x86 only
     // Notice that the sizes are the same either way, but jmpe is marked as "dynamic".
 
-    static const COPYENTRY other = { /* B8 */ ENTRY_CopyBytes2Mod }; // sldt/0 str/1 lldt/2 ltr/3 err/4 verw/5 jmpe/6 invalid/7
-    static const COPYENTRY jmpe = { /* 0zB8 */ ENTRY_CopyBytes2ModDynamic }; // jmpe/6 x86-on-IA64 syscalls
+    static const COPYENTRY other = /* B8 */ ENTRY_CopyBytes2Mod; // sldt/0 str/1 lldt/2 ltr/3 err/4 verw/5 jmpe/6 invalid/7
+    static const COPYENTRY jmpe = /* B8 */ ENTRY_CopyBytes2ModDynamic; // jmpe/6 x86-on-IA64 syscalls
 
     REFCOPYENTRY const pEntry = (((6 << 3) == ((7 << 3) & pbSrc[1])) ?  &jmpe : &other);
     return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
@@ -625,8 +626,8 @@ PBYTE CDetourDis::Copy0FB8(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
 {
     // jmpe is 32bit x86 only
 
-    static const COPYENTRY popcnt = { /* B8 */ ENTRY_CopyBytes2Mod };
-    static const COPYENTRY jmpe = { /* B8 */ ENTRY_CopyBytes3Or5Dynamic }; // jmpe x86-on-IA64 syscalls
+    static const COPYENTRY popcnt = /* B8 */ ENTRY_CopyBytes2Mod;
+    static const COPYENTRY jmpe = /* B8 */ ENTRY_CopyBytes3Or5Dynamic; // jmpe x86-on-IA64 syscalls
     REFCOPYENTRY const pEntry = m_bF3 ? &popcnt : &jmpe;
     return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
 }
@@ -661,7 +662,7 @@ PBYTE CDetourDis::CopyF6(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
 
     // TEST BYTE /0
     if (0x00 == (0x38 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 0
-        static const COPYENTRY ce = { /* f6 */ ENTRY_CopyBytes2Mod1 };
+        static const COPYENTRY ce = /* f6 */ ENTRY_CopyBytes2Mod1;
         return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
     }
     // DIV /6
@@ -671,7 +672,7 @@ PBYTE CDetourDis::CopyF6(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     // NEG /3
     // NOT /2
 
-    static const COPYENTRY ce = { /* f6 */ ENTRY_CopyBytes2Mod };
+    static const COPYENTRY ce = /* f6 */ ENTRY_CopyBytes2Mod;
     return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
 }
 
@@ -681,7 +682,7 @@ PBYTE CDetourDis::CopyF7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
 
     // TEST WORD /0
     if (0x00 == (0x38 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 0
-        static const COPYENTRY ce = { /* f7 */ ENTRY_CopyBytes2ModOperand };
+        static const COPYENTRY ce = /* f7 */ ENTRY_CopyBytes2ModOperand;
         return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
     }
 
@@ -691,7 +692,7 @@ PBYTE CDetourDis::CopyF7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     // MUL /4
     // NEG /3
     // NOT /2
-    static const COPYENTRY ce = { /* f7 */ ENTRY_CopyBytes2Mod };
+    static const COPYENTRY ce = /* f7 */ ENTRY_CopyBytes2Mod;
     return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
 }
 
@@ -706,7 +707,7 @@ PBYTE CDetourDis::CopyFF(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     // invalid/7
     (void)pEntry;
 
-    static const COPYENTRY ce = { /* ff */ ENTRY_CopyBytes2Mod };
+    static const COPYENTRY ce = /* ff */ ENTRY_CopyBytes2Mod;
     PBYTE pbOut = (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
 
     BYTE const b1 = pbSrc[1];
@@ -750,9 +751,9 @@ PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p)
 // m is first instead of last in the hopes of pbDst/pbSrc being
 // passed along efficiently in the registers they were already in.
 {
-    static const COPYENTRY ceF38 = { /* 38 */ ENTRY_CopyBytes2Mod };
-    static const COPYENTRY ceF3A = { /* 3A */ ENTRY_CopyBytes2Mod1 };
-    static const COPYENTRY Invalid = { /* C4 */ ENTRY_Invalid };
+    static const COPYENTRY ceF38 = /* 38 */ ENTRY_CopyBytes2Mod;
+    static const COPYENTRY ceF3A = /* 3A */ ENTRY_CopyBytes2Mod1;
+    static const COPYENTRY Invalid = /* C4 */ ENTRY_Invalid;
 
     switch (p & 3) {
     case 0: break;
@@ -786,7 +787,7 @@ PBYTE CDetourDis::CopyVex3(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
 // 3 byte VEX prefix 0xC4
 {
 #ifdef DETOURS_X86
-    const static COPYENTRY ceLES = { /* C4 */ ENTRY_CopyBytes2Mod };
+    const static COPYENTRY ceLES = /* C4 */ ENTRY_CopyBytes2Mod;
     if ((pbSrc[1] & 0xC0) != 0xC0) {
         REFCOPYENTRY pEntry = &ceLES;
         return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
@@ -831,7 +832,7 @@ PBYTE CDetourDis::CopyVex2(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
 // 2 byte VEX prefix 0xC5
 {
 #ifdef DETOURS_X86
-    const static COPYENTRY ceLDS = { /* C5 */ ENTRY_CopyBytes2Mod };
+    const static COPYENTRY ceLDS = /* C5 */ ENTRY_CopyBytes2Mod;
     if ((pbSrc[1] & 0xC0) != 0xC0) {
         REFCOPYENTRY pEntry = &ceLDS;
         return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
@@ -956,542 +957,542 @@ const BYTE CDetourDis::s_rbModRm[256] = {
 
 const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[257] =
 {
-    { /* 00 */ ENTRY_CopyBytes2Mod },                      // ADD /r
-    { /* 01 */ ENTRY_CopyBytes2Mod },                      // ADD /r
-    { /* 02 */ ENTRY_CopyBytes2Mod },                      // ADD /r
-    { /* 03 */ ENTRY_CopyBytes2Mod },                      // ADD /r
-    { /* 04 */ ENTRY_CopyBytes2 },                         // ADD ib
-    { /* 05 */ ENTRY_CopyBytes3Or5 },                      // ADD iw
+    /* 00 */ ENTRY_CopyBytes2Mod,                      // ADD /r
+    /* 01 */ ENTRY_CopyBytes2Mod,                      // ADD /r
+    /* 02 */ ENTRY_CopyBytes2Mod,                      // ADD /r
+    /* 03 */ ENTRY_CopyBytes2Mod,                      // ADD /r
+    /* 04 */ ENTRY_CopyBytes2,                         // ADD ib
+    /* 05 */ ENTRY_CopyBytes3Or5,                      // ADD iw
 #ifdef DETOURS_X64
-    { /* 06 */ ENTRY_Invalid },                            // Invalid
-    { /* 07 */ ENTRY_Invalid },                            // Invalid
+    /* 06 */ ENTRY_Invalid,                            // Invalid
+    /* 07 */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 06 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 07 */ ENTRY_CopyBytes1 },                         // POP
+    /* 06 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 07 */ ENTRY_CopyBytes1,                         // POP
 #endif
-    { /* 08 */ ENTRY_CopyBytes2Mod },                      // OR /r
-    { /* 09 */ ENTRY_CopyBytes2Mod },                      // OR /r
-    { /* 0A */ ENTRY_CopyBytes2Mod },                      // OR /r
-    { /* 0B */ ENTRY_CopyBytes2Mod },                      // OR /r
-    { /* 0C */ ENTRY_CopyBytes2 },                         // OR ib
-    { /* 0D */ ENTRY_CopyBytes3Or5 },                      // OR iw
+    /* 08 */ ENTRY_CopyBytes2Mod,                      // OR /r
+    /* 09 */ ENTRY_CopyBytes2Mod,                      // OR /r
+    /* 0A */ ENTRY_CopyBytes2Mod,                      // OR /r
+    /* 0B */ ENTRY_CopyBytes2Mod,                      // OR /r
+    /* 0C */ ENTRY_CopyBytes2,                         // OR ib
+    /* 0D */ ENTRY_CopyBytes3Or5,                      // OR iw
 #ifdef DETOURS_X64
-    { /* 0E */ ENTRY_Invalid },                            // Invalid
+    /* 0E */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 0E */ ENTRY_CopyBytes1 },                         // PUSH
+    /* 0E */ ENTRY_CopyBytes1,                         // PUSH
 #endif
-    { /* 0F */ ENTRY_Copy0F },                             // Extension Ops
-    { /* 10 */ ENTRY_CopyBytes2Mod },                      // ADC /r
-    { /* 11 */ ENTRY_CopyBytes2Mod },                      // ADC /r
-    { /* 12 */ ENTRY_CopyBytes2Mod },                      // ADC /r
-    { /* 13 */ ENTRY_CopyBytes2Mod },                      // ADC /r
-    { /* 14 */ ENTRY_CopyBytes2 },                         // ADC ib
-    { /* 15 */ ENTRY_CopyBytes3Or5 },                      // ADC id
+    /* 0F */ ENTRY_Copy0F,                             // Extension Ops
+    /* 10 */ ENTRY_CopyBytes2Mod,                      // ADC /r
+    /* 11 */ ENTRY_CopyBytes2Mod,                      // ADC /r
+    /* 12 */ ENTRY_CopyBytes2Mod,                      // ADC /r
+    /* 13 */ ENTRY_CopyBytes2Mod,                      // ADC /r
+    /* 14 */ ENTRY_CopyBytes2,                         // ADC ib
+    /* 15 */ ENTRY_CopyBytes3Or5,                      // ADC id
 #ifdef DETOURS_X64
-    { /* 16 */ ENTRY_Invalid },                            // Invalid
-    { /* 17 */ ENTRY_Invalid },                            // Invalid
+    /* 16 */ ENTRY_Invalid,                            // Invalid
+    /* 17 */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 16 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 17 */ ENTRY_CopyBytes1 },                         // POP
+    /* 16 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 17 */ ENTRY_CopyBytes1,                         // POP
 #endif
-    { /* 18 */ ENTRY_CopyBytes2Mod },                      // SBB /r
-    { /* 19 */ ENTRY_CopyBytes2Mod },                      // SBB /r
-    { /* 1A */ ENTRY_CopyBytes2Mod },                      // SBB /r
-    { /* 1B */ ENTRY_CopyBytes2Mod },                      // SBB /r
-    { /* 1C */ ENTRY_CopyBytes2 },                         // SBB ib
-    { /* 1D */ ENTRY_CopyBytes3Or5 },                      // SBB id
+    /* 18 */ ENTRY_CopyBytes2Mod,                      // SBB /r
+    /* 19 */ ENTRY_CopyBytes2Mod,                      // SBB /r
+    /* 1A */ ENTRY_CopyBytes2Mod,                      // SBB /r
+    /* 1B */ ENTRY_CopyBytes2Mod,                      // SBB /r
+    /* 1C */ ENTRY_CopyBytes2,                         // SBB ib
+    /* 1D */ ENTRY_CopyBytes3Or5,                      // SBB id
 #ifdef DETOURS_X64
-    { /* 1E */ ENTRY_Invalid },                            // Invalid
-    { /* 1F */ ENTRY_Invalid },                            // Invalid
+    /* 1E */ ENTRY_Invalid,                            // Invalid
+    /* 1F */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 1E */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 1F */ ENTRY_CopyBytes1 },                         // POP
+    /* 1E */ ENTRY_CopyBytes1,                         // PUSH
+    /* 1F */ ENTRY_CopyBytes1,                         // POP
 #endif
-    { /* 20 */ ENTRY_CopyBytes2Mod },                      // AND /r
-    { /* 21 */ ENTRY_CopyBytes2Mod },                      // AND /r
-    { /* 22 */ ENTRY_CopyBytes2Mod },                      // AND /r
-    { /* 23 */ ENTRY_CopyBytes2Mod },                      // AND /r
-    { /* 24 */ ENTRY_CopyBytes2 },                         // AND ib
-    { /* 25 */ ENTRY_CopyBytes3Or5 },                      // AND id
-    { /* 26 */ ENTRY_CopyBytesSegment },                   // ES prefix
+    /* 20 */ ENTRY_CopyBytes2Mod,                      // AND /r
+    /* 21 */ ENTRY_CopyBytes2Mod,                      // AND /r
+    /* 22 */ ENTRY_CopyBytes2Mod,                      // AND /r
+    /* 23 */ ENTRY_CopyBytes2Mod,                      // AND /r
+    /* 24 */ ENTRY_CopyBytes2,                         // AND ib
+    /* 25 */ ENTRY_CopyBytes3Or5,                      // AND id
+    /* 26 */ ENTRY_CopyBytesSegment,                   // ES prefix
 #ifdef DETOURS_X64
-    { /* 27 */ ENTRY_Invalid },                            // Invalid
+    /* 27 */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 27 */ ENTRY_CopyBytes1 },                         // DAA
+    /* 27 */ ENTRY_CopyBytes1,                         // DAA
 #endif
-    { /* 28 */ ENTRY_CopyBytes2Mod },                      // SUB /r
-    { /* 29 */ ENTRY_CopyBytes2Mod },                      // SUB /r
-    { /* 2A */ ENTRY_CopyBytes2Mod },                      // SUB /r
-    { /* 2B */ ENTRY_CopyBytes2Mod },                      // SUB /r
-    { /* 2C */ ENTRY_CopyBytes2 },                         // SUB ib
-    { /* 2D */ ENTRY_CopyBytes3Or5 },                      // SUB id
-    { /* 2E */ ENTRY_CopyBytesSegment },                   // CS prefix
+    /* 28 */ ENTRY_CopyBytes2Mod,                      // SUB /r
+    /* 29 */ ENTRY_CopyBytes2Mod,                      // SUB /r
+    /* 2A */ ENTRY_CopyBytes2Mod,                      // SUB /r
+    /* 2B */ ENTRY_CopyBytes2Mod,                      // SUB /r
+    /* 2C */ ENTRY_CopyBytes2,                         // SUB ib
+    /* 2D */ ENTRY_CopyBytes3Or5,                      // SUB id
+    /* 2E */ ENTRY_CopyBytesSegment,                   // CS prefix
 #ifdef DETOURS_X64
-    { /* 2F */ ENTRY_Invalid },                            // Invalid
+    /* 2F */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 2F */ ENTRY_CopyBytes1 },                         // DAS
+    /* 2F */ ENTRY_CopyBytes1,                         // DAS
 #endif
-    { /* 30 */ ENTRY_CopyBytes2Mod },                      // XOR /r
-    { /* 31 */ ENTRY_CopyBytes2Mod },                      // XOR /r
-    { /* 32 */ ENTRY_CopyBytes2Mod },                      // XOR /r
-    { /* 33 */ ENTRY_CopyBytes2Mod },                      // XOR /r
-    { /* 34 */ ENTRY_CopyBytes2 },                         // XOR ib
-    { /* 35 */ ENTRY_CopyBytes3Or5 },                      // XOR id
-    { /* 36 */ ENTRY_CopyBytesSegment },                   // SS prefix
+    /* 30 */ ENTRY_CopyBytes2Mod,                      // XOR /r
+    /* 31 */ ENTRY_CopyBytes2Mod,                      // XOR /r
+    /* 32 */ ENTRY_CopyBytes2Mod,                      // XOR /r
+    /* 33 */ ENTRY_CopyBytes2Mod,                      // XOR /r
+    /* 34 */ ENTRY_CopyBytes2,                         // XOR ib
+    /* 35 */ ENTRY_CopyBytes3Or5,                      // XOR id
+    /* 36 */ ENTRY_CopyBytesSegment,                   // SS prefix
 #ifdef DETOURS_X64
-    { /* 37 */ ENTRY_Invalid },                            // Invalid
+    /* 37 */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 37 */ ENTRY_CopyBytes1 },                         // AAA
+    /* 37 */ ENTRY_CopyBytes1,                         // AAA
 #endif
-    { /* 38 */ ENTRY_CopyBytes2Mod },                      // CMP /r
-    { /* 39 */ ENTRY_CopyBytes2Mod },                      // CMP /r
-    { /* 3A */ ENTRY_CopyBytes2Mod },                      // CMP /r
-    { /* 3B */ ENTRY_CopyBytes2Mod },                      // CMP /r
-    { /* 3C */ ENTRY_CopyBytes2 },                         // CMP ib
-    { /* 3D */ ENTRY_CopyBytes3Or5 },                      // CMP id
-    { /* 3E */ ENTRY_CopyBytesSegment },                   // DS prefix
+    /* 38 */ ENTRY_CopyBytes2Mod,                      // CMP /r
+    /* 39 */ ENTRY_CopyBytes2Mod,                      // CMP /r
+    /* 3A */ ENTRY_CopyBytes2Mod,                      // CMP /r
+    /* 3B */ ENTRY_CopyBytes2Mod,                      // CMP /r
+    /* 3C */ ENTRY_CopyBytes2,                         // CMP ib
+    /* 3D */ ENTRY_CopyBytes3Or5,                      // CMP id
+    /* 3E */ ENTRY_CopyBytesSegment,                   // DS prefix
 #ifdef DETOURS_X64
-    { /* 3F */ ENTRY_Invalid },                            // Invalid
+    /* 3F */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 3F */ ENTRY_CopyBytes1 },                         // AAS
+    /* 3F */ ENTRY_CopyBytes1,                         // AAS
 #endif
 #ifdef DETOURS_X64 // For Rax Prefix
-    { /* 40 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 41 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 42 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 43 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 44 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 45 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 46 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 47 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 48 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 49 */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 4A */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 4B */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 4C */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 4D */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 4E */ ENTRY_CopyBytesRax },                       // Rax
-    { /* 4F */ ENTRY_CopyBytesRax },                       // Rax
+    /* 40 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 41 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 42 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 43 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 44 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 45 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 46 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 47 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 48 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 49 */ ENTRY_CopyBytesRax,                       // Rax
+    /* 4A */ ENTRY_CopyBytesRax,                       // Rax
+    /* 4B */ ENTRY_CopyBytesRax,                       // Rax
+    /* 4C */ ENTRY_CopyBytesRax,                       // Rax
+    /* 4D */ ENTRY_CopyBytesRax,                       // Rax
+    /* 4E */ ENTRY_CopyBytesRax,                       // Rax
+    /* 4F */ ENTRY_CopyBytesRax,                       // Rax
 #else
-    { /* 40 */ ENTRY_CopyBytes1 },                         // INC
-    { /* 41 */ ENTRY_CopyBytes1 },                         // INC
-    { /* 42 */ ENTRY_CopyBytes1 },                         // INC
-    { /* 43 */ ENTRY_CopyBytes1 },                         // INC
-    { /* 44 */ ENTRY_CopyBytes1 },                         // INC
-    { /* 45 */ ENTRY_CopyBytes1 },                         // INC
-    { /* 46 */ ENTRY_CopyBytes1 },                         // INC
-    { /* 47 */ ENTRY_CopyBytes1 },                         // INC
-    { /* 48 */ ENTRY_CopyBytes1 },                         // DEC
-    { /* 49 */ ENTRY_CopyBytes1 },                         // DEC
-    { /* 4A */ ENTRY_CopyBytes1 },                         // DEC
-    { /* 4B */ ENTRY_CopyBytes1 },                         // DEC
-    { /* 4C */ ENTRY_CopyBytes1 },                         // DEC
-    { /* 4D */ ENTRY_CopyBytes1 },                         // DEC
-    { /* 4E */ ENTRY_CopyBytes1 },                         // DEC
-    { /* 4F */ ENTRY_CopyBytes1 },                         // DEC
+    /* 40 */ ENTRY_CopyBytes1,                         // INC
+    /* 41 */ ENTRY_CopyBytes1,                         // INC
+    /* 42 */ ENTRY_CopyBytes1,                         // INC
+    /* 43 */ ENTRY_CopyBytes1,                         // INC
+    /* 44 */ ENTRY_CopyBytes1,                         // INC
+    /* 45 */ ENTRY_CopyBytes1,                         // INC
+    /* 46 */ ENTRY_CopyBytes1,                         // INC
+    /* 47 */ ENTRY_CopyBytes1,                         // INC
+    /* 48 */ ENTRY_CopyBytes1,                         // DEC
+    /* 49 */ ENTRY_CopyBytes1,                         // DEC
+    /* 4A */ ENTRY_CopyBytes1,                         // DEC
+    /* 4B */ ENTRY_CopyBytes1,                         // DEC
+    /* 4C */ ENTRY_CopyBytes1,                         // DEC
+    /* 4D */ ENTRY_CopyBytes1,                         // DEC
+    /* 4E */ ENTRY_CopyBytes1,                         // DEC
+    /* 4F */ ENTRY_CopyBytes1,                         // DEC
 #endif
-    { /* 50 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 51 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 52 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 53 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 54 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 55 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 56 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 57 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* 58 */ ENTRY_CopyBytes1 },                         // POP
-    { /* 59 */ ENTRY_CopyBytes1 },                         // POP
-    { /* 5A */ ENTRY_CopyBytes1 },                         // POP
-    { /* 5B */ ENTRY_CopyBytes1 },                         // POP
-    { /* 5C */ ENTRY_CopyBytes1 },                         // POP
-    { /* 5D */ ENTRY_CopyBytes1 },                         // POP
-    { /* 5E */ ENTRY_CopyBytes1 },                         // POP
-    { /* 5F */ ENTRY_CopyBytes1 },                         // POP
+    /* 50 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 51 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 52 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 53 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 54 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 55 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 56 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 57 */ ENTRY_CopyBytes1,                         // PUSH
+    /* 58 */ ENTRY_CopyBytes1,                         // POP
+    /* 59 */ ENTRY_CopyBytes1,                         // POP
+    /* 5A */ ENTRY_CopyBytes1,                         // POP
+    /* 5B */ ENTRY_CopyBytes1,                         // POP
+    /* 5C */ ENTRY_CopyBytes1,                         // POP
+    /* 5D */ ENTRY_CopyBytes1,                         // POP
+    /* 5E */ ENTRY_CopyBytes1,                         // POP
+    /* 5F */ ENTRY_CopyBytes1,                         // POP
 #ifdef DETOURS_X64
-    { /* 60 */ ENTRY_Invalid },                            // Invalid
-    { /* 61 */ ENTRY_Invalid },                            // Invalid
-    { /* 62 */ ENTRY_CopyEvex },                           // EVEX / AVX512
+    /* 60 */ ENTRY_Invalid,                            // Invalid
+    /* 61 */ ENTRY_Invalid,                            // Invalid
+    /* 62 */ ENTRY_CopyEvex,                           // EVEX / AVX512
 #else
-    { /* 60 */ ENTRY_CopyBytes1 },                         // PUSHAD
-    { /* 61 */ ENTRY_CopyBytes1 },                         // POPAD
-    { /* 62 */ ENTRY_CopyEvex },                           // EVEX / AVX512
+    /* 60 */ ENTRY_CopyBytes1,                         // PUSHAD
+    /* 61 */ ENTRY_CopyBytes1,                         // POPAD
+    /* 62 */ ENTRY_CopyEvex,                           // EVEX / AVX512
 #endif
-    { /* 63 */ ENTRY_CopyBytes2Mod },                      // 32bit ARPL /r, 64bit MOVSXD
-    { /* 64 */ ENTRY_CopyBytesSegment },                   // FS prefix
-    { /* 65 */ ENTRY_CopyBytesSegment },                   // GS prefix
-    { /* 66 */ ENTRY_Copy66 },                             // Operand Prefix
-    { /* 67 */ ENTRY_Copy67 },                             // Address Prefix
-    { /* 68 */ ENTRY_CopyBytes3Or5 },                      // PUSH
-    { /* 69 */ ENTRY_CopyBytes2ModOperand },               // IMUL /r iz
-    { /* 6A */ ENTRY_CopyBytes2 },                         // PUSH
-    { /* 6B */ ENTRY_CopyBytes2Mod1 },                     // IMUL /r ib
-    { /* 6C */ ENTRY_CopyBytes1 },                         // INS
-    { /* 6D */ ENTRY_CopyBytes1 },                         // INS
-    { /* 6E */ ENTRY_CopyBytes1 },                         // OUTS/OUTSB
-    { /* 6F */ ENTRY_CopyBytes1 },                         // OUTS/OUTSW
-    { /* 70 */ ENTRY_CopyBytes2Jump },                     // JO           // 0f80
-    { /* 71 */ ENTRY_CopyBytes2Jump },                     // JNO          // 0f81
-    { /* 72 */ ENTRY_CopyBytes2Jump },                     // JB/JC/JNAE   // 0f82
-    { /* 73 */ ENTRY_CopyBytes2Jump },                     // JAE/JNB/JNC  // 0f83
-    { /* 74 */ ENTRY_CopyBytes2Jump },                     // JE/JZ        // 0f84
-    { /* 75 */ ENTRY_CopyBytes2Jump },                     // JNE/JNZ      // 0f85
-    { /* 76 */ ENTRY_CopyBytes2Jump },                     // JBE/JNA      // 0f86
-    { /* 77 */ ENTRY_CopyBytes2Jump },                     // JA/JNBE      // 0f87
-    { /* 78 */ ENTRY_CopyBytes2Jump },                     // JS           // 0f88
-    { /* 79 */ ENTRY_CopyBytes2Jump },                     // JNS          // 0f89
-    { /* 7A */ ENTRY_CopyBytes2Jump },                     // JP/JPE       // 0f8a
-    { /* 7B */ ENTRY_CopyBytes2Jump },                     // JNP/JPO      // 0f8b
-    { /* 7C */ ENTRY_CopyBytes2Jump },                     // JL/JNGE      // 0f8c
-    { /* 7D */ ENTRY_CopyBytes2Jump },                     // JGE/JNL      // 0f8d
-    { /* 7E */ ENTRY_CopyBytes2Jump },                     // JLE/JNG      // 0f8e
-    { /* 7F */ ENTRY_CopyBytes2Jump },                     // JG/JNLE      // 0f8f
-    { /* 80 */ ENTRY_CopyBytes2Mod1 },                     // ADD/0 OR/1 ADC/2 SBB/3 AND/4 SUB/5 XOR/6 CMP/7 byte reg, immediate byte
-    { /* 81 */ ENTRY_CopyBytes2ModOperand },               // ADD/0 OR/1 ADC/2 SBB/3 AND/4 SUB/5 XOR/6 CMP/7 byte reg, immediate word or dword
+    /* 63 */ ENTRY_CopyBytes2Mod,                      // 32bit ARPL /r, 64bit MOVSXD
+    /* 64 */ ENTRY_CopyBytesSegment,                   // FS prefix
+    /* 65 */ ENTRY_CopyBytesSegment,                   // GS prefix
+    /* 66 */ ENTRY_Copy66,                             // Operand Prefix
+    /* 67 */ ENTRY_Copy67,                             // Address Prefix
+    /* 68 */ ENTRY_CopyBytes3Or5,                      // PUSH
+    /* 69 */ ENTRY_CopyBytes2ModOperand,               // IMUL /r iz
+    /* 6A */ ENTRY_CopyBytes2,                         // PUSH
+    /* 6B */ ENTRY_CopyBytes2Mod1,                     // IMUL /r ib
+    /* 6C */ ENTRY_CopyBytes1,                         // INS
+    /* 6D */ ENTRY_CopyBytes1,                         // INS
+    /* 6E */ ENTRY_CopyBytes1,                         // OUTS/OUTSB
+    /* 6F */ ENTRY_CopyBytes1,                         // OUTS/OUTSW
+    /* 70 */ ENTRY_CopyBytes2Jump,                     // JO           // 0f80
+    /* 71 */ ENTRY_CopyBytes2Jump,                     // JNO          // 0f81
+    /* 72 */ ENTRY_CopyBytes2Jump,                     // JB/JC/JNAE   // 0f82
+    /* 73 */ ENTRY_CopyBytes2Jump,                     // JAE/JNB/JNC  // 0f83
+    /* 74 */ ENTRY_CopyBytes2Jump,                     // JE/JZ        // 0f84
+    /* 75 */ ENTRY_CopyBytes2Jump,                     // JNE/JNZ      // 0f85
+    /* 76 */ ENTRY_CopyBytes2Jump,                     // JBE/JNA      // 0f86
+    /* 77 */ ENTRY_CopyBytes2Jump,                     // JA/JNBE      // 0f87
+    /* 78 */ ENTRY_CopyBytes2Jump,                     // JS           // 0f88
+    /* 79 */ ENTRY_CopyBytes2Jump,                     // JNS          // 0f89
+    /* 7A */ ENTRY_CopyBytes2Jump,                     // JP/JPE       // 0f8a
+    /* 7B */ ENTRY_CopyBytes2Jump,                     // JNP/JPO      // 0f8b
+    /* 7C */ ENTRY_CopyBytes2Jump,                     // JL/JNGE      // 0f8c
+    /* 7D */ ENTRY_CopyBytes2Jump,                     // JGE/JNL      // 0f8d
+    /* 7E */ ENTRY_CopyBytes2Jump,                     // JLE/JNG      // 0f8e
+    /* 7F */ ENTRY_CopyBytes2Jump,                     // JG/JNLE      // 0f8f
+    /* 80 */ ENTRY_CopyBytes2Mod1,                     // ADD/0 OR/1 ADC/2 SBB/3 AND/4 SUB/5 XOR/6 CMP/7 byte reg, immediate byte
+    /* 81 */ ENTRY_CopyBytes2ModOperand,               // ADD/0 OR/1 ADC/2 SBB/3 AND/4 SUB/5 XOR/6 CMP/7 byte reg, immediate word or dword
 #ifdef DETOURS_X64
-    { /* 82 */ ENTRY_Invalid },                            // Invalid
+    /* 82 */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 82 */ ENTRY_CopyBytes2Mod1 },                     // MOV al,x
+    /* 82 */ ENTRY_CopyBytes2Mod1,                     // MOV al,x
 #endif
-    { /* 83 */ ENTRY_CopyBytes2Mod1 },                     // ADD/0 OR/1 ADC/2 SBB/3 AND/4 SUB/5 XOR/6 CMP/7 reg, immediate byte
-    { /* 84 */ ENTRY_CopyBytes2Mod },                      // TEST /r
-    { /* 85 */ ENTRY_CopyBytes2Mod },                      // TEST /r
-    { /* 86 */ ENTRY_CopyBytes2Mod },                      // XCHG /r @todo
-    { /* 87 */ ENTRY_CopyBytes2Mod },                      // XCHG /r @todo
-    { /* 88 */ ENTRY_CopyBytes2Mod },                      // MOV /r
-    { /* 89 */ ENTRY_CopyBytes2Mod },                      // MOV /r
-    { /* 8A */ ENTRY_CopyBytes2Mod },                      // MOV /r
-    { /* 8B */ ENTRY_CopyBytes2Mod },                      // MOV /r
-    { /* 8C */ ENTRY_CopyBytes2Mod },                      // MOV /r
-    { /* 8D */ ENTRY_CopyBytes2Mod },                      // LEA /r
-    { /* 8E */ ENTRY_CopyBytes2Mod },                      // MOV /r
-    { /* 8F */ ENTRY_CopyXop },                            // POP /0 or AMD XOP
-    { /* 90 */ ENTRY_CopyBytes1 },                         // NOP
-    { /* 91 */ ENTRY_CopyBytes1 },                         // XCHG
-    { /* 92 */ ENTRY_CopyBytes1 },                         // XCHG
-    { /* 93 */ ENTRY_CopyBytes1 },                         // XCHG
-    { /* 94 */ ENTRY_CopyBytes1 },                         // XCHG
-    { /* 95 */ ENTRY_CopyBytes1 },                         // XCHG
-    { /* 96 */ ENTRY_CopyBytes1 },                         // XCHG
-    { /* 97 */ ENTRY_CopyBytes1 },                         // XCHG
-    { /* 98 */ ENTRY_CopyBytes1 },                         // CWDE
-    { /* 99 */ ENTRY_CopyBytes1 },                         // CDQ
+    /* 83 */ ENTRY_CopyBytes2Mod1,                     // ADD/0 OR/1 ADC/2 SBB/3 AND/4 SUB/5 XOR/6 CMP/7 reg, immediate byte
+    /* 84 */ ENTRY_CopyBytes2Mod,                      // TEST /r
+    /* 85 */ ENTRY_CopyBytes2Mod,                      // TEST /r
+    /* 86 */ ENTRY_CopyBytes2Mod,                      // XCHG /r @todo
+    /* 87 */ ENTRY_CopyBytes2Mod,                      // XCHG /r @todo
+    /* 88 */ ENTRY_CopyBytes2Mod,                      // MOV /r
+    /* 89 */ ENTRY_CopyBytes2Mod,                      // MOV /r
+    /* 8A */ ENTRY_CopyBytes2Mod,                      // MOV /r
+    /* 8B */ ENTRY_CopyBytes2Mod,                      // MOV /r
+    /* 8C */ ENTRY_CopyBytes2Mod,                      // MOV /r
+    /* 8D */ ENTRY_CopyBytes2Mod,                      // LEA /r
+    /* 8E */ ENTRY_CopyBytes2Mod,                      // MOV /r
+    /* 8F */ ENTRY_CopyXop,                            // POP /0 or AMD XOP
+    /* 90 */ ENTRY_CopyBytes1,                         // NOP
+    /* 91 */ ENTRY_CopyBytes1,                         // XCHG
+    /* 92 */ ENTRY_CopyBytes1,                         // XCHG
+    /* 93 */ ENTRY_CopyBytes1,                         // XCHG
+    /* 94 */ ENTRY_CopyBytes1,                         // XCHG
+    /* 95 */ ENTRY_CopyBytes1,                         // XCHG
+    /* 96 */ ENTRY_CopyBytes1,                         // XCHG
+    /* 97 */ ENTRY_CopyBytes1,                         // XCHG
+    /* 98 */ ENTRY_CopyBytes1,                         // CWDE
+    /* 99 */ ENTRY_CopyBytes1,                         // CDQ
 #ifdef DETOURS_X64
-    { /* 9A */ ENTRY_Invalid },                            // Invalid
+    /* 9A */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* 9A */ ENTRY_CopyBytes5Or7Dynamic },               // CALL cp
+    /* 9A */ ENTRY_CopyBytes5Or7Dynamic,               // CALL cp
 #endif
-    { /* 9B */ ENTRY_CopyBytes1 },                         // WAIT/FWAIT
-    { /* 9C */ ENTRY_CopyBytes1 },                         // PUSHFD
-    { /* 9D */ ENTRY_CopyBytes1 },                         // POPFD
-    { /* 9E */ ENTRY_CopyBytes1 },                         // SAHF
-    { /* 9F */ ENTRY_CopyBytes1 },                         // LAHF
-    { /* A0 */ ENTRY_CopyBytes1Address },                  // MOV
-    { /* A1 */ ENTRY_CopyBytes1Address },                  // MOV
-    { /* A2 */ ENTRY_CopyBytes1Address },                  // MOV
-    { /* A3 */ ENTRY_CopyBytes1Address },                  // MOV
-    { /* A4 */ ENTRY_CopyBytes1 },                         // MOVS
-    { /* A5 */ ENTRY_CopyBytes1 },                         // MOVS/MOVSD
-    { /* A6 */ ENTRY_CopyBytes1 },                         // CMPS/CMPSB
-    { /* A7 */ ENTRY_CopyBytes1 },                         // CMPS/CMPSW
-    { /* A8 */ ENTRY_CopyBytes2 },                         // TEST
-    { /* A9 */ ENTRY_CopyBytes3Or5 },                      // TEST
-    { /* AA */ ENTRY_CopyBytes1 },                         // STOS/STOSB
-    { /* AB */ ENTRY_CopyBytes1 },                         // STOS/STOSW
-    { /* AC */ ENTRY_CopyBytes1 },                         // LODS/LODSB
-    { /* AD */ ENTRY_CopyBytes1 },                         // LODS/LODSW
-    { /* AE */ ENTRY_CopyBytes1 },                         // SCAS/SCASB
-    { /* AF */ ENTRY_CopyBytes1 },                         // SCAS/SCASD
-    { /* B0 */ ENTRY_CopyBytes2 },                         // MOV B0+rb
-    { /* B1 */ ENTRY_CopyBytes2 },                         // MOV B0+rb
-    { /* B2 */ ENTRY_CopyBytes2 },                         // MOV B0+rb
-    { /* B3 */ ENTRY_CopyBytes2 },                         // MOV B0+rb
-    { /* B4 */ ENTRY_CopyBytes2 },                         // MOV B0+rb
-    { /* B5 */ ENTRY_CopyBytes2 },                         // MOV B0+rb
-    { /* B6 */ ENTRY_CopyBytes2 },                         // MOV B0+rb
-    { /* B7 */ ENTRY_CopyBytes2 },                         // MOV B0+rb
-    { /* B8 */ ENTRY_CopyBytes3Or5Rax },                   // MOV B8+rb
-    { /* B9 */ ENTRY_CopyBytes3Or5Rax },                   // MOV B8+rb
-    { /* BA */ ENTRY_CopyBytes3Or5Rax },                   // MOV B8+rb
-    { /* BB */ ENTRY_CopyBytes3Or5Rax },                   // MOV B8+rb
-    { /* BC */ ENTRY_CopyBytes3Or5Rax },                   // MOV B8+rb
-    { /* BD */ ENTRY_CopyBytes3Or5Rax },                   // MOV B8+rb
-    { /* BE */ ENTRY_CopyBytes3Or5Rax },                   // MOV B8+rb
-    { /* BF */ ENTRY_CopyBytes3Or5Rax },                   // MOV B8+rb
-    { /* C0 */ ENTRY_CopyBytes2Mod1 },                     // RCL/2 ib, etc.
-    { /* C1 */ ENTRY_CopyBytes2Mod1 },                     // RCL/2 ib, etc.
-    { /* C2 */ ENTRY_CopyBytes3 },                         // RET
-    { /* C3 */ ENTRY_CopyBytes1 },                         // RET
-    { /* C4 */ ENTRY_CopyVex3 },                           // LES, VEX 3-byte opcodes.
-    { /* C5 */ ENTRY_CopyVex2 },                           // LDS, VEX 2-byte opcodes.
-    { /* C6 */ ENTRY_CopyBytes2Mod1 },                     // MOV
-    { /* C7 */ ENTRY_CopyBytes2ModOperand },               // MOV/0 XBEGIN/7
-    { /* C8 */ ENTRY_CopyBytes4 },                         // ENTER
-    { /* C9 */ ENTRY_CopyBytes1 },                         // LEAVE
-    { /* CA */ ENTRY_CopyBytes3Dynamic },                  // RET
-    { /* CB */ ENTRY_CopyBytes1Dynamic },                  // RET
-    { /* CC */ ENTRY_CopyBytes1Dynamic },                  // INT 3
-    { /* CD */ ENTRY_CopyBytes2Dynamic },                  // INT ib
+    /* 9B */ ENTRY_CopyBytes1,                         // WAIT/FWAIT
+    /* 9C */ ENTRY_CopyBytes1,                         // PUSHFD
+    /* 9D */ ENTRY_CopyBytes1,                         // POPFD
+    /* 9E */ ENTRY_CopyBytes1,                         // SAHF
+    /* 9F */ ENTRY_CopyBytes1,                         // LAHF
+    /* A0 */ ENTRY_CopyBytes1Address,                  // MOV
+    /* A1 */ ENTRY_CopyBytes1Address,                  // MOV
+    /* A2 */ ENTRY_CopyBytes1Address,                  // MOV
+    /* A3 */ ENTRY_CopyBytes1Address,                  // MOV
+    /* A4 */ ENTRY_CopyBytes1,                         // MOVS
+    /* A5 */ ENTRY_CopyBytes1,                         // MOVS/MOVSD
+    /* A6 */ ENTRY_CopyBytes1,                         // CMPS/CMPSB
+    /* A7 */ ENTRY_CopyBytes1,                         // CMPS/CMPSW
+    /* A8 */ ENTRY_CopyBytes2,                         // TEST
+    /* A9 */ ENTRY_CopyBytes3Or5,                      // TEST
+    /* AA */ ENTRY_CopyBytes1,                         // STOS/STOSB
+    /* AB */ ENTRY_CopyBytes1,                         // STOS/STOSW
+    /* AC */ ENTRY_CopyBytes1,                         // LODS/LODSB
+    /* AD */ ENTRY_CopyBytes1,                         // LODS/LODSW
+    /* AE */ ENTRY_CopyBytes1,                         // SCAS/SCASB
+    /* AF */ ENTRY_CopyBytes1,                         // SCAS/SCASD
+    /* B0 */ ENTRY_CopyBytes2,                         // MOV B0+rb
+    /* B1 */ ENTRY_CopyBytes2,                         // MOV B0+rb
+    /* B2 */ ENTRY_CopyBytes2,                         // MOV B0+rb
+    /* B3 */ ENTRY_CopyBytes2,                         // MOV B0+rb
+    /* B4 */ ENTRY_CopyBytes2,                         // MOV B0+rb
+    /* B5 */ ENTRY_CopyBytes2,                         // MOV B0+rb
+    /* B6 */ ENTRY_CopyBytes2,                         // MOV B0+rb
+    /* B7 */ ENTRY_CopyBytes2,                         // MOV B0+rb
+    /* B8 */ ENTRY_CopyBytes3Or5Rax,                   // MOV B8+rb
+    /* B9 */ ENTRY_CopyBytes3Or5Rax,                   // MOV B8+rb
+    /* BA */ ENTRY_CopyBytes3Or5Rax,                   // MOV B8+rb
+    /* BB */ ENTRY_CopyBytes3Or5Rax,                   // MOV B8+rb
+    /* BC */ ENTRY_CopyBytes3Or5Rax,                   // MOV B8+rb
+    /* BD */ ENTRY_CopyBytes3Or5Rax,                   // MOV B8+rb
+    /* BE */ ENTRY_CopyBytes3Or5Rax,                   // MOV B8+rb
+    /* BF */ ENTRY_CopyBytes3Or5Rax,                   // MOV B8+rb
+    /* C0 */ ENTRY_CopyBytes2Mod1,                     // RCL/2 ib, etc.
+    /* C1 */ ENTRY_CopyBytes2Mod1,                     // RCL/2 ib, etc.
+    /* C2 */ ENTRY_CopyBytes3,                         // RET
+    /* C3 */ ENTRY_CopyBytes1,                         // RET
+    /* C4 */ ENTRY_CopyVex3,                           // LES, VEX 3-byte opcodes.
+    /* C5 */ ENTRY_CopyVex2,                           // LDS, VEX 2-byte opcodes.
+    /* C6 */ ENTRY_CopyBytes2Mod1,                     // MOV
+    /* C7 */ ENTRY_CopyBytes2ModOperand,               // MOV/0 XBEGIN/7
+    /* C8 */ ENTRY_CopyBytes4,                         // ENTER
+    /* C9 */ ENTRY_CopyBytes1,                         // LEAVE
+    /* CA */ ENTRY_CopyBytes3Dynamic,                  // RET
+    /* CB */ ENTRY_CopyBytes1Dynamic,                  // RET
+    /* CC */ ENTRY_CopyBytes1Dynamic,                  // INT 3
+    /* CD */ ENTRY_CopyBytes2Dynamic,                  // INT ib
 #ifdef DETOURS_X64
-    { /* CE */ ENTRY_Invalid },                            // Invalid
+    /* CE */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* CE */ ENTRY_CopyBytes1Dynamic },                  // INTO
+    /* CE */ ENTRY_CopyBytes1Dynamic,                  // INTO
 #endif
-    { /* CF */ ENTRY_CopyBytes1Dynamic },                  // IRET
-    { /* D0 */ ENTRY_CopyBytes2Mod },                      // RCL/2, etc.
-    { /* D1 */ ENTRY_CopyBytes2Mod },                      // RCL/2, etc.
-    { /* D2 */ ENTRY_CopyBytes2Mod },                      // RCL/2, etc.
-    { /* D3 */ ENTRY_CopyBytes2Mod },                      // RCL/2, etc.
+    /* CF */ ENTRY_CopyBytes1Dynamic,                  // IRET
+    /* D0 */ ENTRY_CopyBytes2Mod,                      // RCL/2, etc.
+    /* D1 */ ENTRY_CopyBytes2Mod,                      // RCL/2, etc.
+    /* D2 */ ENTRY_CopyBytes2Mod,                      // RCL/2, etc.
+    /* D3 */ ENTRY_CopyBytes2Mod,                      // RCL/2, etc.
 #ifdef DETOURS_X64
-    { /* D4 */ ENTRY_Invalid },                            // Invalid
-    { /* D5 */ ENTRY_Invalid },                            // Invalid
+    /* D4 */ ENTRY_Invalid,                            // Invalid
+    /* D5 */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* D4 */ ENTRY_CopyBytes2 },                         // AAM
-    { /* D5 */ ENTRY_CopyBytes2 },                         // AAD
+    /* D4 */ ENTRY_CopyBytes2,                         // AAM
+    /* D5 */ ENTRY_CopyBytes2,                         // AAD
 #endif
-    { /* D6 */ ENTRY_Invalid },                            // Invalid
-    { /* D7 */ ENTRY_CopyBytes1 },                         // XLAT/XLATB
-    { /* D8 */ ENTRY_CopyBytes2Mod },                      // FADD, etc.
-    { /* D9 */ ENTRY_CopyBytes2Mod },                      // F2XM1, etc.
-    { /* DA */ ENTRY_CopyBytes2Mod },                      // FLADD, etc.
-    { /* DB */ ENTRY_CopyBytes2Mod },                      // FCLEX, etc.
-    { /* DC */ ENTRY_CopyBytes2Mod },                      // FADD/0, etc.
-    { /* DD */ ENTRY_CopyBytes2Mod },                      // FFREE, etc.
-    { /* DE */ ENTRY_CopyBytes2Mod },                      // FADDP, etc.
-    { /* DF */ ENTRY_CopyBytes2Mod },                      // FBLD/4, etc.
-    { /* E0 */ ENTRY_CopyBytes2CantJump },                 // LOOPNE cb
-    { /* E1 */ ENTRY_CopyBytes2CantJump },                 // LOOPE cb
-    { /* E2 */ ENTRY_CopyBytes2CantJump },                 // LOOP cb
-    { /* E3 */ ENTRY_CopyBytes2CantJump },                 // JCXZ/JECXZ
-    { /* E4 */ ENTRY_CopyBytes2 },                         // IN ib
-    { /* E5 */ ENTRY_CopyBytes2 },                         // IN id
-    { /* E6 */ ENTRY_CopyBytes2 },                         // OUT ib
-    { /* E7 */ ENTRY_CopyBytes2 },                         // OUT ib
-    { /* E8 */ ENTRY_CopyBytes3Or5Target },                // CALL cd
-    { /* E9 */ ENTRY_CopyBytes3Or5Target },                // JMP cd
+    /* D6 */ ENTRY_Invalid,                            // Invalid
+    /* D7 */ ENTRY_CopyBytes1,                         // XLAT/XLATB
+    /* D8 */ ENTRY_CopyBytes2Mod,                      // FADD, etc.
+    /* D9 */ ENTRY_CopyBytes2Mod,                      // F2XM1, etc.
+    /* DA */ ENTRY_CopyBytes2Mod,                      // FLADD, etc.
+    /* DB */ ENTRY_CopyBytes2Mod,                      // FCLEX, etc.
+    /* DC */ ENTRY_CopyBytes2Mod,                      // FADD/0, etc.
+    /* DD */ ENTRY_CopyBytes2Mod,                      // FFREE, etc.
+    /* DE */ ENTRY_CopyBytes2Mod,                      // FADDP, etc.
+    /* DF */ ENTRY_CopyBytes2Mod,                      // FBLD/4, etc.
+    /* E0 */ ENTRY_CopyBytes2CantJump,                 // LOOPNE cb
+    /* E1 */ ENTRY_CopyBytes2CantJump,                 // LOOPE cb
+    /* E2 */ ENTRY_CopyBytes2CantJump,                 // LOOP cb
+    /* E3 */ ENTRY_CopyBytes2CantJump,                 // JCXZ/JECXZ
+    /* E4 */ ENTRY_CopyBytes2,                         // IN ib
+    /* E5 */ ENTRY_CopyBytes2,                         // IN id
+    /* E6 */ ENTRY_CopyBytes2,                         // OUT ib
+    /* E7 */ ENTRY_CopyBytes2,                         // OUT ib
+    /* E8 */ ENTRY_CopyBytes3Or5Target,                // CALL cd
+    /* E9 */ ENTRY_CopyBytes3Or5Target,                // JMP cd
 #ifdef DETOURS_X64
-    { /* EA */ ENTRY_Invalid },                            // Invalid
+    /* EA */ ENTRY_Invalid,                            // Invalid
 #else
-    { /* EA */ ENTRY_CopyBytes5Or7Dynamic },               // JMP cp
+    /* EA */ ENTRY_CopyBytes5Or7Dynamic,               // JMP cp
 #endif
-    { /* EB */ ENTRY_CopyBytes2Jump },                     // JMP cb
-    { /* EC */ ENTRY_CopyBytes1 },                         // IN ib
-    { /* ED */ ENTRY_CopyBytes1 },                         // IN id
-    { /* EE */ ENTRY_CopyBytes1 },                         // OUT
-    { /* EF */ ENTRY_CopyBytes1 },                         // OUT
-    { /* F0 */ ENTRY_CopyBytesPrefix },                    // LOCK prefix
-    { /* F1 */ ENTRY_CopyBytes1Dynamic },                  // INT1 / ICEBP somewhat documented by AMD, not by Intel
-    { /* F2 */ ENTRY_CopyF2 },                             // REPNE prefix
+    /* EB */ ENTRY_CopyBytes2Jump,                     // JMP cb
+    /* EC */ ENTRY_CopyBytes1,                         // IN ib
+    /* ED */ ENTRY_CopyBytes1,                         // IN id
+    /* EE */ ENTRY_CopyBytes1,                         // OUT
+    /* EF */ ENTRY_CopyBytes1,                         // OUT
+    /* F0 */ ENTRY_CopyBytesPrefix,                    // LOCK prefix
+    /* F1 */ ENTRY_CopyBytes1Dynamic,                  // INT1 / ICEBP somewhat documented by AMD, not by Intel
+    /* F2 */ ENTRY_CopyF2,                             // REPNE prefix
 //#ifdef DETOURS_X86
-    { /* F3 */ ENTRY_CopyF3 },                             // REPE prefix
+    /* F3 */ ENTRY_CopyF3,                             // REPE prefix
 //#else
 // This does presently suffice for AMD64 but it requires tracing
 // through a bunch of code to verify and seems not worth maintaining.
-//  { /* F3 */ ENTRY_CopyBytesPrefix },                    // REPE prefix
+//  /* F3 */ ENTRY_CopyBytesPrefix,                    // REPE prefix
 //#endif
-    { /* F4 */ ENTRY_CopyBytes1 },                         // HLT
-    { /* F5 */ ENTRY_CopyBytes1 },                         // CMC
-    { /* F6 */ ENTRY_CopyF6 },                             // TEST/0, DIV/6
-    { /* F7 */ ENTRY_CopyF7 },                             // TEST/0, DIV/6
-    { /* F8 */ ENTRY_CopyBytes1 },                         // CLC
-    { /* F9 */ ENTRY_CopyBytes1 },                         // STC
-    { /* FA */ ENTRY_CopyBytes1 },                         // CLI
-    { /* FB */ ENTRY_CopyBytes1 },                         // STI
-    { /* FC */ ENTRY_CopyBytes1 },                         // CLD
-    { /* FD */ ENTRY_CopyBytes1 },                         // STD
-    { /* FE */ ENTRY_CopyBytes2Mod },                      // DEC/1,INC/0
-    { /* FF */ ENTRY_CopyFF },                             // CALL/2
-    { /*  0 */ ENTRY_End },
+    /* F4 */ ENTRY_CopyBytes1,                         // HLT
+    /* F5 */ ENTRY_CopyBytes1,                         // CMC
+    /* F6 */ ENTRY_CopyF6,                             // TEST/0, DIV/6
+    /* F7 */ ENTRY_CopyF7,                             // TEST/0, DIV/6
+    /* F8 */ ENTRY_CopyBytes1,                         // CLC
+    /* F9 */ ENTRY_CopyBytes1,                         // STC
+    /* FA */ ENTRY_CopyBytes1,                         // CLI
+    /* FB */ ENTRY_CopyBytes1,                         // STI
+    /* FC */ ENTRY_CopyBytes1,                         // CLD
+    /* FD */ ENTRY_CopyBytes1,                         // STD
+    /* FE */ ENTRY_CopyBytes2Mod,                      // DEC/1,INC/0
+    /* FF */ ENTRY_CopyFF,                             // CALL/2
+    /*  0 */ ENTRY_End,
 };
 
 const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable0F[257] =
 {
 #ifdef DETOURS_X86
-    { /* 00 */ ENTRY_Copy0F00 },                           // sldt/0 str/1 lldt/2 ltr/3 err/4 verw/5 jmpe/6/dynamic invalid/7
+    /* 00 */ ENTRY_Copy0F00,                           // sldt/0 str/1 lldt/2 ltr/3 err/4 verw/5 jmpe/6/dynamic invalid/7
 #else
-    { /* 00 */ ENTRY_CopyBytes2Mod },                      // sldt/0 str/1 lldt/2 ltr/3 err/4 verw/5 jmpe/6/dynamic invalid/7
+    /* 00 */ ENTRY_CopyBytes2Mod,                      // sldt/0 str/1 lldt/2 ltr/3 err/4 verw/5 jmpe/6/dynamic invalid/7
 #endif
-    { /* 01 */ ENTRY_CopyBytes2Mod },                      // INVLPG/7, etc.
-    { /* 02 */ ENTRY_CopyBytes2Mod },                      // LAR/r
-    { /* 03 */ ENTRY_CopyBytes2Mod },                      // LSL/r
-    { /* 04 */ ENTRY_Invalid },                            // _04
-    { /* 05 */ ENTRY_CopyBytes1 },                         // SYSCALL
-    { /* 06 */ ENTRY_CopyBytes1 },                         // CLTS
-    { /* 07 */ ENTRY_CopyBytes1 },                         // SYSRET
-    { /* 08 */ ENTRY_CopyBytes1 },                         // INVD
-    { /* 09 */ ENTRY_CopyBytes1 },                         // WBINVD
-    { /* 0A */ ENTRY_Invalid },                            // _0A
-    { /* 0B */ ENTRY_CopyBytes1 },                         // UD2
-    { /* 0C */ ENTRY_Invalid },                            // _0C
-    { /* 0D */ ENTRY_CopyBytes2Mod },                      // PREFETCH
-    { /* 0E */ ENTRY_CopyBytes1 },                         // FEMMS (3DNow -- not in Intel documentation)
-    { /* 0F */ ENTRY_CopyBytes2Mod1 },                     // 3DNow Opcodes
-    { /* 10 */ ENTRY_CopyBytes2Mod },                      // MOVSS MOVUPD MOVSD
-    { /* 11 */ ENTRY_CopyBytes2Mod },                      // MOVSS MOVUPD MOVSD
-    { /* 12 */ ENTRY_CopyBytes2Mod },                      // MOVLPD
-    { /* 13 */ ENTRY_CopyBytes2Mod },                      // MOVLPD
-    { /* 14 */ ENTRY_CopyBytes2Mod },                      // UNPCKLPD
-    { /* 15 */ ENTRY_CopyBytes2Mod },                      // UNPCKHPD
-    { /* 16 */ ENTRY_CopyBytes2Mod },                      // MOVHPD
-    { /* 17 */ ENTRY_CopyBytes2Mod },                      // MOVHPD
-    { /* 18 */ ENTRY_CopyBytes2Mod },                      // PREFETCHINTA...
-    { /* 19 */ ENTRY_CopyBytes2Mod },                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
-    { /* 1A */ ENTRY_CopyBytes2Mod },                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
-    { /* 1B */ ENTRY_CopyBytes2Mod },                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
-    { /* 1C */ ENTRY_CopyBytes2Mod },                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
-    { /* 1D */ ENTRY_CopyBytes2Mod },                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
-    { /* 1E */ ENTRY_CopyBytes2Mod },                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
-    { /* 1F */ ENTRY_CopyBytes2Mod },                      // NOP/r multi byte nop
-    { /* 20 */ ENTRY_CopyBytes2Mod },                      // MOV/r
-    { /* 21 */ ENTRY_CopyBytes2Mod },                      // MOV/r
-    { /* 22 */ ENTRY_CopyBytes2Mod },                      // MOV/r
-    { /* 23 */ ENTRY_CopyBytes2Mod },                      // MOV/r
+    /* 01 */ ENTRY_CopyBytes2Mod,                      // INVLPG/7, etc.
+    /* 02 */ ENTRY_CopyBytes2Mod,                      // LAR/r
+    /* 03 */ ENTRY_CopyBytes2Mod,                      // LSL/r
+    /* 04 */ ENTRY_Invalid,                            // _04
+    /* 05 */ ENTRY_CopyBytes1,                         // SYSCALL
+    /* 06 */ ENTRY_CopyBytes1,                         // CLTS
+    /* 07 */ ENTRY_CopyBytes1,                         // SYSRET
+    /* 08 */ ENTRY_CopyBytes1,                         // INVD
+    /* 09 */ ENTRY_CopyBytes1,                         // WBINVD
+    /* 0A */ ENTRY_Invalid,                            // _0A
+    /* 0B */ ENTRY_CopyBytes1,                         // UD2
+    /* 0C */ ENTRY_Invalid,                            // _0C
+    /* 0D */ ENTRY_CopyBytes2Mod,                      // PREFETCH
+    /* 0E */ ENTRY_CopyBytes1,                         // FEMMS (3DNow -- not in Intel documentation)
+    /* 0F */ ENTRY_CopyBytes2Mod1,                     // 3DNow Opcodes
+    /* 10 */ ENTRY_CopyBytes2Mod,                      // MOVSS MOVUPD MOVSD
+    /* 11 */ ENTRY_CopyBytes2Mod,                      // MOVSS MOVUPD MOVSD
+    /* 12 */ ENTRY_CopyBytes2Mod,                      // MOVLPD
+    /* 13 */ ENTRY_CopyBytes2Mod,                      // MOVLPD
+    /* 14 */ ENTRY_CopyBytes2Mod,                      // UNPCKLPD
+    /* 15 */ ENTRY_CopyBytes2Mod,                      // UNPCKHPD
+    /* 16 */ ENTRY_CopyBytes2Mod,                      // MOVHPD
+    /* 17 */ ENTRY_CopyBytes2Mod,                      // MOVHPD
+    /* 18 */ ENTRY_CopyBytes2Mod,                      // PREFETCHINTA...
+    /* 19 */ ENTRY_CopyBytes2Mod,                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
+    /* 1A */ ENTRY_CopyBytes2Mod,                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
+    /* 1B */ ENTRY_CopyBytes2Mod,                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
+    /* 1C */ ENTRY_CopyBytes2Mod,                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
+    /* 1D */ ENTRY_CopyBytes2Mod,                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
+    /* 1E */ ENTRY_CopyBytes2Mod,                      // NOP/r multi byte nop, not documented by Intel, documented by AMD
+    /* 1F */ ENTRY_CopyBytes2Mod,                      // NOP/r multi byte nop
+    /* 20 */ ENTRY_CopyBytes2Mod,                      // MOV/r
+    /* 21 */ ENTRY_CopyBytes2Mod,                      // MOV/r
+    /* 22 */ ENTRY_CopyBytes2Mod,                      // MOV/r
+    /* 23 */ ENTRY_CopyBytes2Mod,                      // MOV/r
 #ifdef DETOURS_X64
-    { /* 24 */ ENTRY_Invalid },                            // _24
+    /* 24 */ ENTRY_Invalid,                            // _24
 #else
-    { /* 24 */ ENTRY_CopyBytes2Mod },                      // MOV/r,TR TR is test register on 80386 and 80486, removed in Pentium
+    /* 24 */ ENTRY_CopyBytes2Mod,                      // MOV/r,TR TR is test register on 80386 and 80486, removed in Pentium
 #endif
-    { /* 25 */ ENTRY_Invalid },                            // _25
+    /* 25 */ ENTRY_Invalid,                            // _25
 #ifdef DETOURS_X64
-    { /* 26 */ ENTRY_Invalid },                            // _26
+    /* 26 */ ENTRY_Invalid,                            // _26
 #else
-    { /* 26 */ ENTRY_CopyBytes2Mod },                      // MOV TR/r TR is test register on 80386 and 80486, removed in Pentium
+    /* 26 */ ENTRY_CopyBytes2Mod,                      // MOV TR/r TR is test register on 80386 and 80486, removed in Pentium
 #endif
-    { /* 27 */ ENTRY_Invalid },                            // _27
-    { /* 28 */ ENTRY_CopyBytes2Mod },                      // MOVAPS MOVAPD
-    { /* 29 */ ENTRY_CopyBytes2Mod },                      // MOVAPS MOVAPD
-    { /* 2A */ ENTRY_CopyBytes2Mod },                      // CVPI2PS &
-    { /* 2B */ ENTRY_CopyBytes2Mod },                      // MOVNTPS MOVNTPD
-    { /* 2C */ ENTRY_CopyBytes2Mod },                      // CVTTPS2PI &
-    { /* 2D */ ENTRY_CopyBytes2Mod },                      // CVTPS2PI &
-    { /* 2E */ ENTRY_CopyBytes2Mod },                      // UCOMISS UCOMISD
-    { /* 2F */ ENTRY_CopyBytes2Mod },                      // COMISS COMISD
-    { /* 30 */ ENTRY_CopyBytes1 },                         // WRMSR
-    { /* 31 */ ENTRY_CopyBytes1 },                         // RDTSC
-    { /* 32 */ ENTRY_CopyBytes1 },                         // RDMSR
-    { /* 33 */ ENTRY_CopyBytes1 },                         // RDPMC
-    { /* 34 */ ENTRY_CopyBytes1 },                         // SYSENTER
-    { /* 35 */ ENTRY_CopyBytes1 },                         // SYSEXIT
-    { /* 36 */ ENTRY_Invalid },                            // _36
-    { /* 37 */ ENTRY_CopyBytes1 },                         // GETSEC
-    { /* 38 */ ENTRY_CopyBytes3Mod },                      // SSE3 Opcodes
-    { /* 39 */ ENTRY_Invalid },                            // _39
-    { /* 3A */ ENTRY_CopyBytes3Mod1 },                      // SSE3 Opcodes
-    { /* 3B */ ENTRY_Invalid },                            // _3B
-    { /* 3C */ ENTRY_Invalid },                            // _3C
-    { /* 3D */ ENTRY_Invalid },                            // _3D
-    { /* 3E */ ENTRY_Invalid },                            // _3E
-    { /* 3F */ ENTRY_Invalid },                            // _3F
-    { /* 40 */ ENTRY_CopyBytes2Mod },                      // CMOVO (0F 40)
-    { /* 41 */ ENTRY_CopyBytes2Mod },                      // CMOVNO (0F 41)
-    { /* 42 */ ENTRY_CopyBytes2Mod },                      // CMOVB & CMOVNE (0F 42)
-    { /* 43 */ ENTRY_CopyBytes2Mod },                      // CMOVAE & CMOVNB (0F 43)
-    { /* 44 */ ENTRY_CopyBytes2Mod },                      // CMOVE & CMOVZ (0F 44)
-    { /* 45 */ ENTRY_CopyBytes2Mod },                      // CMOVNE & CMOVNZ (0F 45)
-    { /* 46 */ ENTRY_CopyBytes2Mod },                      // CMOVBE & CMOVNA (0F 46)
-    { /* 47 */ ENTRY_CopyBytes2Mod },                      // CMOVA & CMOVNBE (0F 47)
-    { /* 48 */ ENTRY_CopyBytes2Mod },                      // CMOVS (0F 48)
-    { /* 49 */ ENTRY_CopyBytes2Mod },                      // CMOVNS (0F 49)
-    { /* 4A */ ENTRY_CopyBytes2Mod },                      // CMOVP & CMOVPE (0F 4A)
-    { /* 4B */ ENTRY_CopyBytes2Mod },                      // CMOVNP & CMOVPO (0F 4B)
-    { /* 4C */ ENTRY_CopyBytes2Mod },                      // CMOVL & CMOVNGE (0F 4C)
-    { /* 4D */ ENTRY_CopyBytes2Mod },                      // CMOVGE & CMOVNL (0F 4D)
-    { /* 4E */ ENTRY_CopyBytes2Mod },                      // CMOVLE & CMOVNG (0F 4E)
-    { /* 4F */ ENTRY_CopyBytes2Mod },                      // CMOVG & CMOVNLE (0F 4F)
-    { /* 50 */ ENTRY_CopyBytes2Mod },                      // MOVMSKPD MOVMSKPD
-    { /* 51 */ ENTRY_CopyBytes2Mod },                      // SQRTPS &
-    { /* 52 */ ENTRY_CopyBytes2Mod },                      // RSQRTTS RSQRTPS
-    { /* 53 */ ENTRY_CopyBytes2Mod },                      // RCPPS RCPSS
-    { /* 54 */ ENTRY_CopyBytes2Mod },                      // ANDPS ANDPD
-    { /* 55 */ ENTRY_CopyBytes2Mod },                      // ANDNPS ANDNPD
-    { /* 56 */ ENTRY_CopyBytes2Mod },                      // ORPS ORPD
-    { /* 57 */ ENTRY_CopyBytes2Mod },                      // XORPS XORPD
-    { /* 58 */ ENTRY_CopyBytes2Mod },                      // ADDPS &
-    { /* 59 */ ENTRY_CopyBytes2Mod },                      // MULPS &
-    { /* 5A */ ENTRY_CopyBytes2Mod },                      // CVTPS2PD &
-    { /* 5B */ ENTRY_CopyBytes2Mod },                      // CVTDQ2PS &
-    { /* 5C */ ENTRY_CopyBytes2Mod },                      // SUBPS &
-    { /* 5D */ ENTRY_CopyBytes2Mod },                      // MINPS &
-    { /* 5E */ ENTRY_CopyBytes2Mod },                      // DIVPS &
-    { /* 5F */ ENTRY_CopyBytes2Mod },                      // MASPS &
-    { /* 60 */ ENTRY_CopyBytes2Mod },                      // PUNPCKLBW/r
-    { /* 61 */ ENTRY_CopyBytes2Mod },                      // PUNPCKLWD/r
-    { /* 62 */ ENTRY_CopyBytes2Mod },                      // PUNPCKLWD/r
-    { /* 63 */ ENTRY_CopyBytes2Mod },                      // PACKSSWB/r
-    { /* 64 */ ENTRY_CopyBytes2Mod },                      // PCMPGTB/r
-    { /* 65 */ ENTRY_CopyBytes2Mod },                      // PCMPGTW/r
-    { /* 66 */ ENTRY_CopyBytes2Mod },                      // PCMPGTD/r
-    { /* 67 */ ENTRY_CopyBytes2Mod },                      // PACKUSWB/r
-    { /* 68 */ ENTRY_CopyBytes2Mod },                      // PUNPCKHBW/r
-    { /* 69 */ ENTRY_CopyBytes2Mod },                      // PUNPCKHWD/r
-    { /* 6A */ ENTRY_CopyBytes2Mod },                      // PUNPCKHDQ/r
-    { /* 6B */ ENTRY_CopyBytes2Mod },                      // PACKSSDW/r
-    { /* 6C */ ENTRY_CopyBytes2Mod },                      // PUNPCKLQDQ
-    { /* 6D */ ENTRY_CopyBytes2Mod },                      // PUNPCKHQDQ
-    { /* 6E */ ENTRY_CopyBytes2Mod },                      // MOVD/r
-    { /* 6F */ ENTRY_CopyBytes2Mod },                      // MOV/r
-    { /* 70 */ ENTRY_CopyBytes2Mod1 },                     // PSHUFW/r ib
-    { /* 71 */ ENTRY_CopyBytes2Mod1 },                     // PSLLW/6 ib,PSRAW/4 ib,PSRLW/2 ib
-    { /* 72 */ ENTRY_CopyBytes2Mod1 },                     // PSLLD/6 ib,PSRAD/4 ib,PSRLD/2 ib
-    { /* 73 */ ENTRY_CopyBytes2Mod1 },                     // PSLLQ/6 ib,PSRLQ/2 ib
-    { /* 74 */ ENTRY_CopyBytes2Mod },                      // PCMPEQB/r
-    { /* 75 */ ENTRY_CopyBytes2Mod },                      // PCMPEQW/r
-    { /* 76 */ ENTRY_CopyBytes2Mod },                      // PCMPEQD/r
-    { /* 77 */ ENTRY_CopyBytes1 },                         // EMMS
+    /* 27 */ ENTRY_Invalid,                            // _27
+    /* 28 */ ENTRY_CopyBytes2Mod,                      // MOVAPS MOVAPD
+    /* 29 */ ENTRY_CopyBytes2Mod,                      // MOVAPS MOVAPD
+    /* 2A */ ENTRY_CopyBytes2Mod,                      // CVPI2PS &
+    /* 2B */ ENTRY_CopyBytes2Mod,                      // MOVNTPS MOVNTPD
+    /* 2C */ ENTRY_CopyBytes2Mod,                      // CVTTPS2PI &
+    /* 2D */ ENTRY_CopyBytes2Mod,                      // CVTPS2PI &
+    /* 2E */ ENTRY_CopyBytes2Mod,                      // UCOMISS UCOMISD
+    /* 2F */ ENTRY_CopyBytes2Mod,                      // COMISS COMISD
+    /* 30 */ ENTRY_CopyBytes1,                         // WRMSR
+    /* 31 */ ENTRY_CopyBytes1,                         // RDTSC
+    /* 32 */ ENTRY_CopyBytes1,                         // RDMSR
+    /* 33 */ ENTRY_CopyBytes1,                         // RDPMC
+    /* 34 */ ENTRY_CopyBytes1,                         // SYSENTER
+    /* 35 */ ENTRY_CopyBytes1,                         // SYSEXIT
+    /* 36 */ ENTRY_Invalid,                            // _36
+    /* 37 */ ENTRY_CopyBytes1,                         // GETSEC
+    /* 38 */ ENTRY_CopyBytes3Mod,                      // SSE3 Opcodes
+    /* 39 */ ENTRY_Invalid,                            // _39
+    /* 3A */ ENTRY_CopyBytes3Mod1,                      // SSE3 Opcodes
+    /* 3B */ ENTRY_Invalid,                            // _3B
+    /* 3C */ ENTRY_Invalid,                            // _3C
+    /* 3D */ ENTRY_Invalid,                            // _3D
+    /* 3E */ ENTRY_Invalid,                            // _3E
+    /* 3F */ ENTRY_Invalid,                            // _3F
+    /* 40 */ ENTRY_CopyBytes2Mod,                      // CMOVO (0F 40)
+    /* 41 */ ENTRY_CopyBytes2Mod,                      // CMOVNO (0F 41)
+    /* 42 */ ENTRY_CopyBytes2Mod,                      // CMOVB & CMOVNE (0F 42)
+    /* 43 */ ENTRY_CopyBytes2Mod,                      // CMOVAE & CMOVNB (0F 43)
+    /* 44 */ ENTRY_CopyBytes2Mod,                      // CMOVE & CMOVZ (0F 44)
+    /* 45 */ ENTRY_CopyBytes2Mod,                      // CMOVNE & CMOVNZ (0F 45)
+    /* 46 */ ENTRY_CopyBytes2Mod,                      // CMOVBE & CMOVNA (0F 46)
+    /* 47 */ ENTRY_CopyBytes2Mod,                      // CMOVA & CMOVNBE (0F 47)
+    /* 48 */ ENTRY_CopyBytes2Mod,                      // CMOVS (0F 48)
+    /* 49 */ ENTRY_CopyBytes2Mod,                      // CMOVNS (0F 49)
+    /* 4A */ ENTRY_CopyBytes2Mod,                      // CMOVP & CMOVPE (0F 4A)
+    /* 4B */ ENTRY_CopyBytes2Mod,                      // CMOVNP & CMOVPO (0F 4B)
+    /* 4C */ ENTRY_CopyBytes2Mod,                      // CMOVL & CMOVNGE (0F 4C)
+    /* 4D */ ENTRY_CopyBytes2Mod,                      // CMOVGE & CMOVNL (0F 4D)
+    /* 4E */ ENTRY_CopyBytes2Mod,                      // CMOVLE & CMOVNG (0F 4E)
+    /* 4F */ ENTRY_CopyBytes2Mod,                      // CMOVG & CMOVNLE (0F 4F)
+    /* 50 */ ENTRY_CopyBytes2Mod,                      // MOVMSKPD MOVMSKPD
+    /* 51 */ ENTRY_CopyBytes2Mod,                      // SQRTPS &
+    /* 52 */ ENTRY_CopyBytes2Mod,                      // RSQRTTS RSQRTPS
+    /* 53 */ ENTRY_CopyBytes2Mod,                      // RCPPS RCPSS
+    /* 54 */ ENTRY_CopyBytes2Mod,                      // ANDPS ANDPD
+    /* 55 */ ENTRY_CopyBytes2Mod,                      // ANDNPS ANDNPD
+    /* 56 */ ENTRY_CopyBytes2Mod,                      // ORPS ORPD
+    /* 57 */ ENTRY_CopyBytes2Mod,                      // XORPS XORPD
+    /* 58 */ ENTRY_CopyBytes2Mod,                      // ADDPS &
+    /* 59 */ ENTRY_CopyBytes2Mod,                      // MULPS &
+    /* 5A */ ENTRY_CopyBytes2Mod,                      // CVTPS2PD &
+    /* 5B */ ENTRY_CopyBytes2Mod,                      // CVTDQ2PS &
+    /* 5C */ ENTRY_CopyBytes2Mod,                      // SUBPS &
+    /* 5D */ ENTRY_CopyBytes2Mod,                      // MINPS &
+    /* 5E */ ENTRY_CopyBytes2Mod,                      // DIVPS &
+    /* 5F */ ENTRY_CopyBytes2Mod,                      // MASPS &
+    /* 60 */ ENTRY_CopyBytes2Mod,                      // PUNPCKLBW/r
+    /* 61 */ ENTRY_CopyBytes2Mod,                      // PUNPCKLWD/r
+    /* 62 */ ENTRY_CopyBytes2Mod,                      // PUNPCKLWD/r
+    /* 63 */ ENTRY_CopyBytes2Mod,                      // PACKSSWB/r
+    /* 64 */ ENTRY_CopyBytes2Mod,                      // PCMPGTB/r
+    /* 65 */ ENTRY_CopyBytes2Mod,                      // PCMPGTW/r
+    /* 66 */ ENTRY_CopyBytes2Mod,                      // PCMPGTD/r
+    /* 67 */ ENTRY_CopyBytes2Mod,                      // PACKUSWB/r
+    /* 68 */ ENTRY_CopyBytes2Mod,                      // PUNPCKHBW/r
+    /* 69 */ ENTRY_CopyBytes2Mod,                      // PUNPCKHWD/r
+    /* 6A */ ENTRY_CopyBytes2Mod,                      // PUNPCKHDQ/r
+    /* 6B */ ENTRY_CopyBytes2Mod,                      // PACKSSDW/r
+    /* 6C */ ENTRY_CopyBytes2Mod,                      // PUNPCKLQDQ
+    /* 6D */ ENTRY_CopyBytes2Mod,                      // PUNPCKHQDQ
+    /* 6E */ ENTRY_CopyBytes2Mod,                      // MOVD/r
+    /* 6F */ ENTRY_CopyBytes2Mod,                      // MOV/r
+    /* 70 */ ENTRY_CopyBytes2Mod1,                     // PSHUFW/r ib
+    /* 71 */ ENTRY_CopyBytes2Mod1,                     // PSLLW/6 ib,PSRAW/4 ib,PSRLW/2 ib
+    /* 72 */ ENTRY_CopyBytes2Mod1,                     // PSLLD/6 ib,PSRAD/4 ib,PSRLD/2 ib
+    /* 73 */ ENTRY_CopyBytes2Mod1,                     // PSLLQ/6 ib,PSRLQ/2 ib
+    /* 74 */ ENTRY_CopyBytes2Mod,                      // PCMPEQB/r
+    /* 75 */ ENTRY_CopyBytes2Mod,                      // PCMPEQW/r
+    /* 76 */ ENTRY_CopyBytes2Mod,                      // PCMPEQD/r
+    /* 77 */ ENTRY_CopyBytes1,                         // EMMS
     // extrq/insertq require mode=3 and are followed by two immediate bytes
-    { /* 78 */ ENTRY_Copy0F78 },                           // VMREAD/r, 66/EXTRQ/r/ib/ib, F2/INSERTQ/r/ib/ib
+    /* 78 */ ENTRY_Copy0F78,                           // VMREAD/r, 66/EXTRQ/r/ib/ib, F2/INSERTQ/r/ib/ib
     // extrq/insertq require mod=3, therefore ENTRY_CopyBytes2, but it ends up the same
-    { /* 79 */ ENTRY_CopyBytes2Mod },                      // VMWRITE/r, 66/EXTRQ/r, F2/INSERTQ/r
-    { /* 7A */ ENTRY_Invalid },                            // _7A
-    { /* 7B */ ENTRY_Invalid },                            // _7B
-    { /* 7C */ ENTRY_CopyBytes2Mod },                      // HADDPS
-    { /* 7D */ ENTRY_CopyBytes2Mod },                      // HSUBPS
-    { /* 7E */ ENTRY_CopyBytes2Mod },                      // MOVD/r
-    { /* 7F */ ENTRY_CopyBytes2Mod },                      // MOV/r
-    { /* 80 */ ENTRY_CopyBytes3Or5Target },                // JO
-    { /* 81 */ ENTRY_CopyBytes3Or5Target },                // JNO
-    { /* 82 */ ENTRY_CopyBytes3Or5Target },                // JB,JC,JNAE
-    { /* 83 */ ENTRY_CopyBytes3Or5Target },                // JAE,JNB,JNC
-    { /* 84 */ ENTRY_CopyBytes3Or5Target },                // JE,JZ,JZ
-    { /* 85 */ ENTRY_CopyBytes3Or5Target },                // JNE,JNZ
-    { /* 86 */ ENTRY_CopyBytes3Or5Target },                // JBE,JNA
-    { /* 87 */ ENTRY_CopyBytes3Or5Target },                // JA,JNBE
-    { /* 88 */ ENTRY_CopyBytes3Or5Target },                // JS
-    { /* 89 */ ENTRY_CopyBytes3Or5Target },                // JNS
-    { /* 8A */ ENTRY_CopyBytes3Or5Target },                // JP,JPE
-    { /* 8B */ ENTRY_CopyBytes3Or5Target },                // JNP,JPO
-    { /* 8C */ ENTRY_CopyBytes3Or5Target },                // JL,NGE
-    { /* 8D */ ENTRY_CopyBytes3Or5Target },                // JGE,JNL
-    { /* 8E */ ENTRY_CopyBytes3Or5Target },                // JLE,JNG
-    { /* 8F */ ENTRY_CopyBytes3Or5Target },                // JG,JNLE
-    { /* 90 */ ENTRY_CopyBytes2Mod },                      // CMOVO (0F 40)
-    { /* 91 */ ENTRY_CopyBytes2Mod },                      // CMOVNO (0F 41)
-    { /* 92 */ ENTRY_CopyBytes2Mod },                      // CMOVB & CMOVC & CMOVNAE (0F 42)
-    { /* 93 */ ENTRY_CopyBytes2Mod },                      // CMOVAE & CMOVNB & CMOVNC (0F 43)
-    { /* 94 */ ENTRY_CopyBytes2Mod },                      // CMOVE & CMOVZ (0F 44)
-    { /* 95 */ ENTRY_CopyBytes2Mod },                      // CMOVNE & CMOVNZ (0F 45)
-    { /* 96 */ ENTRY_CopyBytes2Mod },                      // CMOVBE & CMOVNA (0F 46)
-    { /* 97 */ ENTRY_CopyBytes2Mod },                      // CMOVA & CMOVNBE (0F 47)
-    { /* 98 */ ENTRY_CopyBytes2Mod },                      // CMOVS (0F 48)
-    { /* 99 */ ENTRY_CopyBytes2Mod },                      // CMOVNS (0F 49)
-    { /* 9A */ ENTRY_CopyBytes2Mod },                      // CMOVP & CMOVPE (0F 4A)
-    { /* 9B */ ENTRY_CopyBytes2Mod },                      // CMOVNP & CMOVPO (0F 4B)
-    { /* 9C */ ENTRY_CopyBytes2Mod },                      // CMOVL & CMOVNGE (0F 4C)
-    { /* 9D */ ENTRY_CopyBytes2Mod },                      // CMOVGE & CMOVNL (0F 4D)
-    { /* 9E */ ENTRY_CopyBytes2Mod },                      // CMOVLE & CMOVNG (0F 4E)
-    { /* 9F */ ENTRY_CopyBytes2Mod },                      // CMOVG & CMOVNLE (0F 4F)
-    { /* A0 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* A1 */ ENTRY_CopyBytes1 },                         // POP
-    { /* A2 */ ENTRY_CopyBytes1 },                         // CPUID
-    { /* A3 */ ENTRY_CopyBytes2Mod },                      // BT  (0F A3)
-    { /* A4 */ ENTRY_CopyBytes2Mod1 },                     // SHLD
-    { /* A5 */ ENTRY_CopyBytes2Mod },                      // SHLD
-    { /* A6 */ ENTRY_CopyBytes2Mod },                      // XBTS
-    { /* A7 */ ENTRY_CopyBytes2Mod },                      // IBTS
-    { /* A8 */ ENTRY_CopyBytes1 },                         // PUSH
-    { /* A9 */ ENTRY_CopyBytes1 },                         // POP
-    { /* AA */ ENTRY_CopyBytes1 },                         // RSM
-    { /* AB */ ENTRY_CopyBytes2Mod },                      // BTS (0F AB)
-    { /* AC */ ENTRY_CopyBytes2Mod1 },                     // SHRD
-    { /* AD */ ENTRY_CopyBytes2Mod },                      // SHRD
+    /* 79 */ ENTRY_CopyBytes2Mod,                      // VMWRITE/r, 66/EXTRQ/r, F2/INSERTQ/r
+    /* 7A */ ENTRY_Invalid,                            // _7A
+    /* 7B */ ENTRY_Invalid,                            // _7B
+    /* 7C */ ENTRY_CopyBytes2Mod,                      // HADDPS
+    /* 7D */ ENTRY_CopyBytes2Mod,                      // HSUBPS
+    /* 7E */ ENTRY_CopyBytes2Mod,                      // MOVD/r
+    /* 7F */ ENTRY_CopyBytes2Mod,                      // MOV/r
+    /* 80 */ ENTRY_CopyBytes3Or5Target,                // JO
+    /* 81 */ ENTRY_CopyBytes3Or5Target,                // JNO
+    /* 82 */ ENTRY_CopyBytes3Or5Target,                // JB,JC,JNAE
+    /* 83 */ ENTRY_CopyBytes3Or5Target,                // JAE,JNB,JNC
+    /* 84 */ ENTRY_CopyBytes3Or5Target,                // JE,JZ,JZ
+    /* 85 */ ENTRY_CopyBytes3Or5Target,                // JNE,JNZ
+    /* 86 */ ENTRY_CopyBytes3Or5Target,                // JBE,JNA
+    /* 87 */ ENTRY_CopyBytes3Or5Target,                // JA,JNBE
+    /* 88 */ ENTRY_CopyBytes3Or5Target,                // JS
+    /* 89 */ ENTRY_CopyBytes3Or5Target,                // JNS
+    /* 8A */ ENTRY_CopyBytes3Or5Target,                // JP,JPE
+    /* 8B */ ENTRY_CopyBytes3Or5Target,                // JNP,JPO
+    /* 8C */ ENTRY_CopyBytes3Or5Target,                // JL,NGE
+    /* 8D */ ENTRY_CopyBytes3Or5Target,                // JGE,JNL
+    /* 8E */ ENTRY_CopyBytes3Or5Target,                // JLE,JNG
+    /* 8F */ ENTRY_CopyBytes3Or5Target,                // JG,JNLE
+    /* 90 */ ENTRY_CopyBytes2Mod,                      // CMOVO (0F 40)
+    /* 91 */ ENTRY_CopyBytes2Mod,                      // CMOVNO (0F 41)
+    /* 92 */ ENTRY_CopyBytes2Mod,                      // CMOVB & CMOVC & CMOVNAE (0F 42)
+    /* 93 */ ENTRY_CopyBytes2Mod,                      // CMOVAE & CMOVNB & CMOVNC (0F 43)
+    /* 94 */ ENTRY_CopyBytes2Mod,                      // CMOVE & CMOVZ (0F 44)
+    /* 95 */ ENTRY_CopyBytes2Mod,                      // CMOVNE & CMOVNZ (0F 45)
+    /* 96 */ ENTRY_CopyBytes2Mod,                      // CMOVBE & CMOVNA (0F 46)
+    /* 97 */ ENTRY_CopyBytes2Mod,                      // CMOVA & CMOVNBE (0F 47)
+    /* 98 */ ENTRY_CopyBytes2Mod,                      // CMOVS (0F 48)
+    /* 99 */ ENTRY_CopyBytes2Mod,                      // CMOVNS (0F 49)
+    /* 9A */ ENTRY_CopyBytes2Mod,                      // CMOVP & CMOVPE (0F 4A)
+    /* 9B */ ENTRY_CopyBytes2Mod,                      // CMOVNP & CMOVPO (0F 4B)
+    /* 9C */ ENTRY_CopyBytes2Mod,                      // CMOVL & CMOVNGE (0F 4C)
+    /* 9D */ ENTRY_CopyBytes2Mod,                      // CMOVGE & CMOVNL (0F 4D)
+    /* 9E */ ENTRY_CopyBytes2Mod,                      // CMOVLE & CMOVNG (0F 4E)
+    /* 9F */ ENTRY_CopyBytes2Mod,                      // CMOVG & CMOVNLE (0F 4F)
+    /* A0 */ ENTRY_CopyBytes1,                         // PUSH
+    /* A1 */ ENTRY_CopyBytes1,                         // POP
+    /* A2 */ ENTRY_CopyBytes1,                         // CPUID
+    /* A3 */ ENTRY_CopyBytes2Mod,                      // BT  (0F A3)
+    /* A4 */ ENTRY_CopyBytes2Mod1,                     // SHLD
+    /* A5 */ ENTRY_CopyBytes2Mod,                      // SHLD
+    /* A6 */ ENTRY_CopyBytes2Mod,                      // XBTS
+    /* A7 */ ENTRY_CopyBytes2Mod,                      // IBTS
+    /* A8 */ ENTRY_CopyBytes1,                         // PUSH
+    /* A9 */ ENTRY_CopyBytes1,                         // POP
+    /* AA */ ENTRY_CopyBytes1,                         // RSM
+    /* AB */ ENTRY_CopyBytes2Mod,                      // BTS (0F AB)
+    /* AC */ ENTRY_CopyBytes2Mod1,                     // SHRD
+    /* AD */ ENTRY_CopyBytes2Mod,                      // SHRD
 
     // 0F AE mod76=mem mod543=0 fxsave
     // 0F AE mod76=mem mod543=1 fxrstor
@@ -1508,93 +1509,93 @@ const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable0F[257] =
     // F3 0F AE mod76=11b mod543=1 rdgsbase
     // F3 0F AE mod76=11b mod543=2 wrfsbase
     // F3 0F AE mod76=11b mod543=3 wrgsbase
-    { /* AE */ ENTRY_CopyBytes2Mod },                      // fxsave fxrstor ldmxcsr stmxcsr xsave xrstor saveopt clflush lfence mfence sfence rdfsbase rdgsbase wrfsbase wrgsbase
-    { /* AF */ ENTRY_CopyBytes2Mod },                      // IMUL (0F AF)
-    { /* B0 */ ENTRY_CopyBytes2Mod },                      // CMPXCHG (0F B0)
-    { /* B1 */ ENTRY_CopyBytes2Mod },                      // CMPXCHG (0F B1)
-    { /* B2 */ ENTRY_CopyBytes2Mod },                      // LSS/r
-    { /* B3 */ ENTRY_CopyBytes2Mod },                      // BTR (0F B3)
-    { /* B4 */ ENTRY_CopyBytes2Mod },                      // LFS/r
-    { /* B5 */ ENTRY_CopyBytes2Mod },                      // LGS/r
-    { /* B6 */ ENTRY_CopyBytes2Mod },                      // MOVZX/r
-    { /* B7 */ ENTRY_CopyBytes2Mod },                      // MOVZX/r
+    /* AE */ ENTRY_CopyBytes2Mod,                      // fxsave fxrstor ldmxcsr stmxcsr xsave xrstor saveopt clflush lfence mfence sfence rdfsbase rdgsbase wrfsbase wrgsbase
+    /* AF */ ENTRY_CopyBytes2Mod,                      // IMUL (0F AF)
+    /* B0 */ ENTRY_CopyBytes2Mod,                      // CMPXCHG (0F B0)
+    /* B1 */ ENTRY_CopyBytes2Mod,                      // CMPXCHG (0F B1)
+    /* B2 */ ENTRY_CopyBytes2Mod,                      // LSS/r
+    /* B3 */ ENTRY_CopyBytes2Mod,                      // BTR (0F B3)
+    /* B4 */ ENTRY_CopyBytes2Mod,                      // LFS/r
+    /* B5 */ ENTRY_CopyBytes2Mod,                      // LGS/r
+    /* B6 */ ENTRY_CopyBytes2Mod,                      // MOVZX/r
+    /* B7 */ ENTRY_CopyBytes2Mod,                      // MOVZX/r
 #ifdef DETOURS_X86
-    { /* B8 */ ENTRY_Copy0FB8 },                           // jmpe f3/popcnt
+    /* B8 */ ENTRY_Copy0FB8,                           // jmpe f3/popcnt
 #else
-    { /* B8 */ ENTRY_CopyBytes2Mod },                      // f3/popcnt
+    /* B8 */ ENTRY_CopyBytes2Mod,                      // f3/popcnt
 #endif
-    { /* B9 */ ENTRY_Invalid },                            // _B9
-    { /* BA */ ENTRY_CopyBytes2Mod1 },                     // BT & BTC & BTR & BTS (0F BA)
-    { /* BB */ ENTRY_CopyBytes2Mod },                      // BTC (0F BB)
-    { /* BC */ ENTRY_CopyBytes2Mod },                      // BSF (0F BC)
-    { /* BD */ ENTRY_CopyBytes2Mod },                      // BSR (0F BD)
-    { /* BE */ ENTRY_CopyBytes2Mod },                      // MOVSX/r
-    { /* BF */ ENTRY_CopyBytes2Mod },                      // MOVSX/r
-    { /* C0 */ ENTRY_CopyBytes2Mod },                      // XADD/r
-    { /* C1 */ ENTRY_CopyBytes2Mod },                      // XADD/r
-    { /* C2 */ ENTRY_CopyBytes2Mod1 },                     // CMPPS &
-    { /* C3 */ ENTRY_CopyBytes2Mod },                      // MOVNTI
-    { /* C4 */ ENTRY_CopyBytes2Mod1 },                     // PINSRW /r ib
-    { /* C5 */ ENTRY_CopyBytes2Mod1 },                     // PEXTRW /r ib
-    { /* C6 */ ENTRY_CopyBytes2Mod1 },                     // SHUFPS & SHUFPD
-    { /* C7 */ ENTRY_CopyBytes2Mod },                      // CMPXCHG8B (0F C7)
-    { /* C8 */ ENTRY_CopyBytes1 },                         // BSWAP 0F C8 + rd
-    { /* C9 */ ENTRY_CopyBytes1 },                         // BSWAP 0F C8 + rd
-    { /* CA */ ENTRY_CopyBytes1 },                         // BSWAP 0F C8 + rd
-    { /* CB */ ENTRY_CopyBytes1 },                         // CVTPD2PI BSWAP 0F C8 + rd
-    { /* CC */ ENTRY_CopyBytes1 },                         // BSWAP 0F C8 + rd
-    { /* CD */ ENTRY_CopyBytes1 },                         // BSWAP 0F C8 + rd
-    { /* CE */ ENTRY_CopyBytes1 },                         // BSWAP 0F C8 + rd
-    { /* CF */ ENTRY_CopyBytes1 },                         // BSWAP 0F C8 + rd
-    { /* D0 */ ENTRY_CopyBytes2Mod },                      // ADDSUBPS (untestd)
-    { /* D1 */ ENTRY_CopyBytes2Mod },                      // PSRLW/r
-    { /* D2 */ ENTRY_CopyBytes2Mod },                      // PSRLD/r
-    { /* D3 */ ENTRY_CopyBytes2Mod },                      // PSRLQ/r
-    { /* D4 */ ENTRY_CopyBytes2Mod },                      // PADDQ
-    { /* D5 */ ENTRY_CopyBytes2Mod },                      // PMULLW/r
-    { /* D6 */ ENTRY_CopyBytes2Mod },                      // MOVDQ2Q / MOVQ2DQ
-    { /* D7 */ ENTRY_CopyBytes2Mod },                      // PMOVMSKB/r
-    { /* D8 */ ENTRY_CopyBytes2Mod },                      // PSUBUSB/r
-    { /* D9 */ ENTRY_CopyBytes2Mod },                      // PSUBUSW/r
-    { /* DA */ ENTRY_CopyBytes2Mod },                      // PMINUB/r
-    { /* DB */ ENTRY_CopyBytes2Mod },                      // PAND/r
-    { /* DC */ ENTRY_CopyBytes2Mod },                      // PADDUSB/r
-    { /* DD */ ENTRY_CopyBytes2Mod },                      // PADDUSW/r
-    { /* DE */ ENTRY_CopyBytes2Mod },                      // PMAXUB/r
-    { /* DF */ ENTRY_CopyBytes2Mod },                      // PANDN/r
-    { /* E0 */ ENTRY_CopyBytes2Mod  },                     // PAVGB
-    { /* E1 */ ENTRY_CopyBytes2Mod },                      // PSRAW/r
-    { /* E2 */ ENTRY_CopyBytes2Mod },                      // PSRAD/r
-    { /* E3 */ ENTRY_CopyBytes2Mod },                      // PAVGW
-    { /* E4 */ ENTRY_CopyBytes2Mod },                      // PMULHUW/r
-    { /* E5 */ ENTRY_CopyBytes2Mod },                      // PMULHW/r
-    { /* E6 */ ENTRY_CopyBytes2Mod },                      // CTDQ2PD &
-    { /* E7 */ ENTRY_CopyBytes2Mod },                      // MOVNTQ
-    { /* E8 */ ENTRY_CopyBytes2Mod },                      // PSUBB/r
-    { /* E9 */ ENTRY_CopyBytes2Mod },                      // PSUBW/r
-    { /* EA */ ENTRY_CopyBytes2Mod },                      // PMINSW/r
-    { /* EB */ ENTRY_CopyBytes2Mod },                      // POR/r
-    { /* EC */ ENTRY_CopyBytes2Mod },                      // PADDSB/r
-    { /* ED */ ENTRY_CopyBytes2Mod },                      // PADDSW/r
-    { /* EE */ ENTRY_CopyBytes2Mod },                      // PMAXSW /r
-    { /* EF */ ENTRY_CopyBytes2Mod },                      // PXOR/r
-    { /* F0 */ ENTRY_CopyBytes2Mod },                      // LDDQU
-    { /* F1 */ ENTRY_CopyBytes2Mod },                      // PSLLW/r
-    { /* F2 */ ENTRY_CopyBytes2Mod },                      // PSLLD/r
-    { /* F3 */ ENTRY_CopyBytes2Mod },                      // PSLLQ/r
-    { /* F4 */ ENTRY_CopyBytes2Mod },                      // PMULUDQ/r
-    { /* F5 */ ENTRY_CopyBytes2Mod },                      // PMADDWD/r
-    { /* F6 */ ENTRY_CopyBytes2Mod },                      // PSADBW/r
-    { /* F7 */ ENTRY_CopyBytes2Mod },                      // MASKMOVQ
-    { /* F8 */ ENTRY_CopyBytes2Mod },                      // PSUBB/r
-    { /* F9 */ ENTRY_CopyBytes2Mod },                      // PSUBW/r
-    { /* FA */ ENTRY_CopyBytes2Mod },                      // PSUBD/r
-    { /* FB */ ENTRY_CopyBytes2Mod },                      // FSUBQ/r
-    { /* FC */ ENTRY_CopyBytes2Mod },                      // PADDB/r
-    { /* FD */ ENTRY_CopyBytes2Mod },                      // PADDW/r
-    { /* FE */ ENTRY_CopyBytes2Mod },                      // PADDD/r
-    { /* FF */ ENTRY_Invalid },                            // _FF
-    { /*  0 */ ENTRY_End },
+    /* B9 */ ENTRY_Invalid,                            // _B9
+    /* BA */ ENTRY_CopyBytes2Mod1,                     // BT & BTC & BTR & BTS (0F BA)
+    /* BB */ ENTRY_CopyBytes2Mod,                      // BTC (0F BB)
+    /* BC */ ENTRY_CopyBytes2Mod,                      // BSF (0F BC)
+    /* BD */ ENTRY_CopyBytes2Mod,                      // BSR (0F BD)
+    /* BE */ ENTRY_CopyBytes2Mod,                      // MOVSX/r
+    /* BF */ ENTRY_CopyBytes2Mod,                      // MOVSX/r
+    /* C0 */ ENTRY_CopyBytes2Mod,                      // XADD/r
+    /* C1 */ ENTRY_CopyBytes2Mod,                      // XADD/r
+    /* C2 */ ENTRY_CopyBytes2Mod1,                     // CMPPS &
+    /* C3 */ ENTRY_CopyBytes2Mod,                      // MOVNTI
+    /* C4 */ ENTRY_CopyBytes2Mod1,                     // PINSRW /r ib
+    /* C5 */ ENTRY_CopyBytes2Mod1,                     // PEXTRW /r ib
+    /* C6 */ ENTRY_CopyBytes2Mod1,                     // SHUFPS & SHUFPD
+    /* C7 */ ENTRY_CopyBytes2Mod,                      // CMPXCHG8B (0F C7)
+    /* C8 */ ENTRY_CopyBytes1,                         // BSWAP 0F C8 + rd
+    /* C9 */ ENTRY_CopyBytes1,                         // BSWAP 0F C8 + rd
+    /* CA */ ENTRY_CopyBytes1,                         // BSWAP 0F C8 + rd
+    /* CB */ ENTRY_CopyBytes1,                         // CVTPD2PI BSWAP 0F C8 + rd
+    /* CC */ ENTRY_CopyBytes1,                         // BSWAP 0F C8 + rd
+    /* CD */ ENTRY_CopyBytes1,                         // BSWAP 0F C8 + rd
+    /* CE */ ENTRY_CopyBytes1,                         // BSWAP 0F C8 + rd
+    /* CF */ ENTRY_CopyBytes1,                         // BSWAP 0F C8 + rd
+    /* D0 */ ENTRY_CopyBytes2Mod,                      // ADDSUBPS (untestd)
+    /* D1 */ ENTRY_CopyBytes2Mod,                      // PSRLW/r
+    /* D2 */ ENTRY_CopyBytes2Mod,                      // PSRLD/r
+    /* D3 */ ENTRY_CopyBytes2Mod,                      // PSRLQ/r
+    /* D4 */ ENTRY_CopyBytes2Mod,                      // PADDQ
+    /* D5 */ ENTRY_CopyBytes2Mod,                      // PMULLW/r
+    /* D6 */ ENTRY_CopyBytes2Mod,                      // MOVDQ2Q / MOVQ2DQ
+    /* D7 */ ENTRY_CopyBytes2Mod,                      // PMOVMSKB/r
+    /* D8 */ ENTRY_CopyBytes2Mod,                      // PSUBUSB/r
+    /* D9 */ ENTRY_CopyBytes2Mod,                      // PSUBUSW/r
+    /* DA */ ENTRY_CopyBytes2Mod,                      // PMINUB/r
+    /* DB */ ENTRY_CopyBytes2Mod,                      // PAND/r
+    /* DC */ ENTRY_CopyBytes2Mod,                      // PADDUSB/r
+    /* DD */ ENTRY_CopyBytes2Mod,                      // PADDUSW/r
+    /* DE */ ENTRY_CopyBytes2Mod,                      // PMAXUB/r
+    /* DF */ ENTRY_CopyBytes2Mod,                      // PANDN/r
+    /* E0 */ ENTRY_CopyBytes2Mod ,                     // PAVGB
+    /* E1 */ ENTRY_CopyBytes2Mod,                      // PSRAW/r
+    /* E2 */ ENTRY_CopyBytes2Mod,                      // PSRAD/r
+    /* E3 */ ENTRY_CopyBytes2Mod,                      // PAVGW
+    /* E4 */ ENTRY_CopyBytes2Mod,                      // PMULHUW/r
+    /* E5 */ ENTRY_CopyBytes2Mod,                      // PMULHW/r
+    /* E6 */ ENTRY_CopyBytes2Mod,                      // CTDQ2PD &
+    /* E7 */ ENTRY_CopyBytes2Mod,                      // MOVNTQ
+    /* E8 */ ENTRY_CopyBytes2Mod,                      // PSUBB/r
+    /* E9 */ ENTRY_CopyBytes2Mod,                      // PSUBW/r
+    /* EA */ ENTRY_CopyBytes2Mod,                      // PMINSW/r
+    /* EB */ ENTRY_CopyBytes2Mod,                      // POR/r
+    /* EC */ ENTRY_CopyBytes2Mod,                      // PADDSB/r
+    /* ED */ ENTRY_CopyBytes2Mod,                      // PADDSW/r
+    /* EE */ ENTRY_CopyBytes2Mod,                      // PMAXSW /r
+    /* EF */ ENTRY_CopyBytes2Mod,                      // PXOR/r
+    /* F0 */ ENTRY_CopyBytes2Mod,                      // LDDQU
+    /* F1 */ ENTRY_CopyBytes2Mod,                      // PSLLW/r
+    /* F2 */ ENTRY_CopyBytes2Mod,                      // PSLLD/r
+    /* F3 */ ENTRY_CopyBytes2Mod,                      // PSLLQ/r
+    /* F4 */ ENTRY_CopyBytes2Mod,                      // PMULUDQ/r
+    /* F5 */ ENTRY_CopyBytes2Mod,                      // PMADDWD/r
+    /* F6 */ ENTRY_CopyBytes2Mod,                      // PSADBW/r
+    /* F7 */ ENTRY_CopyBytes2Mod,                      // MASKMOVQ
+    /* F8 */ ENTRY_CopyBytes2Mod,                      // PSUBB/r
+    /* F9 */ ENTRY_CopyBytes2Mod,                      // PSUBW/r
+    /* FA */ ENTRY_CopyBytes2Mod,                      // PSUBD/r
+    /* FB */ ENTRY_CopyBytes2Mod,                      // FSUBQ/r
+    /* FC */ ENTRY_CopyBytes2Mod,                      // PADDB/r
+    /* FD */ ENTRY_CopyBytes2Mod,                      // PADDW/r
+    /* FE */ ENTRY_CopyBytes2Mod,                      // PADDD/r
+    /* FF */ ENTRY_Invalid,                            // _FF
+    /*  0 */ ENTRY_End,
 };
 
 BOOL CDetourDis::SanityCheckSystem()
