@@ -408,6 +408,44 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     (void)lpszCmdLine;
     (void)nCmdShow;
 
+
+#if defined(DETOURS_X64) || defined(DETOURS_X86)
+    struct Test_t
+    {
+        int length;
+        BYTE bytes[16];
+    };
+    Test_t tests[] =
+    {
+        3, {0, 0x04, 0            },
+        4, {0, 0x44, 0, 1         },
+        7, {0, 0x84, 0, 1, 2, 3, 4},
+        2, {0, 0xc4               },
+
+        7, {0, 0x04, 5, 1, 2, 3, 4},
+        4, {0, 0x44, 5, 1         },
+        7, {0, 0x84, 5, 1, 2, 3, 4},
+    };
+
+    //if (IsDebuggerPresent()) __debugbreak();
+    int errors = 0;
+    for (int i = 0; tests[i].length; ++i)
+    {
+        Test_t& test = tests[i];
+        int computed = (int)((BYTE*)DetourCopyInstruction(NULL, NULL, test.bytes, NULL, NULL) - test.bytes);
+        printf("i:%d len:%d computed:%d bytes{%X %X %X %X %X}\n", i, test.length, computed, test.bytes[0], test.bytes[1], test.bytes[2], test.bytes[3], test.bytes[4]);
+        if (test.length != computed) {
+            errors += 1;
+            printf("error\n");
+            /*if (IsDebuggerPresent()) {
+                __debugbreak();
+                DetourCopyInstruction(NULL, NULL, test.bytes, NULL, NULL);
+            }*/
+        }
+    }
+    if (errors) exit(errors);
+#endif
+
 #ifdef DETOURS_IA64
     // First we check the pre-canned TestCodes from disasm.asm
     //
@@ -510,6 +548,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
 #if defined(DETOURS_X64) || defined(DETOURS_X86)
     // First we check the pre-canned TestCodes from disasm.asm
     //
+
     PBYTE pbBegin = (PBYTE)DetourCodeFromPointer(TestCodes, NULL);
     printf("%p:\n", pbBegin);
     for (PBYTE pbTest = pbBegin;;) {

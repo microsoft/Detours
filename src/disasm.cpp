@@ -190,13 +190,6 @@ class CDetourDis
         RAX         = 0x8u,
     };
 
-    // ModR/M Flags
-    enum {
-        SIB         = 0x10u,
-        RIP         = 0x20u,
-        NOTSIB      = 0x0fu,
-    };
-
     struct COPYENTRY
     {
         // Many of these fields are often ignored. See ENTRY_DataIgnored.
@@ -294,7 +287,6 @@ class CDetourDis
   protected:
     static const COPYENTRY  s_rceCopyTable[257];
     static const COPYENTRY  s_rceCopyTable0F[257];
-    static const BYTE       s_rbModRm[256];
     static PBYTE            s_pbModuleBeg;
     static PBYTE            s_pbModuleEnd;
     static BOOL             s_fLimitReferencesToModule;
@@ -396,28 +388,51 @@ PBYTE CDetourDis::CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     if (nModOffset > 0) {
         ASSERT(nRelOffset == 0);
         BYTE const bModRm = pbSrc[nModOffset];
-        BYTE const bFlags = s_rbModRm[bModRm];
+/*
+modrm/sib byte encoding
+http://jaykrell2.blogspot.com/2014/01/x86-instruction-encoding-this-is-well.html
+Historically Detours used a table here, but the table was actually confusing.
 
-        nBytes += bFlags & NOTSIB;
+Modrm has three fields.
+2bit mode
+3bit reg or opcode extension ("reg/opcode")
+3bit reg or memory  ("r/m")
 
-        if (bFlags & SIB) {
+mode:
+00 register indirect with no displacement
+01 register indirect with 8bit displacement
+10 register indirect with 32bit displacement
+11 register direct
+
+r/m:
+4 means SIB byte present if mode != 11
+5 means RIP relative on AMD64
+
+SIB byte has three fields
+2bit scale
+3bit index
+3bit base
+
+If SIB.base == 5 then:
+mode=00: 32bit displacement, no base
+mode=01: 8bit displacement, base=EBP
+mode=10: 32bit displacement, base=EBP
+*/
+        BYTE const mode = (bModRm >> 6); // upper 2 bits
+        BYTE const rm = (bModRm & 7); // lower 3 bits
+        nBytes += "\0\1\4"[mode];
+        bool const hasSib = mode != 3 && rm == 4;
+        if (hasSib) {
+            nBytes += 1;
             BYTE const bSib = pbSrc[nModOffset + 1];
-
-            if ((bSib & 0x07) == 0x05) {
-                if ((bModRm & 0xc0) == 0x00) {
-                    nBytes += 4;
-                }
-                else if ((bModRm & 0xc0) == 0x40) {
-                    nBytes += 1;
-                }
-                else if ((bModRm & 0xc0) == 0x80) {
-                    nBytes += 4;
-                }
-            }
+            BYTE const base = (bSib & 7);
+            if (base == 5 && mode == 0)
+                nBytes += 4;
             cbTarget = nBytes - nRelOffset;
         }
 #ifdef DETOURS_X64
-        else if (bFlags & RIP) {
+        else if (mode == 0 && rm == 5) { // RIP relative
+            nBytes += 4;
             UINT nTargetBack = pEntry->nTargetBack;
             // nTargetBack describes immediate bytes at the end: 1, 2, or 4.
             // 2 vs. 4 is selected via 66 operand size override.
@@ -865,25 +880,6 @@ BOOL CDetourDis::SetCodeModule(PBYTE pbBeg, PBYTE pbEnd, BOOL fLimitReferencesTo
 
 ///////////////////////////////////////////////////////// Disassembler Tables.
 //
-const BYTE CDetourDis::s_rbModRm[256] = {
-    0,0,0,0, SIB|1,RIP|4,0,0, 0,0,0,0, SIB|1,RIP|4,0,0, // 0x
-    0,0,0,0, SIB|1,RIP|4,0,0, 0,0,0,0, SIB|1,RIP|4,0,0, // 1x
-    0,0,0,0, SIB|1,RIP|4,0,0, 0,0,0,0, SIB|1,RIP|4,0,0, // 2x
-    0,0,0,0, SIB|1,RIP|4,0,0, 0,0,0,0, SIB|1,RIP|4,0,0, // 3x
-    1,1,1,1, 2,1,1,1, 1,1,1,1, 2,1,1,1,                 // 4x
-    1,1,1,1, 2,1,1,1, 1,1,1,1, 2,1,1,1,                 // 5x
-    1,1,1,1, 2,1,1,1, 1,1,1,1, 2,1,1,1,                 // 6x
-    1,1,1,1, 2,1,1,1, 1,1,1,1, 2,1,1,1,                 // 7x
-    4,4,4,4, 5,4,4,4, 4,4,4,4, 5,4,4,4,                 // 8x
-    4,4,4,4, 5,4,4,4, 4,4,4,4, 5,4,4,4,                 // 9x
-    4,4,4,4, 5,4,4,4, 4,4,4,4, 5,4,4,4,                 // Ax
-    4,4,4,4, 5,4,4,4, 4,4,4,4, 5,4,4,4,                 // Bx
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,                 // Cx
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,                 // Dx
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,                 // Ex
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0                  // Fx
-};
-
 const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[257] =
 {
     { 0x00, ENTRY_CopyBytes2Mod },                      // ADD /r
