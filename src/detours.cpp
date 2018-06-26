@@ -913,7 +913,7 @@ struct _DETOUR_TRAMPOLINE
     ULONG64         rbIndTarget;
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == (184 + 8));
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 192);
 
 enum {
     SIZE_OF_JMP = 12
@@ -1136,7 +1136,10 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
                                    PDETOUR_TRAMPOLINE *ppLower,
                                    PDETOUR_TRAMPOLINE *ppUpper)
 {
-    // We have to place trampolines within +/- 2GB of code.
+    // The encoding used by detour_gen_jmp_indirect actually enables a
+    // displacement of +/- 4GiB. In the future, this could be changed to
+    // reflect that. For now, just reuse the x86 logic which is plenty.
+
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
     DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
