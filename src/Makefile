@@ -37,7 +37,12 @@ CFLAGS=$(CFLAGS) /analyze
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
 ASM_SOURCES=trampolinex64.asm
 ML64=ml64
-!endif
+!ENDIF
+
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "X86"
+ASM_SOURCES=trampolinex86.asm
+ML=ml
+!ENDIF
 
 OBJS = \
     $(OBJD)\detours.obj     \
@@ -52,7 +57,10 @@ OBJS = \
     $(OBJD)\disolarm64.obj  \
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"    
     $(OBJD)\trampolinex64.obj \
-!endif
+!ENDIF
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "X86"    
+    $(OBJD)\trampolinex86.obj \
+!ENDIF
 
 ##############################################################################
 ##
@@ -119,7 +127,11 @@ $(OBJD)\disolarm64.obj: disasm.cpp detours.h
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
 $(OBJD)\trampolinex64.obj: trampolinex64.asm
      $(ML64) /c /Sn /Fo $(OBJD)\trampolinex64.obj /nologo $(ASM_SOURCES)
-!endif
+!ENDIF
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "X86"
+$(OBJD)\trampolinex86.obj: trampolinex86.asm
+     $(ML) /c /Fo $(OBJD)\trampolinex86.obj /nologo $(ASM_SOURCES)
+!ENDIF
 
 test: all
     cd $(MAKEDIR)\..\samples\slept
