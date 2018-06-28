@@ -331,11 +331,11 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
     BYTE            rbCodeIn[8];    // jmp [pbDetour]
-	void*           HookIntro;
-	UCHAR*          OldProc;
-	UCHAR*          HookProc;
-	void*           HookOutro;
-	int*            IsExecutedPtr;    
+    void*           HookIntro;
+    UCHAR*          OldProc;
+    UCHAR*          HookProc;
+    void*           HookOutro;
+    int*            IsExecutedPtr;    
 };
 
 C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
