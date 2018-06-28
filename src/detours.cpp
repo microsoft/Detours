@@ -331,11 +331,11 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
     BYTE            rbCodeIn[8];    // jmp [pbDetour]
-    void*           HookIntro;
-    UCHAR*          OldProc;
-    UCHAR*          HookProc;
-    void*           HookOutro;
-    int*            IsExecutedPtr;    
+	void*           HookIntro;
+	UCHAR*          OldProc;
+	UCHAR*          HookProc;
+	void*           HookOutro;
+	int*            IsExecutedPtr;    
 };
 
 C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
@@ -343,6 +343,8 @@ C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
 enum {
     SIZE_OF_JMP = 5
 };
+
+const ULONG TrampolineSize = 0x10B;
 
 inline PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE pbJmpVal)
 {
@@ -778,6 +780,7 @@ PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE *ppPool, PBYTE pbJmpVal)
     *((PBYTE*&)pbLiteral) = DETOURS_PBYTE_TO_PFUNC(pbJmpVal);
     LONG delta = pbLiteral - align4(pbCode + 4);
 
+    // stored as: DF F8 00 F0 
     write_thumb_opcode(pbCode, 0xf8dff000 | delta);     // LDR PC,[PC+n]
 
     if (ppPool == NULL) {
@@ -999,7 +1002,18 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
     }
     return 0;
 }
+inline void detour_find_jmp_bounds(PBYTE pbCode,
+                                   PDETOUR_TRAMPOLINE *ppLower,
+                                   PDETOUR_TRAMPOLINE *ppUpper)
+{
+    // We have to place trampolines within +/- 2GB of code.
+    ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
+    ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
+    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
 
+    *ppLower = (PDETOUR_TRAMPOLINE)lo;
+    *ppUpper = (PDETOUR_TRAMPOLINE)hi;
+}
 #endif // DETOURS_ARM64
 
 //////////////////////////////////////////////// Trampoline Memory Management.
@@ -1015,7 +1029,7 @@ typedef DETOUR_REGION * PDETOUR_REGION;
 const ULONG DETOUR_REGION_SIGNATURE = 'Rrtd';
 const ULONG DETOUR_REGION_SIZE = 0x10000;
 const ULONG DETOUR_TRAMPOLINES_PER_REGION = (DETOUR_REGION_SIZE
-                                             / sizeof(DETOUR_TRAMPOLINE)) - 1;
+                                             / (sizeof(DETOUR_TRAMPOLINE))) - 1;
 static PDETOUR_REGION s_pRegions = NULL;            // List of all regions.
 static PDETOUR_REGION s_pRegion = NULL;             // Default region.
 
@@ -1469,7 +1483,37 @@ static LONG detour_align_from_target(PDETOUR_TRAMPOLINE pTrampoline, LONG obTarg
     }
     return 0;
 }
+static ULONG ___TrampolineSize = 0;
 
+#ifdef DETOURS_X64
+	extern "C" void __stdcall Trampoline_ASM_x64();
+#endif
+
+#ifdef DETOURS_X86
+	extern "C" void __stdcall Trampoline_ASM_x86();
+#endif
+
+#if defined(DETOURS_X64) || defined(DETOURS_X86)
+UCHAR* DetourGetTrampolinePtr()
+{
+// bypass possible Visual Studio debug jump table
+#ifdef DETOURS_X64
+	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_x64;
+#endif    
+#ifdef DETOURS_X86
+	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_x86;
+#endif
+
+	if(*Ptr == 0xE9)
+		Ptr += *((int*)(Ptr + 1)) + 5;
+
+#ifdef DETOURS_X64
+	return Ptr + 5 * 8;
+#else
+	return Ptr;
+#endif
+}
+#endif
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 {
     if (pppFailedPointer != NULL) {
@@ -1541,7 +1585,13 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_IA64
 
 #ifdef DETOURS_X64
-            detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, &o->pTrampoline->pbDetour);
+            UCHAR * trampoline = DetourGetTrampolinePtr();
+
+            VOID * endOfTramp = (VOID*)(o->pTrampoline + 1);
+            memcpy(endOfTramp, trampoline, TrampolineSize);
+            o->pTrampoline->HookIntro = endOfTramp;
+            detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, (PBYTE*)&o->pTrampoline->HookIntro);            
+            //detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, &o->pTrampoline->pbDetour);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, o->pTrampoline->rbCodeIn);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = o->pTrampoline->rbCode;
