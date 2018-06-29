@@ -331,6 +331,8 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
     BYTE            rbCodeIn[8];    // jmp [pbDetour]
+    void*           Trampoline;
+    LONG            IsExecuted;
     void*           HookIntro;
     UCHAR*          OldProc;
     UCHAR*          HookProc;
@@ -338,7 +340,7 @@ struct _DETOUR_TRAMPOLINE
     int*            IsExecutedPtr;    
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 152);
 
 enum {
     SIZE_OF_JMP = 5
@@ -1493,7 +1495,11 @@ static ULONG ___TrampolineSize = 0;
 	extern "C" void __stdcall Trampoline_ASM_x86();
 #endif
 
-#if defined(DETOURS_X64) || defined(DETOURS_X86)
+#ifdef DETOURS_ARM
+	extern "C" void __stdcall Trampoline_ASM_ARM();
+#endif
+
+#if defined(DETOURS_X64) || defined(DETOURS_X86) || defined(DETOURS_ARM)
 UCHAR* DetourGetTrampolinePtr()
 {
 // bypass possible Visual Studio debug jump table
@@ -1503,7 +1509,9 @@ UCHAR* DetourGetTrampolinePtr()
 #ifdef DETOURS_X86
 	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_x86;
 #endif
-
+#ifdef DETOURS_ARM
+	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_ARM;
+#endif
 	if(*Ptr == 0xE9)
 		Ptr += *((int*)(Ptr + 1)) + 5;
 
@@ -1512,6 +1520,14 @@ UCHAR* DetourGetTrampolinePtr()
 #else
 	return Ptr;
 #endif
+}
+VOID BarrierIntro()
+{
+	DETOUR_TRACE("Barrier Intro\n");
+}
+VOID BarrierOutro()
+{
+	DETOUR_TRACE("Barrier Outro\n");
 }
 #endif
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
@@ -1589,8 +1605,14 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 
             VOID * endOfTramp = (VOID*)(o->pTrampoline + 1);
             memcpy(endOfTramp, trampoline, TrampolineSize);
-            o->pTrampoline->HookIntro = endOfTramp;
-            detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, (PBYTE*)&o->pTrampoline->HookIntro);            
+            o->pTrampoline->HookIntro = BarrierIntro;
+			o->pTrampoline->HookOutro = BarrierOutro;
+			o->pTrampoline->Trampoline = endOfTramp;
+			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
+			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
+			o->pTrampoline->IsExecutedPtr = (int*)new unsigned char[8];// (int*)&o->pTrampoline->IsExecuted;
+			memset(o->pTrampoline->IsExecutedPtr, 0, 8);
+            detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, (PBYTE*)&o->pTrampoline->Trampoline);
             //detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, &o->pTrampoline->pbDetour);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, o->pTrampoline->rbCodeIn);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
