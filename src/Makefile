@@ -36,12 +36,15 @@ CFLAGS=$(CFLAGS) /analyze
 
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
 ASM_SOURCES=trampolinex64.asm
-ML64=ml64
+ML=ml64
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "X86"
 ASM_SOURCES=trampolinex86.asm
 ML=ml
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM"
 ASM_SOURCES=trampolinearm.asm
+ARMASM=armasm
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
+ASM_SOURCES=trampolinearm64.asm
 ARMASM=armasm
 !ENDIF
 
@@ -62,6 +65,8 @@ OBJS = \
     $(OBJD)\trampolinex86.obj \
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM"    
     $(OBJD)\trampolinearm.obj \
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"    
+    $(OBJD)\trampolinearm64.obj \
 !ENDIF
 
 ##############################################################################
@@ -128,13 +133,16 @@ $(OBJD)\disolarm.obj: disasm.cpp detours.h
 $(OBJD)\disolarm64.obj: disasm.cpp detours.h
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
 $(OBJD)\trampolinex64.obj: trampolinex64.asm
-     $(ML64) /c /Sn /Fo $(OBJD)\trampolinex64.obj /nologo $(ASM_SOURCES)
+     $(ML) /c /Sn /Fo $(OBJD)\trampolinex64.obj /nologo $(ASM_SOURCES)
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "X86"
 $(OBJD)\trampolinex86.obj: trampolinex86.asm
-     $(ML) /c /Fo $(OBJD)\trampolinex86.obj /nologo $(ASM_SOURCES)
+     $(ML) /c /Sn /Fo $(OBJD)\trampolinex86.obj /nologo $(ASM_SOURCES)
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM"
-$(OBJD)\trampolinearm.obj: trampolinearm.asm
-     $(ARMASM) $(ASM_SOURCES) $(OBJD)\trampolinearm.obj
+$(OBJD)\trampolinearm.obj: $(ASM_SOURCES)
+     $(ARMASM) -o $(OBJD)\trampolinearm.obj $(ASM_SOURCES)
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
+$(OBJD)\trampolinearm64.obj: $(ASM_SOURCES)
+     $(ARMASM) -o $(OBJD)\trampolinearm64.obj $(ASM_SOURCES)
 !ENDIF
 
 test: all
