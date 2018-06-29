@@ -1,4 +1,4 @@
-   AREA     .text, CODE, THUMB
+        AREA     .text, CODE, THUMB, READONLY
                            
 Trampoline_ASM_ARM FUNCTION
 
