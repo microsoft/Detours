@@ -1499,19 +1499,30 @@ static ULONG ___TrampolineSize = 0;
 	extern "C" void __stdcall Trampoline_ASM_ARM();
 #endif
 
-#if defined(DETOURS_X64) || defined(DETOURS_X86) || defined(DETOURS_ARM)
+#ifdef DETOURS_ARM64
+	extern "C" void __stdcall Trampoline_ASM_ARM64();
+#endif
+
+#if defined(DETOURS_X64) || defined(DETOURS_X86) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
 UCHAR* DetourGetTrampolinePtr()
 {
 // bypass possible Visual Studio debug jump table
 #ifdef DETOURS_X64
 	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_x64;
-#endif    
+#endif
+
 #ifdef DETOURS_X86
 	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_x86;
 #endif
+
 #ifdef DETOURS_ARM
 	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_ARM;
 #endif
+
+#ifdef DETOURS_ARM64
+	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_ARM64;
+#endif
+
 	if(*Ptr == 0xE9)
 		Ptr += *((int*)(Ptr + 1)) + 5;
 
