@@ -17,19 +17,28 @@ start
         PUSH    {r0, r1, r2, r3, r4, lr}
         VPUSH   {d0-d7}
         LDR     r5, =IsExecutedPtr
-try_lock        
-        MOV     r1, #0x1
+        MOV     r1, #0x0               
+        DMB     ish
+try_inc_lock        
         LDREX   r0, [r5]
-        CMP     r0, #0
+        ADDS    r0, r0, #1 ;CMP     r0, #0
         STREX   r1, r0, [r5]
-        CMPEQ   r0, #0
-        BNE     try_lock
+        CMP     r1, #0
+        BNE     try_inc_lock
+        DMB     ish
         LDR     r1, =NewProc
         LDR     r2, [r1]
         CMPEQ   r2, #0
         BNE     CALL_NET_ENTRY
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; call original method
-		
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; call original method      
+        DMB     ish
+try_dec_lock        
+        LDREX   r0, [r5]
+        SUBS    r0, r0, #1
+        STREX   r1, r0, [r5]
+        CMP     r1, #0
+        BNE     try_dec_lock
+        DMB     ish		
 
         LDR   r5, =OldProc
         B     TRAMPOLINE_EXIT
@@ -40,24 +49,33 @@ CALL_NET_ENTRY
 
         LDR     r0, =IsExecutedPtr
         ADD     r0, r0, #4
-        LDR     r0, [r0]
+        ;LDR     r0, [r0]  ; Hook handle (only a position hint)
 
         LDR     r4, =NETIntro 
-        BLX     r4
+        BLX     r4 ; Hook->NETIntro(Hook, RetAddr, InitialRSP);
 ; should call original method?              
         CMP     r0, #0
         BNE     CALL_HOOK_HANDLER
 
 ; call original method
+        LDR     r5, =IsExecutedPtr
+        DMB     ish
+try_dec_lock2        
+        LDREX   r0, [r5]
+        SUBS    r0, r0, #1
+        STREX   r1, r0, [r5]
+        CMP     r1, #0
+        BNE     try_dec_lock2
+        DMB     ish
+
         LDR     r5, =OldProc
         BNE     TRAMPOLINE_EXIT
 
 CALL_HOOK_HANDLER
-; adjust return address
 
 ; call hook handler        
         LDR     r5, =NewProc
-        LDR     r4, =CALL_NET_OUTRO
+        LDR     r4, =CALL_NET_OUTRO ; adjust return address
         STR     r4, [sp, #0x54] ; store outro return to stack after hook handler is called         
         B       TRAMPOLINE_EXIT
  ; this is where the handler returns...
@@ -70,6 +88,16 @@ CALL_NET_OUTRO
         LDR     r5, =NETOutro
         BLX     r5
 
+        LDR     r5, =IsExecutedPtr
+        DMB     ish        
+try_dec_lock3        
+        LDREX   r0, [r5]
+        SUBS    r0, r0, #1
+        STREX   r1, r0, [r5]
+        CMP     r1, #0
+        BNE     try_dec_lock3
+        DMB     ish
+
         POP     {r0,lr} ; restore return value of user handler...
 ; finally return to saved return address - the caller of this trampoline...        
         BX      lr
@@ -80,6 +108,7 @@ TRAMPOLINE_EXIT
         POP    {r0, r1, r2, r3, r4, lr}
 
         MOV     pc, r5
+
 ; outro signature, to automatically determine code size        
         dcb     0x78
         dcb     0x56
