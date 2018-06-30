@@ -1,4 +1,4 @@
-        AREA     Pointers2, DATA, READWRITE
+        AREA     Pointers, DATA, READWRITE
 
 NETIntro       DCD 0 ; .NET Barrier Intro Function
 OldProc        DCD 0 ; Original Replaced Function
@@ -15,7 +15,7 @@ Trampoline_ASM_ARM FUNCTION
 start     
         PUSH    {lr}
         PUSH    {r0, r1, r2, r3, r4, lr}
-        VPUSH    {d0-d7}
+        VPUSH   {d0-d7}
         LDR     r5, =IsExecutedPtr
 try_lock        
         MOV     r1, #0x1
@@ -31,7 +31,8 @@ try_lock
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; call original method
 		
 
-        LDR     pc, [pc, #-8]
+        LDR   r5, =OldProc
+        B     TRAMPOLINE_EXIT
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; call hook handler or original method...
 CALL_NET_ENTRY
 
@@ -78,7 +79,7 @@ TRAMPOLINE_EXIT
         VPOP   {d0-d7}        
         POP    {r0, r1, r2, r3, r4, lr}
 
-        BX      r5
+        MOV     pc, r5
 ; outro signature, to automatically determine code size        
         dcb     0x78
         dcb     0x56

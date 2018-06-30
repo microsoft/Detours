@@ -741,9 +741,9 @@ struct _DETOUR_TRAMPOLINE
     void*           Trampoline;
     INT             IsExecuted;
     int*            IsExecutedPtr;    
-    void*           HookProc;      
+    void*           HookProc;
+    UCHAR*          OldProc;        
     void*           HookIntro;
-    UCHAR*          OldProc;
     void*           CallNetOutro;
     void*           HookOutro;
     
@@ -1722,7 +1722,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->HookOutro = BarrierOutro;
 			o->pTrampoline->Trampoline = endOfTramp;
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
-			o->pTrampoline->HookProc = EmptyHook;
+			o->pTrampoline->HookProc =  o->pTrampoline->pbDetour;// EmptyHook;
 			o->pTrampoline->IsExecutedPtr = (int*)new unsigned char[4];
             memcpy((endOfTramp + TrampolineSize), &o->pTrampoline->IsExecutedPtr, 4*4);
             *(INT*)((endOfTramp + TrampolineSize)+ 4*4) -= (INT)(trampoline - 1);
