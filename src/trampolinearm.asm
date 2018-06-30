@@ -13,6 +13,7 @@ Trampoline_ASM_ARM FUNCTION
         EXPORT  Trampoline_ASM_ARM 
          
 start     
+        PUSH    {lr}
         PUSH    {r0, r1, r2, r3, r4, lr}
         VPUSH    {d0-d7}
         LDR     r5, =IsExecutedPtr
@@ -40,8 +41,7 @@ CALL_NET_ENTRY
         ADD     r0, r0, #4
         LDR     r0, [r0]
 
-        LDR     r4, =NETIntro ;LDR     pc, [r4]
-        LDR     r5, [r4]
+        LDR     r4, =NETIntro 
         BLX     r4
 ; should call original method?              
         CMP     r0, #0
@@ -49,19 +49,17 @@ CALL_NET_ENTRY
 
 ; call original method
         LDR     r5, =OldProc
-        LDR     r6, [r5]
         BNE     TRAMPOLINE_EXIT
 
 CALL_HOOK_HANDLER
 ; adjust return address
-        LDR     r4, CALL_NET_OUTRO
-        ;LDR     pc, [r4]
-        STR     r4, [sp] ; store outro return to stack after hook handler is called 
 
 ; call hook handler        
         LDR     r5, =NewProc
+        LDR     r4, =CALL_NET_OUTRO
+        STR     r4, [sp, #0x54] ; store outro return to stack after hook handler is called         
         B       TRAMPOLINE_EXIT
-
+ ; this is where the handler returns...
 CALL_NET_OUTRO
         PUSH    {r0} ; save return handler
         LDR     r0, =IsExecutedPtr
@@ -69,11 +67,9 @@ CALL_NET_OUTRO
         LDR     r0, [r0] ; get address of next Hook struct pointer
 
         LDR     r5, =NETOutro
-        ;LDR     pc, [r5]
-        LDR     r6, [r5]
         BLX     r5
 
-        POP     {r0} ; restore return value of user handler...
+        POP     {r0,lr} ; restore return value of user handler...
 ; finally return to saved return address - the caller of this trampoline...        
         BX      lr
 
@@ -82,8 +78,13 @@ TRAMPOLINE_EXIT
         VPOP   {d0-d7}        
         POP    {r0, r1, r2, r3, r4, lr}
 
-        LDR     r6, [r5] 
         BX      r5
+; outro signature, to automatically determine code size        
+        dcb     0x78
+        dcb     0x56
+        dcb     0x34
+        dcb     0x12  
+
         ENDFUNC
 
         END                     

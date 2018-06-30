@@ -744,11 +744,12 @@ struct _DETOUR_TRAMPOLINE
     void*           HookProc;      
     void*           HookIntro;
     UCHAR*          OldProc;
+    void*           CallNetOutro;
     void*           HookOutro;
     
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 132);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
 
 enum {
     SIZE_OF_JMP = 8
@@ -1540,6 +1541,65 @@ UCHAR* DetourGetTrampolinePtr()
 	return Ptr;
 #endif    
 }
+
+ULONG GetTrampolineSize()
+{
+    UCHAR*		Ptr = DetourGetTrampolinePtr();
+	UCHAR*		BasePtr = Ptr;
+    ULONG       Signature;
+    ULONG       Index;
+
+	if(___TrampolineSize != 0)
+		return ___TrampolineSize;
+	
+	// search for signature
+	for(Index = 0; Index < 2000 /* some always large enough value*/; Index++)
+	{
+		Signature = *((ULONG*)Ptr);
+
+		if(Signature == 0x12345678)	
+		{
+			___TrampolineSize = (ULONG)(align4(Ptr + 7) - BasePtr);
+#ifdef DETOURS_ARM
+			return ___TrampolineSize + 1;
+#else
+			return ___TrampolineSize;
+#endif            
+		}
+
+		Ptr++;
+	}
+
+    return 0;
+}
+#ifdef DETOURS_ARM
+ULONG GetTrampolinePtr()
+{
+    UCHAR*		Ptr = DetourGetTrampolinePtr();
+	UCHAR*		BasePtr = Ptr;
+    ULONG       Signature;
+    ULONG       Index;
+
+	if(___TrampolineSize != 0)
+		return ___TrampolineSize;
+	
+	// search for signature
+	for(Index = 0; Index < 2000 /* some always large enough value*/; Index++)
+	{
+		Signature = *((ULONG*)Ptr);
+
+		if(Signature == 0x12345678)	
+		{
+			___TrampolineSize = (ULONG)(Ptr - BasePtr);
+			return ___TrampolineSize + 1;      
+		}
+
+		Ptr++;
+	}
+
+    return 0;
+}
+#endif
 int BarrierIntro()
 {
 	DETOUR_TRACE("Barrier Intro\n");
@@ -1654,16 +1714,20 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 
 #ifdef DETOURS_ARM
             UCHAR * trampoline = DetourGetTrampolinePtr();
-            const ULONG TrampolineSize = 0x80;
+            const ULONG TrampolineSize = GetTrampolineSize();
+      
             PBYTE endOfTramp = (PBYTE)(o->pTrampoline + 1);
-            memcpy(endOfTramp, trampoline - 1, TrampolineSize);
+            memcpy(endOfTramp, trampoline - 1, TrampolineSize + 6*4);
             o->pTrampoline->HookIntro = BarrierIntro;
 			o->pTrampoline->HookOutro = BarrierOutro;
 			o->pTrampoline->Trampoline = endOfTramp;
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
-			o->pTrampoline->HookProc = EmptyHook;//o->pTrampoline->pbDetour;
-			o->pTrampoline->IsExecutedPtr = (int*)new unsigned char[4];// (int*)&o->pTrampoline->IsExecuted;
-            memcpy((endOfTramp + 0x6C), &o->pTrampoline->IsExecutedPtr, 5*4);
+			o->pTrampoline->HookProc = EmptyHook;
+			o->pTrampoline->IsExecutedPtr = (int*)new unsigned char[4];
+            memcpy((endOfTramp + TrampolineSize), &o->pTrampoline->IsExecutedPtr, 4*4);
+            *(INT*)((endOfTramp + TrampolineSize)+ 4*4) -= (INT)(trampoline - 1);
+            *(INT*)((endOfTramp + TrampolineSize)+ 4*4) += (INT)endOfTramp;
+            memcpy((endOfTramp + TrampolineSize)+ 5*4, &o->pTrampoline->HookOutro, 4);
 			memset(o->pTrampoline->IsExecutedPtr, 0, sizeof(int));
             //detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, (PBYTE*)&o->pTrampoline->Trampoline);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, (PBYTE)o->pTrampoline->Trampoline);
