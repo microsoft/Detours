@@ -1051,6 +1051,96 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 
 //////////////////////////////////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// dotnet trampoline barrier definitions
+//
+#define MAX_HOOK_COUNT              1024
+#define MAX_ACE_COUNT               128
+#define MAX_THREAD_COUNT            128
+#define MAX_PASSTHRU_SIZE           1024 * 64
+
+#define ASSERT(expr, Msg)            RtlAssert((BOOL)(expr),(LPCWSTR) Msg);
+#define THROW(code, Msg)        { NtStatus = (code); RtlSetLastError(GetLastError(), NtStatus, Msg); goto THROW_OUTRO; }
+
+
+#define RETURN                      { RtlSetLastError(STATUS_SUCCESS, STATUS_SUCCESS, L""); NtStatus = STATUS_SUCCESS; goto FINALLY_OUTRO; }
+#define FORCE(expr)                 { if(!RTL_SUCCESS(NtStatus = (expr))) goto THROW_OUTRO; }
+#define IsValidPointer				RtlIsValidPointer
+
+typedef struct _DETOUR_TRAMPOLINE * PLOCAL_HOOK_INFO;
+
+typedef struct _HOOK_ACL_
+{
+	ULONG                   Count;
+	BOOL                    IsExclusive;
+	ULONG                   Entries[MAX_ACE_COUNT];
+}HOOK_ACL;
+
+typedef struct _HOOK_TRACE_INFO_
+{
+    PLOCAL_HOOK_INFO        Link;
+}HOOK_TRACE_INFO, *TRACED_HOOK_HANDLE;
+
+/*
+    Setup the ACLs after hook installation. Please note that every
+    hook starts suspended. You will have to set a proper ACL to
+    make it active!
+*/
+
+	LONG LhSetInclusiveACL(
+				ULONG* InThreadIdList,
+				ULONG InThreadCount,
+				TRACED_HOOK_HANDLE InHandle);
+
+	LONG LhSetExclusiveACL(
+				ULONG* InThreadIdList,
+				ULONG InThreadCount,
+				TRACED_HOOK_HANDLE InHandle);
+
+	LONG LhSetGlobalInclusiveACL(
+				ULONG* InThreadIdList,
+				ULONG InThreadCount);
+
+	LONG LhSetGlobalExclusiveACL(
+				ULONG* InThreadIdList,
+				ULONG InThreadCount);
+
+	LONG LhIsThreadIntercepted(
+				TRACED_HOOK_HANDLE InHook,
+				ULONG InThreadID,
+				BOOL* OutResult);
+
+    LONG LhSetACL(
+                HOOK_ACL* InAcl,
+                BOOL InIsExclusive,
+                ULONG* InThreadIdList,
+                ULONG InThreadCount);
+
+    HOOK_ACL* LhBarrierGetAcl();                
+/*
+    The following barrier methods are meant to be used in hook handlers only!
+
+    They will all fail with STATUS_NOT_SUPPORTED if called outside a
+    valid hook handler...
+*/
+LONG LhBarrierGetCallback(PVOID* OutValue);
+
+LONG LhBarrierGetReturnAddress(PVOID* OutValue);
+
+LONG LhBarrierGetAddressOfReturnAddress(PVOID** OutValue);
+
+//LONG LhBarrierBeginStackTrace(PVOID* OutBackup);
+
+//LONG LhBarrierEndStackTrace(PVOID InBackup);
+
+BOOL LhIsValidHandle(
+            TRACED_HOOK_HANDLE InTracedHandle,
+            PLOCAL_HOOK_INFO* OutHandle);
+
+void RtlAssert(BOOL InAssert,LPCWSTR lpMessageText);
+void RtlSetLastError(LONG InCode, LONG InNtStatus, WCHAR* InMessage);
 #endif // DETOURS_INTERNAL
 #endif // __cplusplus
 
