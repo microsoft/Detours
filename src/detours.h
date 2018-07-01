@@ -1064,7 +1064,9 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 #define ASSERT(expr, Msg)            RtlAssert((BOOL)(expr),(LPCWSTR) Msg);
 #define THROW(code, Msg)        { NtStatus = (code); RtlSetLastError(GetLastError(), NtStatus, Msg); goto THROW_OUTRO; }
 
+#define RTL_SUCCESS(ntstatus)       SUCCEEDED(ntstatus)
 
+#define STATUS_SUCCESS              0
 #define RETURN                      { RtlSetLastError(STATUS_SUCCESS, STATUS_SUCCESS, L""); NtStatus = STATUS_SUCCESS; goto FINALLY_OUTRO; }
 #define FORCE(expr)                 { if(!RTL_SUCCESS(NtStatus = (expr))) goto THROW_OUTRO; }
 #define IsValidPointer				RtlIsValidPointer
@@ -1135,12 +1137,92 @@ LONG LhBarrierGetAddressOfReturnAddress(PVOID** OutValue);
 
 //LONG LhBarrierEndStackTrace(PVOID InBackup);
 
+void LhBarrierThreadDetach();
+
+LONG LhBarrierProcessAttach();
+void LhBarrierProcessDetach();
+
 BOOL LhIsValidHandle(
             TRACED_HOOK_HANDLE InTracedHandle,
             PLOCAL_HOOK_INFO* OutHandle);
 
+BOOL IsLoaderLock();
+BOOL AcquireSelfProtection();
+
 void RtlAssert(BOOL InAssert,LPCWSTR lpMessageText);
 void RtlSetLastError(LONG InCode, LONG InNtStatus, WCHAR* InMessage);
+
+typedef struct _RTL_SPIN_LOCK_
+{
+    CRITICAL_SECTION        Lock;
+    BOOL                 IsOwned;
+}RTL_SPIN_LOCK;
+
+
+typedef struct _RUNTIME_INFO_
+{
+	// "true" if the current thread is within the related hook handler
+	BOOL            IsExecuting;
+	// the hook this information entry belongs to... This allows a per thread and hook storage!
+	DWORD           HLSIdent;
+	// the return address of the current thread's hook handler...
+	void*           RetAddress;
+    // the address of the return address of the current thread's hook handler...
+	void**          AddrOfRetAddr;
+}RUNTIME_INFO;
+
+typedef struct _THREAD_RUNTIME_INFO_
+{
+	RUNTIME_INFO*		Entries;
+	RUNTIME_INFO*		Current;
+	void*				Callback;
+	BOOL				IsProtected;
+}THREAD_RUNTIME_INFO, *LPTHREAD_RUNTIME_INFO;
+
+typedef struct _THREAD_LOCAL_STORAGE_
+{
+    THREAD_RUNTIME_INFO		Entries[MAX_THREAD_COUNT];
+    DWORD					IdList[MAX_THREAD_COUNT];
+    RTL_SPIN_LOCK			ThreadSafe;
+}THREAD_LOCAL_STORAGE;
+
+typedef struct _BARRIER_UNIT_
+{
+	HOOK_ACL				GlobalACL;
+	BOOL					IsInitialized;
+	THREAD_LOCAL_STORAGE	TLS;
+}BARRIER_UNIT;
+
+
+BOOL TlsGetCurrentValue(
+            THREAD_LOCAL_STORAGE* InTls,                
+            THREAD_RUNTIME_INFO** OutValue);
+BOOL TlsAddCurrentThread(THREAD_LOCAL_STORAGE* InTls);
+
+void RtlFreeMemory(void* InPointer);
+
+void* RtlAllocateMemory(
+            BOOL InZeroMemory, 
+            ULONG InSize);
+
+#undef RtlCopyMemory
+void RtlCopyMemory(
+            PVOID InDest,
+            PVOID InSource,
+            ULONG InByteCount);
+
+#undef RtlZeroMemory
+void RtlZeroMemory(
+            PVOID InTarget,
+            ULONG InByteCount);
+
+BOOL IsThreadIntercepted(
+	HOOK_ACL* LocalACL, 
+	ULONG InThreadID);
+void ReleaseSelfProtection();                
+
+extern BARRIER_UNIT         Unit;
+
 #endif // DETOURS_INTERNAL
 #endif // __cplusplus
 

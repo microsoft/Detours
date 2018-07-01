@@ -738,7 +738,10 @@ struct _DETOUR_TRAMPOLINE
     _DETOUR_ALIGN   rAlign[8];      // instruction alignment array.
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
-    HOOK_ACL        LocalACL;    
+    HOOK_ACL        LocalACL;
+    void*           Callback;    
+    ULONG           HLSIndex;
+    ULONG           HLSIdent;    
     void*           Trampoline;
     INT             IsExecuted;
     int*            IsExecutedPtr;    
@@ -1601,8 +1604,19 @@ ULONG GetTrampolinePtr()
     return 0;
 }
 #endif
+
 int BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
 {
+    /*
+    Description:
+
+        Will be called from assembler code and enters the 
+        thread deadlock barrier.
+    */
+    LPTHREAD_RUNTIME_INFO		Info;
+    RUNTIME_INFO*		        Runtime;
+	BOOL						Exists;
+
 	DETOUR_TRACE(("Barrier Intro InHandle=%p, InRetAddr=%p, InAddrOfRetAddr=%p \n",
         InHandle, InRetAddr, InAddrOfRetAddr) );
 
@@ -1610,10 +1624,115 @@ int BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRe
     InHandle -=1;
 #endif
 
-    LONG test = (LONG)InHandle;
-    test = (LONG)InRetAddr;
-    test = (LONG)InAddrOfRetAddr;        
-    return test;
+	// are we in OS loader lock?
+	if(IsLoaderLock())
+	{
+		/*
+			Execution of managed code or even any other code within any loader lock
+			may lead into unpredictable application behavior and therefore we just
+			execute without intercepting the call...
+		*/
+
+		/*  !!Note that the assembler code does not invoke LhBarrierOutro() in this case!! */
+
+		return FALSE;
+	}
+
+	// open pointer table
+	Exists = TlsGetCurrentValue(&Unit.TLS, &Info);
+
+	if(!Exists)
+	{
+		if(!TlsAddCurrentThread(&Unit.TLS))
+			return FALSE;
+	}
+
+	/*
+		To minimize APIs that can't be hooked, we are now entering the self protection.
+		This will allow anybody to hook any APIs except those required to setup
+		self protection.
+
+		Self protection prevents any further hook interception for the current fiber,
+		while setting up the "Thread Deadlock Barrier"...
+	*/
+	if(!AcquireSelfProtection())
+	{
+		/*  !!Note that the assembler code does not invoke LhBarrierOutro() in this case!! */
+
+		return FALSE;
+	}
+
+	ASSERT(InHandle->HLSIndex < MAX_HOOK_COUNT,L"barrier.c - InHandle->HLSIndex < MAX_HOOK_COUNT");
+
+	if(!Exists)
+	{
+		TlsGetCurrentValue(&Unit.TLS, &Info);
+
+		Info->Entries = (RUNTIME_INFO*)RtlAllocateMemory(TRUE, sizeof(RUNTIME_INFO) * MAX_HOOK_COUNT);
+
+		if(Info->Entries == NULL)
+			goto DONT_INTERCEPT;
+	}
+
+	// get hook runtime info...
+	Runtime = &Info->Entries[InHandle->HLSIndex];
+
+	if(Runtime->HLSIdent != InHandle->HLSIdent)
+	{
+		// just reset execution information
+		Runtime->HLSIdent = InHandle->HLSIdent;
+		Runtime->IsExecuting = FALSE;
+	}
+
+	// detect loops in hook execution hiearchy.
+	if(Runtime->IsExecuting)
+	{
+		/*
+			This implies that actually the handler has invoked itself. Because of
+			the special HookLocalStorage, this is now also signaled if other
+			hooks invoked by the related handler are calling it again.
+
+			I call this the "Thread deadlock barrier".
+
+			!!Note that the assembler code does not invoke LhBarrierOutro() in this case!!
+		*/
+
+		goto DONT_INTERCEPT;
+	}
+
+	Info->Callback = InHandle->Callback;
+	Info->Current = Runtime;
+
+	/*
+		Now we will negotiate thread/process access based on global and local ACL...
+	*/
+	Runtime->IsExecuting = IsThreadIntercepted(&InHandle->LocalACL, GetCurrentThreadId());
+
+	//Runtime->IsExecuting = 1;
+
+	if(!Runtime->IsExecuting)
+		goto DONT_INTERCEPT;
+
+	// save some context specific information
+	Runtime->RetAddress = InRetAddr;
+	Runtime->AddrOfRetAddr = InAddrOfRetAddr;
+
+	ReleaseSelfProtection();
+	
+	return TRUE;
+
+DONT_INTERCEPT:
+	/*  !!Note that the assembler code does not invoke UnmanagedHookOutro() in this case!! */
+
+	if(Info != NULL)
+	{
+		Info->Current = NULL;
+		Info->Callback = NULL;
+
+		ReleaseSelfProtection();
+	}
+
+	return FALSE;
 }
 int BarrierOutro(DETOUR_TRAMPOLINE* InHandle, void** InAddrOfRetAddr)
 {

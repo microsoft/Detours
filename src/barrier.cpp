@@ -9,6 +9,7 @@
 
 #define _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE 1
 #include <windows.h>
+#include <aux_ulib.h>
 #if (_MSC_VER < 1310)
 #else
 #pragma warning(push)
@@ -34,48 +35,7 @@
 // allocate at DLL Entry
 HANDLE              hEasyHookHeap = NULL;
 
-typedef struct _RTL_SPIN_LOCK_
-{
-    CRITICAL_SECTION        Lock;
-    BOOL                 IsOwned;
-}RTL_SPIN_LOCK;
-
-
-typedef struct _RUNTIME_INFO_
-{
-	// "true" if the current thread is within the related hook handler
-	BOOL            IsExecuting;
-	// the hook this information entry belongs to... This allows a per thread and hook storage!
-	DWORD           HLSIdent;
-	// the return address of the current thread's hook handler...
-	void*           RetAddress;
-    // the address of the return address of the current thread's hook handler...
-	void**          AddrOfRetAddr;
-}RUNTIME_INFO;
-
-typedef struct _THREAD_RUNTIME_INFO_
-{
-	RUNTIME_INFO*		Entries;
-	RUNTIME_INFO*		Current;
-	void*				Callback;
-	BOOL				IsProtected;
-}THREAD_RUNTIME_INFO, *LPTHREAD_RUNTIME_INFO;
-
-typedef struct _THREAD_LOCAL_STORAGE_
-{
-    THREAD_RUNTIME_INFO		Entries[MAX_THREAD_COUNT];
-    DWORD					IdList[MAX_THREAD_COUNT];
-    RTL_SPIN_LOCK			ThreadSafe;
-}THREAD_LOCAL_STORAGE;
-
-typedef struct _BARRIER_UNIT_
-{
-	HOOK_ACL				GlobalACL;
-	BOOL					IsInitialized;
-	THREAD_LOCAL_STORAGE	TLS;
-}BARRIER_UNIT;
-
-static BARRIER_UNIT         Unit;
+BARRIER_UNIT         Unit;
 
 void RtlInitializeLock(RTL_SPIN_LOCK* InLock);
 
@@ -86,29 +46,6 @@ void RtlReleaseLock(RTL_SPIN_LOCK* InLock);
 void RtlDeleteLock(RTL_SPIN_LOCK* InLock);
 
 void RtlSleep(ULONG InTimeout);
-
-void* RtlAllocateMemory(
-            BOOL InZeroMemory, 
-            ULONG InSize);
-
-void RtlFreeMemory(void* InPointer);
-
-#undef RtlCopyMemory
-void RtlCopyMemory(
-            PVOID InDest,
-            PVOID InSource,
-            ULONG InByteCount);
-
-#undef RtlMoveMemory
-BOOL RtlMoveMemory(
-            PVOID InDest,
-            PVOID InSource,
-            ULONG InByteCount);
-
-#undef RtlZeroMemory
-void RtlZeroMemory(
-            PVOID InTarget,
-            ULONG InByteCount);
 
 void RtlInitializeLock(RTL_SPIN_LOCK* OutLock)
 {
@@ -166,22 +103,21 @@ void RtlCopyMemory(
     }
 }
 
-BOOL RtlMoveMemory(
-            PVOID InDest,
-            PVOID InSource,
-            ULONG InByteCount)
+void* RtlAllocateMemory(BOOL InZeroMemory, ULONG InSize)
 {
-    PVOID       Buffer = RtlAllocateMemory(FALSE, InByteCount);
+    void*       Result = 
+#ifdef _DEBUG
+        malloc(InSize);
+#else
+        HeapAlloc(hEasyHookHeap, 0, InSize);
+#endif
 
-    if(Buffer == NULL)
-        return FALSE;
+    if(InZeroMemory && (Result != NULL))
+        RtlZeroMemory(Result, InSize);
 
-    RtlCopyMemory(Buffer, InSource, InByteCount);
-    RtlCopyMemory(InDest, Buffer, InByteCount);
-
-    RtlFreeMemory(Buffer);
-    return TRUE;
+    return Result;
 }
+
 
 #ifndef _DEBUG
     #pragma optimize ("", off) // suppress _memset
@@ -204,21 +140,6 @@ void RtlZeroMemory(
     #pragma optimize ("", on) 
 #endif
 
-
-void* RtlAllocateMemory(BOOL InZeroMemory, ULONG InSize)
-{
-    void*       Result = 
-#ifdef _DEBUG
-        malloc(InSize);
-#else
-        HeapAlloc(hEasyHookHeap, 0, InSize);
-#endif
-
-    if(InZeroMemory && (Result != NULL))
-        RtlZeroMemory(Result, InSize);
-
-    return Result;
-}
 
 LONG RtlProtectMemory(void* InPointer, ULONG InSize, ULONG InNewProtection)
 {
@@ -413,4 +334,380 @@ Parameters:
 HOOK_ACL* LhBarrierGetAcl()
 {
      return &Unit.GlobalACL;
+}
+
+LONG LhBarrierProcessAttach()
+{
+/*
+Description:
+
+    Will be called on DLL load and initializes all barrier structures.
+*/
+	RtlZeroMemory(&Unit, sizeof(Unit));
+
+	// globally accept all threads...
+	Unit.GlobalACL.IsExclusive = TRUE;
+
+	// allocate private heap
+    RtlInitializeLock(&Unit.TLS.ThreadSafe);
+
+    Unit.IsInitialized = TRUE;
+
+	return 0;
+}
+
+
+BOOL TlsGetCurrentValue(
+            THREAD_LOCAL_STORAGE* InTls,                
+            THREAD_RUNTIME_INFO** OutValue)
+{
+/*
+Description:
+
+    Queries the THREAD_RUNTIME_INFO for the calling thread.
+    The caller shall previously be added to the storage by
+    using TlsAddCurrentThread().
+
+Parameters:
+
+    - InTls
+
+        The storage where the caller is registered.
+
+    - OutValue
+
+        Is filled with a pointer to the caller's private storage entry.
+
+Returns:
+
+    FALSE if the caller was not registered in the storage, TRUE otherwise.
+*/
+	ULONG		CurrentId = (ULONG)GetCurrentThreadId();
+
+    LONG        Index;
+
+	for(Index = 0; Index < MAX_THREAD_COUNT; Index++)
+	{
+		if(InTls->IdList[Index] == CurrentId)
+		{
+			*OutValue = &InTls->Entries[Index];
+
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+BOOL TlsAddCurrentThread(THREAD_LOCAL_STORAGE* InTls)
+{
+/*
+Description:
+
+    Tries to reserve a THREAD_RUNTIME_INFO entry for the calling thread.
+    On success it may call TlsGetCurrentValue() to query a pointer to
+    its private entry.
+
+    This is a replacement for the Windows Thread Local Storage which seems
+    to cause trouble when using it in Explorer.EXE for example.
+
+    No parameter validation (for performance reasons).
+
+    This method will raise an assertion if the thread was already added
+    to the storage!
+
+Parameters:
+    - InTls
+
+        The thread local storage to allocate from.
+
+Returns:
+
+    TRUE on success, FALSE otherwise.
+*/
+	ULONG		CurrentId = (ULONG)GetCurrentThreadId();
+
+	LONG		Index = -1;
+    LONG		i;
+
+    RtlAcquireLock(&InTls->ThreadSafe);
+
+    // select Index AND check whether thread is already registered.
+	for(i = 0; i < MAX_THREAD_COUNT; i++)
+	{
+		if((InTls->IdList[i] == 0) && (Index == -1))
+			Index = i;
+		
+		ASSERT(InTls->IdList[i] != CurrentId,L"barrier.c - InTls->IdList[i] != CurrentId");
+	}
+
+	if(Index == -1)
+	{
+		RtlReleaseLock(&InTls->ThreadSafe);
+
+		return FALSE;
+	}
+
+	InTls->IdList[Index] = CurrentId;
+	RtlZeroMemory(&InTls->Entries[Index], sizeof(THREAD_RUNTIME_INFO));
+	
+	RtlReleaseLock(&InTls->ThreadSafe);
+
+	return TRUE;
+}
+
+void TlsRemoveCurrentThread(THREAD_LOCAL_STORAGE* InTls)
+{
+/*
+Description:
+
+    Removes the caller from the local storage. If the caller
+    is already removed, the method will do nothing.
+
+Parameters:
+
+    - InTls
+
+        The storage from which the caller should be removed.
+*/
+	ULONG		    CurrentId = (ULONG)GetCurrentThreadId();
+    ULONG           Index;
+
+    RtlAcquireLock(&InTls->ThreadSafe);
+
+	for(Index = 0; Index < MAX_THREAD_COUNT; Index++)
+	{
+		if(InTls->IdList[Index] == CurrentId)
+		{
+			InTls->IdList[Index] = 0;
+
+			RtlZeroMemory(&InTls->Entries[Index], sizeof(THREAD_RUNTIME_INFO));
+		}
+	}
+
+	RtlReleaseLock(&InTls->ThreadSafe);
+}
+
+void LhBarrierProcessDetach()
+{
+/*
+Description:
+
+    Will be called on DLL unload.
+*/
+	ULONG			Index;
+
+	RtlDeleteLock(&Unit.TLS.ThreadSafe);
+
+	// release thread specific resources
+	for(Index = 0; Index < MAX_THREAD_COUNT; Index++)
+	{
+		if(Unit.TLS.Entries[Index].Entries != NULL)
+			RtlFreeMemory(Unit.TLS.Entries[Index].Entries);
+	}
+
+	RtlZeroMemory(&Unit, sizeof(Unit));
+}
+
+void LhBarrierThreadDetach()
+{
+/*
+Description:
+
+    Will be called on thread termination and cleans up the TLS.
+*/
+	LPTHREAD_RUNTIME_INFO		Info;
+
+	if(TlsGetCurrentValue(&Unit.TLS, &Info))
+	{
+		if(Info->Entries != NULL)
+			RtlFreeMemory(Info->Entries);
+
+		Info->Entries = NULL;
+	}
+
+	TlsRemoveCurrentThread(&Unit.TLS);
+}
+
+RTL_SPIN_LOCK               GlobalHookLock;
+
+void LhCriticalInitialize()
+{
+/*
+Description:
+    
+    Fail safe initialization of global hooking structures...
+*/
+
+    RtlInitializeLock(&GlobalHookLock);
+}
+
+BOOL IsLoaderLock()
+{
+/*
+Returns:
+
+    TRUE if the current thread hols the OS loader lock, or the library was not initialized
+    properly. In both cases a hook handler should not be executed!
+
+    FALSE if it is safe to execute the hook handler.
+
+*/
+	BOOL     IsLoaderLock = FALSE;
+
+	return (!AuxUlibIsDLLSynchronizationHeld(&IsLoaderLock) || IsLoaderLock || !Unit.IsInitialized);
+}
+
+
+BOOL AcquireSelfProtection()
+{
+/*
+Description:
+
+    To provide more convenience for writing the TDB, this self protection
+    will disable ALL hooks for the current thread until ReleaseSelfProtection() 
+    is called. This allows one to call any API during TDB initialization
+    without being intercepted...
+
+Returns:
+
+    TRUE if the caller's runtime info has been locked down.
+
+    FALSE if the caller's runtime info already has been locked down
+    or is not available. The hook handler should not be executed in
+    this case!
+
+*/
+	LPTHREAD_RUNTIME_INFO		Runtime = NULL;
+
+	if(!TlsGetCurrentValue(&Unit.TLS, &Runtime) || Runtime->IsProtected)
+		return FALSE;
+
+	Runtime->IsProtected = TRUE;
+
+	return TRUE;
+}
+
+void ReleaseSelfProtection()
+{
+/*
+Description:
+
+    Exists the TDB self protection. Refer to AcquireSelfProtection() for more
+    information.
+
+    An assertion is raised if the caller has not owned the self protection.
+*/
+	LPTHREAD_RUNTIME_INFO		Runtime = NULL;
+
+	ASSERT(TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected,L"barrier.c - TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected");
+
+	Runtime->IsProtected = FALSE;
+}
+
+
+
+BOOL ACLContains(
+	HOOK_ACL* InACL,
+	ULONG InCheckID)
+{
+/*
+Returns:
+
+    TRUE if the given ACL contains the given ID, FALSE otherwise.
+*/
+    ULONG           Index;
+
+	for(Index = 0; Index < InACL->Count; Index++)
+	{
+		if(InACL->Entries[Index] == InCheckID)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
+
+BOOL IsThreadIntercepted(
+	HOOK_ACL* LocalACL, 
+	ULONG InThreadID)
+{
+/*
+Description:
+
+    Please refer to LhIsThreadIntercepted() for more information.
+
+Returns:
+
+    TRUE if the given thread is intercepted by the global AND local ACL,
+    FALSE otherwise.
+*/
+	ULONG				CheckID;
+
+	if(InThreadID == 0)
+		CheckID = GetCurrentThreadId();
+	else
+		CheckID = InThreadID;
+
+	if(ACLContains(&Unit.GlobalACL, CheckID))
+	{
+		if(ACLContains(LocalACL, CheckID))
+		{
+			if(LocalACL->IsExclusive)
+				return FALSE;
+		}
+		else
+		{
+			if(!LocalACL->IsExclusive)
+				return FALSE;
+		}
+
+		return !Unit.GlobalACL.IsExclusive;
+	}
+	else
+	{
+		if(ACLContains(LocalACL, CheckID))
+		{
+			if(LocalACL->IsExclusive)
+				return FALSE;
+		}
+		else
+		{
+			if(!LocalACL->IsExclusive)
+				return FALSE;
+		}
+
+		return Unit.GlobalACL.IsExclusive;
+	}
+}
+
+LONG LhBarrierGetCallback(PVOID* OutValue)
+{
+/*
+Description:
+
+    Is expected to be called inside a hook handler. Otherwise it
+    will fail with STATUS_NOT_SUPPORTED. The method retrieves
+    the callback initially passed to the related LhInstallHook()
+    call.
+
+*/
+    LONG            NtStatus;
+	LPTHREAD_RUNTIME_INFO       Runtime;
+
+    if(!IsValidPointer(OutValue, sizeof(PVOID)))
+        THROW(STATUS_INVALID_PARAMETER, L"Invalid result storage specified.");
+
+	if(!TlsGetCurrentValue(&Unit.TLS, &Runtime))
+        THROW(-1, L"The caller is not inside a hook handler.");
+
+	if(Runtime->Current != NULL)
+		*OutValue = Runtime->Callback;
+	else
+		THROW(-1, L"The caller is not inside a hook handler.");
+
+    RETURN;
+
+THROW_OUTRO:
+FINALLY_OUTRO:
+    return NtStatus;
 }
