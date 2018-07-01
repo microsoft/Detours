@@ -738,6 +738,7 @@ struct _DETOUR_TRAMPOLINE
     _DETOUR_ALIGN   rAlign[8];      // instruction alignment array.
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
+    HOOK_ACL        LocalACL;    
     void*           Trampoline;
     INT             IsExecuted;
     int*            IsExecutedPtr;    
@@ -749,7 +750,7 @@ struct _DETOUR_TRAMPOLINE
     
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
+//C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
 
 enum {
     SIZE_OF_JMP = 8
@@ -1600,19 +1601,95 @@ ULONG GetTrampolinePtr()
     return 0;
 }
 #endif
-int BarrierIntro()
+int BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
 {
-	DETOUR_TRACE("Barrier Intro\n");
-    return 1;
+	DETOUR_TRACE(("Barrier Intro InHandle=%p, InRetAddr=%p, InAddrOfRetAddr=%p \n",
+        InHandle, InRetAddr, InAddrOfRetAddr) );
+
+#if defined(DETOURS_X64) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
+    InHandle -=1;
+#endif
+
+    LONG test = (LONG)InHandle;
+    test = (LONG)InRetAddr;
+    test = (LONG)InAddrOfRetAddr;        
+    return test;
 }
-int BarrierOutro()
+int BarrierOutro(DETOUR_TRAMPOLINE* InHandle, void** InAddrOfRetAddr)
 {
-	DETOUR_TRACE("Barrier Outro\n");
+	DETOUR_TRACE(("Barrier Outro InHandle=%p, InAddrOfRetAddr=%p \n",
+        InHandle, InAddrOfRetAddr));
+        
+    LONG test = (LONG)InHandle;
+    test = (LONG)InAddrOfRetAddr;    
     return 1;
 }
 int EmptyHook()
 {
     return 2;
+}
+
+LONG LhSetInclusiveACL(
+            ULONG* InThreadIdList,
+            ULONG InThreadCount,
+            TRACED_HOOK_HANDLE InHandle)
+{
+/*
+Description:
+
+    Sets an inclusive hook local ACL based on the given thread ID list.
+    Only threads in this list will be intercepted by the hook. If the
+    global ACL also is inclusive, then all threads stated there are
+    intercepted too.
+
+Parameters:
+    - InThreadIdList
+        An array of thread IDs. If you specific zero for an entry in this array,
+        it will be automatically replaced with the calling thread ID.
+
+    - InThreadCount
+        The count of entries listed in the thread ID list. This value must not exceed
+        MAX_ACE_COUNT! 
+
+    - InHandle
+        The hook handle whose local ACL is going to be set.
+*/
+    PLOCAL_HOOK_INFO        Handle;
+
+    if(!LhIsValidHandle(InHandle, &Handle))
+        return -3;
+
+    return LhSetACL(&Handle->LocalACL, FALSE, InThreadIdList, InThreadCount);
+}
+
+LONG LhSetExclusiveACL(
+            ULONG* InThreadIdList,
+            ULONG InThreadCount,
+            TRACED_HOOK_HANDLE InHandle)
+{
+/*
+Description:
+
+    Sets an exclusive hook local ACL based on the given thread ID list.
+    
+Parameters:
+    - InThreadIdList
+        An array of thread IDs. If you specific zero for an entry in this array,
+        it will be automatically replaced with the calling thread ID.
+
+    - InThreadCount
+        The count of entries listed in the thread ID list. This value must not exceed
+        MAX_ACE_COUNT! 
+
+    - InHandle
+        The hook handle whose local ACL is going to be set.
+*/
+    PLOCAL_HOOK_INFO        Handle;
+
+    if(!LhIsValidHandle(InHandle, &Handle))
+        return -3;
+
+    return LhSetACL(&Handle->LocalACL, TRUE, InThreadIdList, InThreadCount);
 }
 #endif
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)

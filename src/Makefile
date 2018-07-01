@@ -59,6 +59,7 @@ OBJS = \
     $(OBJD)\disolia64.obj   \
     $(OBJD)\disolarm.obj    \
     $(OBJD)\disolarm64.obj  \
+    $(OBJD)\barrier.obj     \
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"    
     $(OBJD)\trampolinex64.obj \
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "X86"    
@@ -131,6 +132,7 @@ $(OBJD)\disolx64.obj: disasm.cpp detours.h
 $(OBJD)\disolia64.obj: disasm.cpp detours.h
 $(OBJD)\disolarm.obj: disasm.cpp detours.h
 $(OBJD)\disolarm64.obj: disasm.cpp detours.h
+$(OBJD)\barrier.obj: barrier.cpp detours.h
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
 $(OBJD)\trampolinex64.obj: trampolinex64.asm
      $(ML) /c /Sn /Fo $(OBJD)\trampolinex64.obj /nologo $(ASM_SOURCES)
