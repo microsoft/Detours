@@ -744,13 +744,12 @@ struct _DETOUR_TRAMPOLINE
     ULONG           HLSIdent;    
     void*           Trampoline;
     INT             IsExecuted;
+    void*           HookIntro; // . NET Intro function  
+    UCHAR*          OldProc;  // old target function      
+    void*           HookProc; // function we detour to
+    //void*           CallNetOutro;
+    void*           HookOutro;   // .NET Outro function  
     int*            IsExecutedPtr;    
-    void*           HookProc;
-    UCHAR*          OldProc;        
-    void*           HookIntro;
-    void*           CallNetOutro;
-    void*           HookOutro;
-    
 };
 
 //C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
@@ -1530,6 +1529,7 @@ UCHAR* DetourGetTrampolinePtr()
 
 #ifdef DETOURS_ARM
 	UCHAR* Ptr = (UCHAR*)Trampoline_ASM_ARM;
+    Ptr += 6 * 4;
 #endif
 
 #ifdef DETOURS_ARM64
@@ -1604,8 +1604,9 @@ ULONG GetTrampolinePtr()
     return 0;
 }
 #endif
-
-int BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
+ULONG                       GlobalSlotList[MAX_HOOK_COUNT];
+static LONG                 UniqueIDCounter = 0x10000000;
+ULONGLONG BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
 {
     /*
     Description:
@@ -1662,7 +1663,7 @@ int BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRe
 		return FALSE;
 	}
 
-	ASSERT(InHandle->HLSIndex < MAX_HOOK_COUNT,L"barrier.c - InHandle->HLSIndex < MAX_HOOK_COUNT");
+	//ASSERT(InHandle->HLSIndex < MAX_HOOK_COUNT,L"detours.cpp - InHandle->HLSIndex < MAX_HOOK_COUNT");
 
 	if(!Exists)
 	{
@@ -1734,14 +1735,50 @@ DONT_INTERCEPT:
 
 	return FALSE;
 }
-int BarrierOutro(DETOUR_TRAMPOLINE* InHandle, void** InAddrOfRetAddr)
+void* WINAPI BarrierOutro(DETOUR_TRAMPOLINE* InHandle, void** InAddrOfRetAddr)
 {
 	DETOUR_TRACE(("Barrier Outro InHandle=%p, InAddrOfRetAddr=%p \n",
         InHandle, InAddrOfRetAddr));
-        
-    LONG test = (LONG)InHandle;
-    test = (LONG)InAddrOfRetAddr;    
-    return 1;
+
+/*
+Description:
+    
+    Will just reset the "thread deadlock barrier" for the current hook handler and provides
+	some important integrity checks. 
+
+	The hook handle is just passed through, because the assembler code has no chance to
+	save it in any efficient manner at this point of execution...
+*/
+    RUNTIME_INFO*			Runtime;
+    LPTHREAD_RUNTIME_INFO	Info;
+
+	#ifdef _M_X64
+		InHandle -= 1;
+	#endif
+
+	ASSERT(AcquireSelfProtection(),L"detours.cpp - AcquireSelfProtection()");
+
+	ASSERT(TlsGetCurrentValue(&Unit.TLS, &Info) && (Info != NULL),L"detours.cpp - TlsGetCurrentValue(&Unit.TLS, &Info) && (Info != NULL)");
+
+	Runtime = &Info->Entries[InHandle->HLSIndex];
+
+	// leave handler context
+	Info->Current = NULL;
+	Info->Callback = NULL;
+
+	ASSERT(Runtime != NULL,L"detours.cpp - Runtime != NULL");
+
+	ASSERT(Runtime->IsExecuting,L"detours.cpp - Runtime->IsExecuting");
+
+	Runtime->IsExecuting = FALSE;
+
+	ASSERT(*InAddrOfRetAddr == NULL,L"detours.cpp - *InAddrOfRetAddr == NULL");
+
+	*InAddrOfRetAddr = Runtime->RetAddress;
+
+	ReleaseSelfProtection();
+
+	return InHandle;
 }
 int EmptyHook()
 {
@@ -1913,17 +1950,46 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
             const ULONG TrampolineSize = GetTrampolineSize();
       
             PBYTE endOfTramp = (PBYTE)(o->pTrampoline + 1);
-            memcpy(endOfTramp, trampoline - 1, TrampolineSize + 6*4);
+            PBYTE trampolineStart = align4(trampoline);
+            memcpy(endOfTramp, trampolineStart, TrampolineSize + 6*4);
             o->pTrampoline->HookIntro = BarrierIntro;
 			o->pTrampoline->HookOutro = BarrierOutro;
 			o->pTrampoline->Trampoline = endOfTramp;
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
-			o->pTrampoline->HookProc =  o->pTrampoline->pbDetour;// EmptyHook;
+			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;// EmptyHook;
 			o->pTrampoline->IsExecutedPtr = (int*)new unsigned char[4];
-            memcpy((endOfTramp + TrampolineSize), &o->pTrampoline->IsExecutedPtr, 4*4);
-            *(INT*)((endOfTramp + TrampolineSize)+ 4*4) -= (INT)(trampoline - 1);
-            *(INT*)((endOfTramp + TrampolineSize)+ 4*4) += (INT)endOfTramp;
-            memcpy((endOfTramp + TrampolineSize)+ 5*4, &o->pTrampoline->HookOutro, 4);
+            for(int x = 0; x < 6; x++) {
+                *(INT*)((endOfTramp + TrampolineSize) + (x * 4)) -= (INT)trampolineStart;
+                *(INT*)((endOfTramp + TrampolineSize) + (x * 4)) += (INT)endOfTramp;                
+            }
+            ULONG                       Index;
+            BOOL                        Exists;                   
+            // register in global HLS list
+            RtlAcquireLock(&GlobalHookLock);
+            {
+                o->pTrampoline->HLSIdent = UniqueIDCounter++;
+
+                Exists = FALSE;
+
+                for(Index = 0; Index < MAX_HOOK_COUNT; Index++)
+                {
+                    if(GlobalSlotList[Index] == 0)
+                    {
+                        GlobalSlotList[Index] = o->pTrampoline->HLSIdent;
+
+                        o->pTrampoline->HLSIndex = Index;
+
+                        Exists = TRUE;
+
+                        break;
+                    }
+                }
+            }
+            RtlReleaseLock(&GlobalHookLock);            
+            //memcpy((endOfTramp + TrampolineSize), &o->pTrampoline->IsExecutedPtr, 4*4);
+            //*(INT*)((endOfTramp + TrampolineSize)+ 4*4) -= (INT)(trampoline - 1);
+            //*(INT*)((endOfTramp + TrampolineSize)+ 4*4) += (INT)endOfTramp;
+            //memcpy((endOfTramp + TrampolineSize)+ 5*4, &o->pTrampoline->HookOutro, 4);
 			memset(o->pTrampoline->IsExecutedPtr, 0, sizeof(int));
             //detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, (PBYTE*)&o->pTrampoline->Trampoline);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, (PBYTE)o->pTrampoline->Trampoline);

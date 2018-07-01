@@ -33,19 +33,10 @@
 #endif
 
 // allocate at DLL Entry
-HANDLE              hEasyHookHeap = NULL;
+HANDLE              hCoreHookHeap = NULL;
 
 BARRIER_UNIT         Unit;
 
-void RtlInitializeLock(RTL_SPIN_LOCK* InLock);
-
-void RtlAcquireLock(RTL_SPIN_LOCK* InLock);
-
-void RtlReleaseLock(RTL_SPIN_LOCK* InLock);
-
-void RtlDeleteLock(RTL_SPIN_LOCK* InLock);
-
-void RtlSleep(ULONG InTimeout);
 
 void RtlInitializeLock(RTL_SPIN_LOCK* OutLock)
 {
@@ -58,14 +49,14 @@ void RtlAcquireLock(RTL_SPIN_LOCK* InLock)
 {
     EnterCriticalSection(&InLock->Lock);
 
-    ASSERT(!InLock->IsOwned,L"memory.c - !InLock->IsOwned");
+    ASSERT(!InLock->IsOwned,L"barrier.cpp - !InLock->IsOwned");
 
     InLock->IsOwned = TRUE;
 }
 
 void RtlReleaseLock(RTL_SPIN_LOCK* InLock)
 {
-    ASSERT(InLock->IsOwned,L"memory.c - InLock->IsOwned");
+    ASSERT(InLock->IsOwned,L"barrier.cpp - InLock->IsOwned");
 
     InLock->IsOwned = FALSE;
 
@@ -74,7 +65,7 @@ void RtlReleaseLock(RTL_SPIN_LOCK* InLock)
 
 void RtlDeleteLock(RTL_SPIN_LOCK* InLock)
 {
-    ASSERT(!InLock->IsOwned,L"memory.c - InLock->IsOwned");
+    ASSERT(!InLock->IsOwned,L"barrier.cpp - InLock->IsOwned");
 
     DeleteCriticalSection(&InLock->Lock);
 }
@@ -109,7 +100,7 @@ void* RtlAllocateMemory(BOOL InZeroMemory, ULONG InSize)
 #ifdef _DEBUG
         malloc(InSize);
 #else
-        HeapAlloc(hEasyHookHeap, 0, InSize);
+        HeapAlloc(hCoreHookHeap, 0, InSize);
 #endif
 
     if(InZeroMemory && (Result != NULL))
@@ -164,7 +155,7 @@ void RtlFreeMemory(void* InPointer)
 #ifdef _DEBUG
     free(InPointer);
 #else
-    HeapFree(hEasyHookHeap, 0, InPointer);
+    HeapFree(hCoreHookHeap, 0, InPointer);
 #endif
 }
 
@@ -178,10 +169,11 @@ BOOL RtlIsValidPointer(PVOID InPtr, ULONG InSize)
     if((InPtr == NULL) || (InPtr == (PVOID)~0))
         return FALSE;
 
-    ASSERT(!IsBadReadPtr(InPtr, InSize),L"memory.c - !IsBadReadPtr(InPtr, InSize)");
+    ASSERT(!IsBadReadPtr(InPtr, InSize),L"barrier.cpp - !IsBadReadPtr(InPtr, InSize)");
 
     return TRUE;
 }
+
 static PWCHAR           LastError = L"";
 static ULONG            LastErrorCode = 0;
 
@@ -351,7 +343,9 @@ Description:
 	// allocate private heap
     RtlInitializeLock(&Unit.TLS.ThreadSafe);
 
-    Unit.IsInitialized = TRUE;
+    Unit.IsInitialized =  AuxUlibInitialize() ? TRUE: FALSE;;
+
+    hCoreHookHeap = HeapCreate(0, 0, 0);
 
 	return 0;
 }
@@ -506,6 +500,8 @@ Description:
 	}
 
 	RtlZeroMemory(&Unit, sizeof(Unit));
+
+    HeapDestroy(hCoreHookHeap);    
 }
 
 void LhBarrierThreadDetach()

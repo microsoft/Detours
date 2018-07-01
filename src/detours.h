@@ -494,6 +494,14 @@ BOOL WINAPI DetourSetRetainRegions(_In_ BOOL fRetain);
 PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound);
 PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
 
+void LhBarrierThreadDetach();
+
+LONG LhBarrierProcessAttach();
+void LhBarrierProcessDetach();
+
+void LhCriticalInitialize();
+
+
 ////////////////////////////////////////////////////////////// Code Functions.
 //
 PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
@@ -1137,11 +1145,6 @@ LONG LhBarrierGetAddressOfReturnAddress(PVOID** OutValue);
 
 //LONG LhBarrierEndStackTrace(PVOID InBackup);
 
-void LhBarrierThreadDetach();
-
-LONG LhBarrierProcessAttach();
-void LhBarrierProcessDetach();
-
 BOOL LhIsValidHandle(
             TRACED_HOOK_HANDLE InTracedHandle,
             PLOCAL_HOOK_INFO* OutHandle);
@@ -1157,6 +1160,18 @@ typedef struct _RTL_SPIN_LOCK_
     CRITICAL_SECTION        Lock;
     BOOL                 IsOwned;
 }RTL_SPIN_LOCK;
+void RtlInitializeLock(RTL_SPIN_LOCK* InLock);
+
+void RtlAcquireLock(RTL_SPIN_LOCK* InLock);
+
+void RtlReleaseLock(RTL_SPIN_LOCK* InLock);
+
+void RtlDeleteLock(RTL_SPIN_LOCK* InLock);
+
+void RtlSleep(ULONG InTimeout);
+
+
+
 
 
 typedef struct _RUNTIME_INFO_
@@ -1221,7 +1236,11 @@ BOOL IsThreadIntercepted(
 	ULONG InThreadID);
 void ReleaseSelfProtection();                
 
+
+
 extern BARRIER_UNIT         Unit;
+extern RTL_SPIN_LOCK        GlobalHookLock;
+
 
 #endif // DETOURS_INTERNAL
 #endif // __cplusplus
