@@ -96,7 +96,7 @@ try_dec_lock2
 
         LDR     r5, =OldProc
         LDR     r5, [r5]
-        BNE     TRAMPOLINE_EXIT
+        B     TRAMPOLINE_EXIT
 
 CALL_HOOK_HANDLER
 
