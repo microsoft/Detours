@@ -738,10 +738,12 @@ struct _DETOUR_TRAMPOLINE
     _DETOUR_ALIGN   rAlign[8];      // instruction alignment array.
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
+    //PDETOUR_HOOK_HANDLE pHandle;
     HOOK_ACL        LocalACL;
     void*           Callback;    
     ULONG           HLSIndex;
-    ULONG           HLSIdent;    
+    ULONG           HLSIdent;
+    TRACED_HOOK_HANDLE OutHandle; // handle returned to user  
     void*           Trampoline;
     INT             IsExecuted;
     void*           HookIntro; // . NET Intro function  
@@ -751,6 +753,23 @@ struct _DETOUR_TRAMPOLINE
     void*           HookOutro;   // .NET Outro function  
     int*            IsExecutedPtr;    
 };
+
+typedef struct _DETOUR_HOOK_HANDLE
+{
+    HOOK_ACL        LocalACL;
+    void*           Callback;    
+    ULONG           HLSIndex;
+    ULONG           HLSIdent;
+    TRACED_HOOK_HANDLE OutHandle; // handle returned to user  
+    void*           Trampoline;
+    INT             IsExecuted;
+    void*           HookIntro; // . NET Intro function  
+    UCHAR*          OldProc;  // old target function      
+    void*           HookProc; // function we detour to
+    //void*           CallNetOutro;
+    void*           HookOutro;   // .NET Outro function  
+    int*            IsExecutedPtr;
+}DETOUR_HOOK_HANDLE, *PDETOUR_HOOK_HANDLE;
 
 //C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
 
@@ -1066,7 +1085,7 @@ static void detour_runnable_trampoline_regions()
     // Mark all of the regions as executable.
     for (PDETOUR_REGION pRegion = s_pRegions; pRegion != NULL; pRegion = pRegion->pNext) {
         DWORD dwOld;
-        VirtualProtect(pRegion, DETOUR_REGION_SIZE, PAGE_EXECUTE_READ, &dwOld);
+        VirtualProtect(pRegion, DETOUR_REGION_SIZE, PAGE_EXECUTE_READWRITE, &dwOld);
         FlushInstructionCache(hProcess, pRegion, DETOUR_REGION_SIZE);
     }
 }
@@ -1817,7 +1836,11 @@ Parameters:
 
     return LhSetACL(&Handle->LocalACL, FALSE, InThreadIdList, InThreadCount);
 }
-
+static TRACED_HOOK_HANDLE           LastOutHandle = NULL;
+void* WINAPI DetourGetLastHandle()
+{
+    return LastOutHandle;
+}
 LONG LhSetExclusiveACL(
             ULONG* InThreadIdList,
             ULONG InThreadCount,
@@ -1962,6 +1985,13 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
                 *(INT*)((endOfTramp + TrampolineSize) + (x * 4)) -= (INT)trampolineStart;
                 *(INT*)((endOfTramp + TrampolineSize) + (x * 4)) += (INT)endOfTramp;                
             }
+            TRACED_HOOK_HANDLE OutHandle 
+                = (TRACED_HOOK_HANDLE) new unsigned char[sizeof(sizeof(HOOK_TRACE_INFO))];
+
+            LastOutHandle = o->pTrampoline->OutHandle = OutHandle;
+
+            OutHandle->Link = o->pTrampoline;
+
             ULONG                       Index;
             BOOL                        Exists;                   
             // register in global HLS list
