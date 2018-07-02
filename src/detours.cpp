@@ -1312,7 +1312,11 @@ static void detour_free_trampoline(PDETOUR_TRAMPOLINE pTrampoline)
         ((ULONG_PTR)pTrampoline & ~(ULONG_PTR)0xffff);
 #ifdef DETOURS_ARM
     delete[] pTrampoline->IsExecutedPtr;
-    delete[] pTrampoline->OutHandle;
+    delete[] pTrampoline->OutHandle;  
+    if (GlobalSlotList[pTrampoline->HLSIndex] == pTrampoline->HLSIdent)
+    {
+        GlobalSlotList[pTrampoline->HLSIndex] = 0;
+    }   
 #endif
     memset(pTrampoline, 0, sizeof(*pTrampoline));
     pTrampoline->pbRemain = (PBYTE)pRegion->pFree;
@@ -2051,8 +2055,8 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 
             OutHandle->Link = o->pTrampoline;
 
-            ULONG                       Index;
-            BOOL                        Exists;                   
+            ULONG   Index;
+            BOOL    Exists;                   
             // register in global HLS list
             RtlAcquireLock(&GlobalHookLock);
             {
