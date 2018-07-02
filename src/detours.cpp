@@ -1988,8 +1988,8 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->HookOutro = BarrierOutro;
 			o->pTrampoline->Trampoline = endOfTramp;
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
-			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;// EmptyHook;
-			o->pTrampoline->IsExecutedPtr = (int*)new unsigned char[4];
+			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
+			o->pTrampoline->IsExecutedPtr = new int[1] {0};
             // relocate relative addresses the trampoline uses the above
             // function pointers
             const ULONG trampolinePtrCount = 6;
@@ -1998,7 +1998,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) += (INT)endOfTramp;                
             }
             TRACED_HOOK_HANDLE OutHandle 
-                = (TRACED_HOOK_HANDLE) new unsigned char[sizeof(sizeof(HOOK_TRACE_INFO))];
+                = (TRACED_HOOK_HANDLE) new unsigned char[sizeof(HOOK_TRACE_INFO)];
 
             LastOutHandle = o->pTrampoline->OutHandle = OutHandle;
 
@@ -2028,15 +2028,9 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
                 }
             }
             RtlReleaseLock(&GlobalHookLock);            
-            //memcpy((endOfTramp + TrampolineSize), &o->pTrampoline->IsExecutedPtr, 4*4);
-            //*(INT*)((endOfTramp + TrampolineSize)+ 4*4) -= (INT)(trampoline - 1);
-            //*(INT*)((endOfTramp + TrampolineSize)+ 4*4) += (INT)endOfTramp;
-            //memcpy((endOfTramp + TrampolineSize)+ 5*4, &o->pTrampoline->HookOutro, 4);
 			memset(o->pTrampoline->IsExecutedPtr, 0, sizeof(int));
-            //detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, (PBYTE*)&o->pTrampoline->Trampoline);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, (PBYTE)o->pTrampoline->Trampoline);
-
-           // PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, o->pTrampoline->pbDetour);
+            // PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, o->pTrampoline->pbDetour);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = DETOURS_PBYTE_TO_PFUNC(o->pTrampoline->rbCode);
             UNREFERENCED_PARAMETER(pbCode);
