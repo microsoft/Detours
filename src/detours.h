@@ -485,15 +485,18 @@ void* WINAPI DetourGetLastHandle(VOID);
 #define MAX_THREAD_COUNT            128
 #define MAX_PASSTHRU_SIZE           1024 * 64
 
-#define ASSERT(expr, Msg)            RtlAssert((BOOL)(expr),(LPCWSTR) Msg);
-#define THROW(code, Msg)        { NtStatus = (code); RtlSetLastError(GetLastError(), NtStatus, Msg); goto THROW_OUTRO; }
+#define ASSERT2(expr, Msg)          RtlAssert((BOOL)(expr),(LPCWSTR) Msg);
+#define THROW(code, Msg)            { NtStatus = (code); RtlSetLastError(GetLastError(), NtStatus, Msg); goto THROW_OUTRO; }
 
 #define RTL_SUCCESS(ntstatus)       SUCCEEDED(ntstatus)
 
 #define STATUS_SUCCESS              0
-#define RETURN                      { RtlSetLastError(STATUS_SUCCESS, STATUS_SUCCESS, L""); NtStatus = STATUS_SUCCESS; goto FINALLY_OUTRO; }
+#define RETURN                      { RtlSetLastError(STATUS_SUCCESS, STATUS_SUCCESS, (PWCHAR)L""); NtStatus = STATUS_SUCCESS; goto FINALLY_OUTRO; }
 #define FORCE(expr)                 { if(!RTL_SUCCESS(NtStatus = (expr))) goto THROW_OUTRO; }
 #define IsValidPointer				RtlIsValidPointer
+
+
+BOOL RtlIsValidPointer(PVOID InPtr, ULONG InSize);
 
 typedef struct _DETOUR_TRAMPOLINE * PLOCAL_HOOK_INFO;
 
@@ -585,7 +588,14 @@ void LhBarrierProcessDetach();
 
 void LhCriticalInitialize();
 
+LONG LhInstallHook(
+            void* InEntryPoint,
+            void* InHookProc,
+            void* InCallback,
+            TRACED_HOOK_HANDLE OutHandle);
+
 PVOID WINAPI DetourGetHookHandleForFunction(PVOID * ppPointer);
+LONG WINAPI DetourSetCallbackForLocalHook(PVOID* ppPointer, PVOID pCallback);
 
 ////////////////////////////////////////////////////////////// Code Functions.
 //

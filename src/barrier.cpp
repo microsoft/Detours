@@ -49,14 +49,14 @@ void RtlAcquireLock(RTL_SPIN_LOCK* InLock)
 {
     EnterCriticalSection(&InLock->Lock);
 
-    ASSERT(!InLock->IsOwned,L"barrier.cpp - !InLock->IsOwned");
+    ASSERT2(!InLock->IsOwned,L"barrier.cpp - !InLock->IsOwned");
 
     InLock->IsOwned = TRUE;
 }
 
 void RtlReleaseLock(RTL_SPIN_LOCK* InLock)
 {
-    ASSERT(InLock->IsOwned,L"barrier.cpp - InLock->IsOwned");
+    ASSERT2(InLock->IsOwned,L"barrier.cpp - InLock->IsOwned");
 
     InLock->IsOwned = FALSE;
 
@@ -65,7 +65,7 @@ void RtlReleaseLock(RTL_SPIN_LOCK* InLock)
 
 void RtlDeleteLock(RTL_SPIN_LOCK* InLock)
 {
-    ASSERT(!InLock->IsOwned,L"barrier.cpp - InLock->IsOwned");
+    ASSERT2(!InLock->IsOwned,L"barrier.cpp - InLock->IsOwned");
 
     DeleteCriticalSection(&InLock->Lock);
 }
@@ -98,7 +98,7 @@ void* RtlAllocateMemory(BOOL InZeroMemory, ULONG InSize)
 {
     void*       Result = 
 #ifdef _DEBUG
-        malloc(InSize);
+		HeapAlloc(hCoreHookHeap, 0, InSize);
 #else
         HeapAlloc(hCoreHookHeap, 0, InSize);
 #endif
@@ -138,7 +138,7 @@ LONG RtlProtectMemory(void* InPointer, ULONG InSize, ULONG InNewProtection)
     LONG        NtStatus;
 
     if(!VirtualProtect(InPointer, InSize, InNewProtection, &OldProtect)) {
-        THROW(STATUS_INVALID_PARAMETER, L"Unable to make memory executable.")
+        THROW(STATUS_INVALID_PARAMETER, (WCHAR*)L"Unable to make memory executable.")
     }
     else {
         return 0;
@@ -150,10 +150,10 @@ THROW_OUTRO:
 
 void RtlFreeMemory(void* InPointer)
 {
-	ASSERT(InPointer != NULL,L"InPointer != NULL");
+	ASSERT2(InPointer != NULL,L"barrier.cpp - InPointer != NULL");
 
 #ifdef _DEBUG
-    free(InPointer);
+    //free(InPointer);
 #else
     HeapFree(hCoreHookHeap, 0, InPointer);
 #endif
@@ -169,12 +169,12 @@ BOOL RtlIsValidPointer(PVOID InPtr, ULONG InSize)
     if((InPtr == NULL) || (InPtr == (PVOID)~0))
         return FALSE;
 
-    ASSERT(!IsBadReadPtr(InPtr, InSize),L"barrier.cpp - !IsBadReadPtr(InPtr, InSize)");
+    ASSERT2(!IsBadReadPtr(InPtr, InSize),L"barrier.cpp - !IsBadReadPtr(InPtr, InSize)");
 
     return TRUE;
 }
 
-static PWCHAR           LastError = L"";
+static PWCHAR           LastError = (PWCHAR)L"";
 static ULONG            LastErrorCode = 0;
 
 void RtlSetLastError(LONG InCode, LONG InNtStatus, WCHAR* InMessage)
@@ -182,7 +182,7 @@ void RtlSetLastError(LONG InCode, LONG InNtStatus, WCHAR* InMessage)
     LastErrorCode = InCode;
 
     if(InMessage == NULL)
-        LastError = L"";
+        LastError = (PWCHAR)L"";
     else
     {
         if(InNtStatus == 0) {
@@ -300,7 +300,7 @@ Parameters:
 
     ULONG           Index;
 
-    ASSERT(IsValidPointer(InAcl, sizeof(HOOK_ACL)),L"acl.c - IsValidPointer(InAcl, sizeof(HOOK_ACL))");
+    ASSERT2(IsValidPointer(InAcl, sizeof(HOOK_ACL)),L"barrier.cpp - IsValidPointer(InAcl, sizeof(HOOK_ACL))");
 
     if(InThreadCount > MAX_ACE_COUNT)
         return -2;
@@ -431,7 +431,7 @@ Returns:
 		if((InTls->IdList[i] == 0) && (Index == -1))
 			Index = i;
 		
-		ASSERT(InTls->IdList[i] != CurrentId,L"barrier.c - InTls->IdList[i] != CurrentId");
+		ASSERT2(InTls->IdList[i] != CurrentId,L"barrier.cpp - InTls->IdList[i] != CurrentId");
 	}
 
 	if(Index == -1)
@@ -595,7 +595,7 @@ Description:
 */
 	LPTHREAD_RUNTIME_INFO		Runtime = NULL;
 
-	ASSERT(TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected,L"barrier.c - TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected");
+	ASSERT2(TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected,L"barrier.c - TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected");
 
 	Runtime->IsProtected = FALSE;
 }
@@ -691,19 +691,95 @@ Description:
 	LPTHREAD_RUNTIME_INFO       Runtime;
 
     if(!IsValidPointer(OutValue, sizeof(PVOID)))
-        THROW(STATUS_INVALID_PARAMETER, L"Invalid result storage specified.");
+        THROW(STATUS_INVALID_PARAMETER, (PWCHAR)L"Invalid result storage specified.");
 
 	if(!TlsGetCurrentValue(&Unit.TLS, &Runtime))
-        THROW(-1, L"The caller is not inside a hook handler.");
+        THROW(-1, (PWCHAR)("The caller is not inside a hook handler."));
 
 	if(Runtime->Current != NULL)
 		*OutValue = Runtime->Callback;
 	else
-		THROW(-1, L"The caller is not inside a hook handler.");
+		THROW(-1, (PWCHAR)L"The caller is not inside a hook handler.");
 
     RETURN;
 
 THROW_OUTRO:
 FINALLY_OUTRO:
     return NtStatus;
+}
+
+LONG LhInstallHook(
+            void* InEntryPoint,
+            void* InHookProc,
+            void* InCallback,
+            TRACED_HOOK_HANDLE OutHandle)
+{
+/*
+Description:
+
+    Installs a hook at the given entry point, redirecting all
+    calls to the given hooking method. The returned handle will
+    either be released on library unloading or explicitly through
+    LhUninstallHook() or LhUninstallAllHooks().
+
+Parameters:
+
+    - InEntryPoint
+
+        An entry point to hook. Not all entry points are hookable. In such
+        a case STATUS_NOT_SUPPORTED will be returned.
+
+    - InHookProc
+
+        The method that should be called instead of the given entry point.
+        Please note that calling convention, parameter count and return value
+        shall match EXACTLY!
+
+    - InCallback
+
+        An uninterpreted callback later available through
+        LhBarrierGetCallback().
+
+    - OutPHandle
+
+        The memory portion supplied by *OutHandle is expected to be preallocated
+        by the caller. This structure is then filled by the method on success and
+        must stay valid for hook-life time. Only if you explicitly call one of
+        the hook uninstallation APIs, you can safely release the handle memory.
+
+Returns:
+
+    STATUS_NO_MEMORY
+    
+        Unable to allocate memory around the target entry point.
+    
+    STATUS_NOT_SUPPORTED
+    
+        The target entry point contains unsupported instructions.
+    
+    STATUS_INSUFFICIENT_RESOURCES
+    
+        The limit of MAX_HOOK_COUNT simultaneous hooks was reached.
+    
+*/
+
+    LONG error = -1;
+
+    error = DetourTransactionBegin();
+
+    error = DetourUpdateThread(GetCurrentThread());
+
+    error = DetourAttach(&(PVOID&)InEntryPoint, InHookProc);
+
+    error = DetourTransactionCommit();
+
+	TRACED_HOOK_HANDLE handle = (TRACED_HOOK_HANDLE)DetourGetHookHandleForFunction(&(PVOID&)InEntryPoint);
+
+    if(OutHandle != NULL && handle != NULL) {
+        OutHandle->Link = handle->Link;
+    }
+    if(InCallback != NULL) {
+        error = DetourSetCallbackForLocalHook(&(PVOID&)InEntryPoint, InCallback);        
+    }
+    return error;
 }

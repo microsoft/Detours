@@ -1775,9 +1775,9 @@ Description:
 		InHandle -= 1;
 #endif
 
-	ASSERT(AcquireSelfProtection(),L"detours.cpp - AcquireSelfProtection()");
+	ASSERT2(AcquireSelfProtection(),L"detours.cpp - AcquireSelfProtection()");
 
-	ASSERT(TlsGetCurrentValue(&Unit.TLS, &Info) && (Info != NULL),L"detours.cpp - TlsGetCurrentValue(&Unit.TLS, &Info) && (Info != NULL)");
+	ASSERT2(TlsGetCurrentValue(&Unit.TLS, &Info) && (Info != NULL),L"detours.cpp - TlsGetCurrentValue(&Unit.TLS, &Info) && (Info != NULL)");
 
 	Runtime = &Info->Entries[InHandle->HLSIndex];
 
@@ -1785,13 +1785,13 @@ Description:
 	Info->Current = NULL;
 	Info->Callback = NULL;
 
-	ASSERT(Runtime != NULL,L"detours.cpp - Runtime != NULL");
+	ASSERT2(Runtime != NULL,L"detours.cpp - Runtime != NULL");
 
-	ASSERT(Runtime->IsExecuting,L"detours.cpp - Runtime->IsExecuting");
+	ASSERT2(Runtime->IsExecuting,L"detours.cpp - Runtime->IsExecuting");
 
 	Runtime->IsExecuting = FALSE;
 
-	ASSERT(*InAddrOfRetAddr == NULL,L"detours.cpp - *InAddrOfRetAddr == NULL");
+	ASSERT2(*InAddrOfRetAddr == NULL,L"detours.cpp - *InAddrOfRetAddr == NULL");
 
 	*InAddrOfRetAddr = Runtime->RetAddress;
 
@@ -1802,6 +1802,39 @@ Description:
 int EmptyHook()
 {
     return 2;
+}
+
+
+LONG LhIsThreadIntercepted(
+	TRACED_HOOK_HANDLE InHook,
+	ULONG InThreadID,
+    BOOL* OutResult)
+{
+/*
+Description:
+
+    This method will negotiate whether a given thread passes
+    the ACLs and would invoke the related hook handler. Refer
+    to the source code of Is[Thread/Process]Intercepted() for more information
+    about the implementation.
+
+*/
+    LONG                NtStatus;
+    PLOCAL_HOOK_INFO    Handle;
+
+    if(!LhIsValidHandle(InHook, &Handle))
+        THROW(-1, (PWCHAR)L"The given hook handle is invalid or already disposed.");
+
+    if(!IsValidPointer(OutResult, sizeof(BOOL)))
+        THROW(-3, (PWCHAR)L"Invalid pointer for result storage.");
+
+    *OutResult = IsThreadIntercepted(&Handle->LocalACL, InThreadID);
+
+    RETURN;
+
+THROW_OUTRO:
+FINALLY_OUTRO:
+    return NtStatus;
 }
 
 LONG LhSetInclusiveACL(
@@ -1849,6 +1882,17 @@ PVOID WINAPI DetourGetHookHandleForFunction(PVOID* ppPointer)
         return pTrampoline->OutHandle;
     }
     return NULL;
+}
+LONG WINAPI DetourSetCallbackForLocalHook(PVOID* ppPointer, PVOID pCallback)
+{
+    PDETOUR_TRAMPOLINE pTrampoline =
+        (PDETOUR_TRAMPOLINE)DetourCodeFromPointer(*ppPointer, NULL);
+    if(pTrampoline != NULL) {
+        pTrampoline->Callback = pCallback;
+        return 0;
+    }
+
+    return -1;
 }
 LONG LhSetExclusiveACL(
             ULONG* InThreadIdList,
