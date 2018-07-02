@@ -1771,9 +1771,9 @@ Description:
     RUNTIME_INFO*			Runtime;
     LPTHREAD_RUNTIME_INFO	Info;
 
-	#ifdef _M_X64
+#if defined(DETOURS_X64) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
 		InHandle -= 1;
-	#endif
+#endif
 
 	ASSERT(AcquireSelfProtection(),L"detours.cpp - AcquireSelfProtection()");
 
