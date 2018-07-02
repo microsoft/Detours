@@ -2078,8 +2078,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
                     }
                 }
             }
-            RtlReleaseLock(&GlobalHookLock);            
-			memset(o->pTrampoline->IsExecutedPtr, 0, sizeof(int));
+            RtlReleaseLock(&GlobalHookLock);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, (PBYTE)o->pTrampoline->Trampoline);
             // PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, o->pTrampoline->pbDetour);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
