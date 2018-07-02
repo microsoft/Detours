@@ -36,7 +36,6 @@ IsExecutedPtr  ;DCD 0 ; Count of times trampoline was executed
         ;
       
 start     
-        PUSH    {lr}
         PUSH    {r0, r1, r2, r3, r4, lr}
         VPUSH   {d0-d7}
         LDR     r5, =IsExecutedPtr
@@ -72,12 +71,12 @@ CALL_NET_ENTRY
 ; call NET intro
 
         LDR     r0, =IsExecutedPtr
-        ADD     r0, r0, #4
-        ;LDR     r0, [r0]  ; Hook handle (only a position hint)
-
+        ADD     r0, r0, #4 ; Hook handle (only a position hint)
+        ADDS    r2, sp, #0x54 ; original sp (address of return address)
+        LDR     r1, [sp, #0x54] ; return address (value stored in original sp)
         LDR     r4, =NETIntro
         LDR     r4, [r4]
-        BLX     r4 ; Hook->NETIntro(Hook, RetAddr, InitialRSP);
+        BLX     r4 ; Hook->NETIntro(Hook, RetAddr, InitialSP);
 ; should call original method?              
         CMP     r0, #0
         BNE     CALL_HOOK_HANDLER
@@ -96,7 +95,7 @@ try_dec_lock2
 
         LDR     r5, =OldProc
         LDR     r5, [r5]
-        B     TRAMPOLINE_EXIT
+        B       TRAMPOLINE_EXIT
 
 CALL_HOOK_HANDLER
 
@@ -108,14 +107,16 @@ CALL_HOOK_HANDLER
         B       TRAMPOLINE_EXIT
  ; this is where the handler returns...
 CALL_NET_OUTRO
-        PUSH    {r0} ; save return handler
+        MOV     r1, 0
+        PUSH    r1
+        ADDS    r1, sp, #0
+        PUSH    r0 ; save return handler
         LDR     r0, =IsExecutedPtr
-        ADD     r0, r0, #4
-        LDR     r0, [r0] ; get address of next Hook struct pointer
-
+        ADD     r0, r0, #4 ; get address of next Hook struct pointer
+        ; Param 2: Address of return address
         LDR     r5, =NETOutro
         LDR     r5, [r5]
-        BLX     r5
+        BLX     r5       ; Hook->NETOutro(Hook, InAddrOfRetAddr);
 
         LDR     r5, =IsExecutedPtr
         LDR     r5, [r5]
