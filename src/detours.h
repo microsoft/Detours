@@ -587,6 +587,7 @@ LONG LhBarrierProcessAttach();
 void LhBarrierProcessDetach();
 
 void LhCriticalInitialize();
+void LhCriticalFinalize();
 
 LONG LhInstallHook(
             void* InEntryPoint,
