@@ -4,7 +4,7 @@ Trampoline_ASM_ARM FUNCTION
 
         EXPORT  Trampoline_ASM_ARM 
 
-        DCB 0
+        DCB 0   ; help with alignment
         DCB 0
         DCB 0
 NETIntro        ; .NET Barrier Intro Function

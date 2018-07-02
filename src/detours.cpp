@@ -1841,6 +1841,15 @@ void* WINAPI DetourGetLastHandle()
 {
     return LastOutHandle;
 }
+PVOID WINAPI DetourGetHookHandleForFunction(PVOID* ppPointer)
+{
+    PDETOUR_TRAMPOLINE pTrampoline =
+        (PDETOUR_TRAMPOLINE)DetourCodeFromPointer(*ppPointer, NULL);
+    if(pTrampoline != NULL) {
+        return pTrampoline->OutHandle;
+    }
+    return NULL;
+}
 LONG LhSetExclusiveACL(
             ULONG* InThreadIdList,
             ULONG InThreadCount,
@@ -1981,9 +1990,12 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
 			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;// EmptyHook;
 			o->pTrampoline->IsExecutedPtr = (int*)new unsigned char[4];
-            for(int x = 0; x < 6; x++) {
-                *(INT*)((endOfTramp + TrampolineSize) + (x * 4)) -= (INT)trampolineStart;
-                *(INT*)((endOfTramp + TrampolineSize) + (x * 4)) += (INT)endOfTramp;                
+            // relocate relative addresses the trampoline uses the above
+            // function pointers
+            const ULONG trampolinePtrCount = 6;
+            for(int x = 0; x < trampolinePtrCount; x++) {
+                *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) -= (INT)trampolineStart;
+                *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) += (INT)endOfTramp;                
             }
             TRACED_HOOK_HANDLE OutHandle 
                 = (TRACED_HOOK_HANDLE) new unsigned char[sizeof(sizeof(HOOK_TRACE_INFO))];

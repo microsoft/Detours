@@ -585,6 +585,7 @@ void LhBarrierProcessDetach();
 
 void LhCriticalInitialize();
 
+PVOID WINAPI DetourGetHookHandleForFunction(PVOID * ppPointer);
 
 ////////////////////////////////////////////////////////////// Code Functions.
 //
