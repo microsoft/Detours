@@ -1310,7 +1310,10 @@ static void detour_free_trampoline(PDETOUR_TRAMPOLINE pTrampoline)
 {
     PDETOUR_REGION pRegion = (PDETOUR_REGION)
         ((ULONG_PTR)pTrampoline & ~(ULONG_PTR)0xffff);
-
+#ifdef DETOURS_ARM
+    delete[] pTrampoline->IsExecutedPtr;
+    delete[] pTrampoline->OutHandle;
+#endif
     memset(pTrampoline, 0, sizeof(*pTrampoline));
     pTrampoline->pbRemain = (PBYTE)pRegion->pFree;
     pRegion->pFree = pTrampoline;
@@ -2026,8 +2029,9 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
             const ULONG TrampolineSize = GetTrampolineSize();
       
             PBYTE endOfTramp = (PBYTE)(o->pTrampoline + 1);
+            const ULONG trampolinePtrCount = 6;            
             PBYTE trampolineStart = align4(trampoline);
-            memcpy(endOfTramp, trampolineStart, TrampolineSize + 6*4);
+            memcpy(endOfTramp, trampolineStart, TrampolineSize + trampolinePtrCount * sizeof(PVOID));
             o->pTrampoline->HookIntro = BarrierIntro;
 			o->pTrampoline->HookOutro = BarrierOutro;
 			o->pTrampoline->Trampoline = endOfTramp;
@@ -2035,8 +2039,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
 			o->pTrampoline->IsExecutedPtr = new int[1] {0};
             // relocate relative addresses the trampoline uses the above
-            // function pointers
-            const ULONG trampolinePtrCount = 6;
+            // function pointers   
             for(int x = 0; x < trampolinePtrCount; x++) {
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) -= (INT)trampolineStart;
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) += (INT)endOfTramp;                
