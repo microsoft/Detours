@@ -325,6 +325,8 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 //
 #ifdef DETOURS_X64
 
+const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 208 + 5 * 4;
+
 struct _DETOUR_TRAMPOLINE
 {
     // An X64 instuction can be 15 bytes long.
@@ -339,22 +341,33 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
     BYTE            rbCodeIn[8];    // jmp [pbDetour]
+    HOOK_ACL        LocalACL;
+    void*           Callback;    
+    ULONG           HLSIndex;
+    ULONG           HLSIdent;
+    TRACED_HOOK_HANDLE OutHandle; // handle returned to user  
     void*           Trampoline;
+    INT             IsExecuted;
+    void*           HookIntro; // . NET Intro function  
+    UCHAR*          OldProc;  // old target function      
+    void*           HookProc; // function we detour to
+    void*           HookOutro;   // .NET Outro function  
+    int*            IsExecutedPtr;
+    BYTE            rbTrampolineCode[DETOUR_TRAMPOLINE_CODE_SIZE];    
+    /*void*           Trampoline;
     LONG            IsExecuted;
     void*           HookIntro;
     UCHAR*          OldProc;
     UCHAR*          HookProc;
     void*           HookOutro;
-    int*            IsExecutedPtr;    
+    int*            IsExecutedPtr;*/    
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 152);
+//C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 152);
 
 enum {
     SIZE_OF_JMP = 5
 };
-
-const ULONG TrampolineSize = 0x10B;
 
 inline PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE pbJmpVal)
 {
@@ -734,7 +747,8 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 
 #ifdef DETOURS_ARM
 
-const ULONG DETOUR_TRAMPOLINE_CODE_SIZE     = 208 + 6 * 4;
+const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 208 + 6 * 4;
+
 struct _DETOUR_TRAMPOLINE
 {
     // A Thumb-2 instruction can be 2 or 4 bytes long.
@@ -1602,10 +1616,12 @@ ULONG GetTrampolineSize()
 
 		if(Signature == 0x12345678)	
 		{
+#ifdef DETOURS_ARM            
 			___TrampolineSize = (ULONG)(align4(Ptr + 7) - BasePtr);
-#ifdef DETOURS_ARM
 			return ___TrampolineSize + 1;
-#else
+#endif
+#if defined(DETOURS_X64) || defined(DETOURS_X86) || defined(DETOURS_ARM64)
+			___TrampolineSize = (ULONG)(Ptr - BasePtr);
 			return ___TrampolineSize;
 #endif            
 		}
@@ -1701,7 +1717,7 @@ ULONGLONG BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAd
 		return FALSE;
 	}
 
-	//ASSERT(InHandle->HLSIndex < MAX_HOOK_COUNT,L"detours.cpp - InHandle->HLSIndex < MAX_HOOK_COUNT");
+	ASSERT2(InHandle->HLSIndex < MAX_HOOK_COUNT,L"detours.cpp - InHandle->HLSIndex < MAX_HOOK_COUNT");
 
 	if(!Exists)
 	{
@@ -1746,8 +1762,6 @@ ULONGLONG BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAd
 		Now we will negotiate thread/process access based on global and local ACL...
 	*/
 	Runtime->IsExecuting = IsThreadIntercepted(&InHandle->LocalACL, GetCurrentThreadId());
-
-	//Runtime->IsExecuting = 1;
 
 	if(!Runtime->IsExecuting)
 		goto DONT_INTERCEPT;
@@ -1823,6 +1837,7 @@ int EmptyHook()
 {
     return 2;
 }
+
 
 
 LONG LhIsThreadIntercepted(
@@ -1913,6 +1928,45 @@ LONG WINAPI DetourSetCallbackForLocalHook(PVOID* ppPointer, PVOID pCallback)
     }
 
     return -1;
+}
+VOID InsertTraceHandle(PDETOUR_TRAMPOLINE pTrampoline)
+{
+    TRACED_HOOK_HANDLE OutHandle 
+        = (TRACED_HOOK_HANDLE) new unsigned char[sizeof(HOOK_TRACE_INFO)];
+
+    LastOutHandle = pTrampoline->OutHandle = OutHandle;
+
+    OutHandle->Link = pTrampoline;
+}
+
+LONG AddTrampolineToGlobalList(PDETOUR_TRAMPOLINE pTrampoline)
+{
+    ULONG   Index;
+    BOOL    Exists;                   
+    // register in global HLS list
+    RtlAcquireLock(&GlobalHookLock);
+    {
+        pTrampoline->HLSIdent = UniqueIDCounter++;
+
+        Exists = FALSE;
+
+        for(Index = 0; Index < MAX_HOOK_COUNT; Index++)
+        {
+            if(GlobalSlotList[Index] == 0)
+            {
+                GlobalSlotList[Index] = pTrampoline->HLSIdent;
+
+                pTrampoline->HLSIndex = Index;
+
+                Exists = TRUE;
+
+                break;
+            }
+        }
+    }
+    RtlReleaseLock(&GlobalHookLock);
+
+    return Exists;
 }
 LONG LhSetExclusiveACL(
             ULONG* InThreadIdList,
@@ -2015,17 +2069,22 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_IA64
 
 #ifdef DETOURS_X64
-            UCHAR * trampoline = DetourGetTrampolinePtr();
+            PBYTE trampoline = DetourGetTrampolinePtr();
+            const ULONG TrampolineSize = GetTrampolineSize();
 
-            VOID * endOfTramp = (VOID*)(o->pTrampoline + 1);
+            PBYTE endOfTramp = (PBYTE)&o->pTrampoline->rbTrampolineCode;
             memcpy(endOfTramp, trampoline, TrampolineSize);
             o->pTrampoline->HookIntro = BarrierIntro;
 			o->pTrampoline->HookOutro = BarrierOutro;
 			o->pTrampoline->Trampoline = endOfTramp;
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
 			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
-			o->pTrampoline->IsExecutedPtr = (int*)new unsigned char[8];// (int*)&o->pTrampoline->IsExecuted;
-			memset(o->pTrampoline->IsExecutedPtr, 0, 8);
+			o->pTrampoline->IsExecutedPtr = new int[1] {0};
+
+            InsertTraceHandle(o->pTrampoline);
+
+            AddTrampolineToGlobalList(o->pTrampoline);
+
             detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, (PBYTE*)&o->pTrampoline->Trampoline);
             //detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, &o->pTrampoline->pbDetour);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, o->pTrampoline->rbCodeIn);
@@ -2060,37 +2119,10 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) -= (INT)trampolineStart;
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) += (INT)endOfTramp;                
             }
-            TRACED_HOOK_HANDLE OutHandle 
-                = (TRACED_HOOK_HANDLE) new unsigned char[sizeof(HOOK_TRACE_INFO)];
+            InsertTraceHandle(o->pTrampoline);
 
-            LastOutHandle = o->pTrampoline->OutHandle = OutHandle;
+            AddTrampolineToGlobalList(o->pTrampoline);
 
-            OutHandle->Link = o->pTrampoline;
-
-            ULONG   Index;
-            BOOL    Exists;                   
-            // register in global HLS list
-            RtlAcquireLock(&GlobalHookLock);
-            {
-                o->pTrampoline->HLSIdent = UniqueIDCounter++;
-
-                Exists = FALSE;
-
-                for(Index = 0; Index < MAX_HOOK_COUNT; Index++)
-                {
-                    if(GlobalSlotList[Index] == 0)
-                    {
-                        GlobalSlotList[Index] = o->pTrampoline->HLSIdent;
-
-                        o->pTrampoline->HLSIndex = Index;
-
-                        Exists = TRUE;
-
-                        break;
-                    }
-                }
-            }
-            RtlReleaseLock(&GlobalHookLock);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, (PBYTE)o->pTrampoline->Trampoline);
             // PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, o->pTrampoline->pbDetour);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
