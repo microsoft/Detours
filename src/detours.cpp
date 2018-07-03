@@ -116,6 +116,8 @@ inline ULONG_PTR detour_2gb_above(ULONG_PTR address)
 //
 #ifdef DETOURS_X86
 
+const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 128;
+
 struct _DETOUR_TRAMPOLINE
 {
     BYTE            rbCode[30];     // target code + jmp to pbRemain
@@ -127,9 +129,22 @@ struct _DETOUR_TRAMPOLINE
     _DETOUR_ALIGN   rAlign[8];      // instruction alignment array.
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
+    HOOK_ACL        LocalACL;
+    void*           Callback;    
+    ULONG           HLSIndex;
+    ULONG           HLSIdent;
+    TRACED_HOOK_HANDLE OutHandle; // handle returned to user  
+    void*           Trampoline;
+    INT             IsExecuted;
+    void*           HookIntro; // . NET Intro function  
+    UCHAR*          OldProc;  // old target function      
+    void*           HookProc; // function we detour to
+    void*           HookOutro;   // .NET Outro function  
+    int*            IsExecutedPtr;
+    BYTE            rbTrampolineCode[DETOUR_TRAMPOLINE_CODE_SIZE];      
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 72);
+//C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 72);
 
 enum {
     SIZE_OF_JMP = 5
@@ -325,7 +340,7 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 //
 #ifdef DETOURS_X64
 
-const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 208 + 5 * 4;
+const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 267;
 
 struct _DETOUR_TRAMPOLINE
 {
@@ -2094,7 +2109,25 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_X64
 
 #ifdef DETOURS_X86
-            PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, o->pTrampoline->pbDetour);
+            PBYTE trampoline = DetourGetTrampolinePtr();
+            const ULONG TrampolineSize = GetTrampolineSize();
+
+            PBYTE endOfTramp = (PBYTE)&o->pTrampoline->rbTrampolineCode;
+            memcpy(endOfTramp, trampoline, TrampolineSize);
+            o->pTrampoline->HookIntro = BarrierIntro;
+            o->pTrampoline->HookOutro = BarrierOutro;
+            o->pTrampoline->Trampoline = endOfTramp;
+            o->pTrampoline->OldProc = o->pTrampoline->rbCode;
+            o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
+            o->pTrampoline->IsExecutedPtr = new int[1] {0};
+
+            InsertTraceHandle(o->pTrampoline);
+
+            AddTrampolineToGlobalList(o->pTrampoline);
+
+            PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, (PBYTE)o->pTrampoline->Trampoline);
+
+            //PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, o->pTrampoline->pbDetour);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = o->pTrampoline->rbCode;
             UNREFERENCED_PARAMETER(pbCode);
