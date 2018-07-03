@@ -340,7 +340,7 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 //
 #ifdef DETOURS_X64
 
-const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 267;
+const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 272;
 
 struct _DETOUR_TRAMPOLINE
 {
@@ -2059,6 +2059,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #ifdef DETOURS_X64
             PBYTE trampoline = DetourGetTrampolinePtr();
             const ULONG TrampolineSize = GetTrampolineSize();
+       
             PBYTE endOfTramp = (PBYTE)&o->pTrampoline->rbTrampolineCode;
             memcpy(endOfTramp, trampoline, TrampolineSize);
             o->pTrampoline->HookIntro = BarrierIntro;
@@ -2127,7 +2128,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #ifdef DETOURS_ARM
             UCHAR * trampoline = DetourGetTrampolinePtr();
             const ULONG TrampolineSize = GetTrampolineSize();
-      
+ 
             PBYTE endOfTramp = (PBYTE)&o->pTrampoline->rbTrampolineCode;
             const ULONG trampolinePtrCount = 6;            
             PBYTE trampolineStart = align4(trampoline);
