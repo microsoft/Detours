@@ -53,6 +53,14 @@ C_ASSERT(sizeof(_DETOUR_ALIGN) == 1);
 static PVOID    s_pSystemRegionLowerBound   = (PVOID)(ULONG_PTR)0x70000000;
 static PVOID    s_pSystemRegionUpperBound   = (PVOID)(ULONG_PTR)0x80000000;
 
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Hook Handle Slot List
+//
+ULONG                       GlobalSlotList[MAX_HOOK_COUNT];
+static LONG                 UniqueIDCounter = 0x10000000;
+
 //////////////////////////////////////////////////////////////////////////////
 //
 static bool detour_is_imported(PBYTE pbCode, PBYTE pbAddress)
@@ -726,6 +734,7 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 
 #ifdef DETOURS_ARM
 
+const ULONG DETOUR_TRAMPOLINE_CODE_SIZE     = 208 + 6 * 4;
 struct _DETOUR_TRAMPOLINE
 {
     // A Thumb-2 instruction can be 2 or 4 bytes long.
@@ -738,7 +747,6 @@ struct _DETOUR_TRAMPOLINE
     _DETOUR_ALIGN   rAlign[8];      // instruction alignment array.
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
-    //PDETOUR_HOOK_HANDLE pHandle;
     HOOK_ACL        LocalACL;
     void*           Callback;    
     ULONG           HLSIndex;
@@ -749,11 +757,14 @@ struct _DETOUR_TRAMPOLINE
     void*           HookIntro; // . NET Intro function  
     UCHAR*          OldProc;  // old target function      
     void*           HookProc; // function we detour to
-    //void*           CallNetOutro;
     void*           HookOutro;   // .NET Outro function  
-    int*            IsExecutedPtr;    
+    int*            IsExecutedPtr;
+    BYTE            rbTrampolineCode[DETOUR_TRAMPOLINE_CODE_SIZE];
 };
 
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 900);
+
+/*
 typedef struct _DETOUR_HOOK_HANDLE
 {
     HOOK_ACL        LocalACL;
@@ -770,8 +781,10 @@ typedef struct _DETOUR_HOOK_HANDLE
     void*           HookOutro;   // .NET Outro function  
     int*            IsExecutedPtr;
 }DETOUR_HOOK_HANDLE, *PDETOUR_HOOK_HANDLE;
+*/
 
-//C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 136);
+
+
 
 enum {
     SIZE_OF_JMP = 8
@@ -1630,8 +1643,7 @@ ULONG GetTrampolinePtr()
     return 0;
 }
 #endif
-ULONG                       GlobalSlotList[MAX_HOOK_COUNT];
-static LONG                 UniqueIDCounter = 0x10000000;
+
 ULONGLONG BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
 {
     /*
@@ -1648,7 +1660,7 @@ ULONGLONG BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAd
         InHandle, InRetAddr, InAddrOfRetAddr) );
 
 #if defined(DETOURS_X64) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
-    InHandle -=1;
+	InHandle = (DETOUR_TRAMPOLINE*)((PBYTE)(InHandle) - (sizeof(DETOUR_TRAMPOLINE) - DETOUR_TRAMPOLINE_CODE_SIZE));
 #endif
 
 	// are we in OS loader lock?
@@ -1779,7 +1791,8 @@ Description:
     LPTHREAD_RUNTIME_INFO	Info;
 
 #if defined(DETOURS_X64) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
-		InHandle -= 1;
+		InHandle = (DETOUR_TRAMPOLINE*)((PBYTE)(InHandle)-(sizeof(DETOUR_TRAMPOLINE) - DETOUR_TRAMPOLINE_CODE_SIZE));
+		//InHandle -= 1;
 #endif
 
 	ASSERT2(AcquireSelfProtection(),L"detours.cpp - AcquireSelfProtection()");
@@ -2032,7 +2045,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
             UCHAR * trampoline = DetourGetTrampolinePtr();
             const ULONG TrampolineSize = GetTrampolineSize();
       
-            PBYTE endOfTramp = (PBYTE)(o->pTrampoline + 1);
+            PBYTE endOfTramp = (PBYTE)&o->pTrampoline->rbTrampolineCode;
             const ULONG trampolinePtrCount = 6;            
             PBYTE trampolineStart = align4(trampoline);
             memcpy(endOfTramp, trampolineStart, TrampolineSize + trampolinePtrCount * sizeof(PVOID));
@@ -2042,8 +2055,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
 			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
 			o->pTrampoline->IsExecutedPtr = new int[1] {0};
-            // relocate relative addresses the trampoline uses the above
-            // function pointers   
+            // relocate relative addresses the trampoline uses the above function pointers   
             for(int x = 0; x < trampolinePtrCount; x++) {
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) -= (INT)trampolineStart;
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) += (INT)endOfTramp;                
