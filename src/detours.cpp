@@ -1675,7 +1675,7 @@ ULONG GetTrampolinePtr()
 }
 #endif
 
-ULONGLONG BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
+ULONGLONG WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
 {
     /*
     Description:
@@ -2121,12 +2121,31 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
             o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
             o->pTrampoline->IsExecutedPtr = new int[1] {0};
 
+            PBYTE Ptr = (PBYTE)o->pTrampoline->Trampoline;
+            for(ULONG Index = 0; Index < TrampolineSize; Index++)
+            {
+            #pragma warning (disable:4311) // pointer truncation
+                switch(*((ULONG*)(Ptr)))
+                {
+                /*Handle*/			case 0x1A2B3C05: *((ULONG*)Ptr) = (ULONG)o->pTrampoline; break;
+                /*UnmanagedIntro*/	case 0x1A2B3C03: *((ULONG*)Ptr) = (ULONG)o->pTrampoline->HookIntro; break;
+                /*OldProc*/			case 0x1A2B3C01: *((ULONG*)Ptr) = (ULONG)o->pTrampoline->OldProc; break;
+                /*Ptr:NewProc*/		case 0x1A2B3C07: *((ULONG*)Ptr) = (ULONG)&o->pTrampoline->HookProc; break;
+                /*NewProc*/			case 0x1A2B3C00: *((ULONG*)Ptr) = (ULONG)o->pTrampoline->HookProc; break;
+                /*UnmanagedOutro*/	case 0x1A2B3C06: *((ULONG*)Ptr) = (ULONG)o->pTrampoline->HookOutro; break;
+                /*IsExecuted*/		case 0x1A2B3C02: *((ULONG*)Ptr) = (ULONG)o->pTrampoline->IsExecutedPtr; break;
+                /*RetAddr*/			case 0x1A2B3C04: *((ULONG*)Ptr) = (ULONG)((PBYTE)o->pTrampoline->Trampoline + 92); break;
+                }
+
+                Ptr++;
+            }
+
             InsertTraceHandle(o->pTrampoline);
 
             AddTrampolineToGlobalList(o->pTrampoline);
 
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, (PBYTE)o->pTrampoline->Trampoline);
-
+            
             //PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, o->pTrampoline->pbDetour);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = o->pTrampoline->rbCode;
