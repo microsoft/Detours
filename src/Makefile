@@ -45,7 +45,7 @@ ASM_SOURCES=trampolinearm.asm
 ARMASM=armasm
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
 ASM_SOURCES=trampolinearm64.asm
-ARMASM=armasm
+ARMASM64=armasm64
 !ENDIF
 
 OBJS = \
@@ -144,7 +144,7 @@ $(OBJD)\trampolinearm.obj: $(ASM_SOURCES)
      $(ARMASM) -o $(OBJD)\trampolinearm.obj $(ASM_SOURCES)
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
 $(OBJD)\trampolinearm64.obj: $(ASM_SOURCES)
-     $(ARMASM) -o $(OBJD)\trampolinearm64.obj $(ASM_SOURCES)
+     $(ARMASM64) -o $(OBJD)\trampolinearm64.obj $(ASM_SOURCES)
 !ENDIF
 
 test: all
