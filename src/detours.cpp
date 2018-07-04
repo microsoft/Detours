@@ -930,6 +930,8 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 
 #ifdef DETOURS_ARM64
 
+const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 208 + 6 * 4;
+
 struct _DETOUR_TRAMPOLINE
 {
     // An ARM64 instruction is 4 bytes long.
@@ -942,9 +944,22 @@ struct _DETOUR_TRAMPOLINE
     _DETOUR_ALIGN   rAlign[8];      // instruction alignment array.
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
+    HOOK_ACL        LocalACL;
+    void*           Callback;    
+    ULONG           HLSIndex;
+    ULONG           HLSIdent;
+    TRACED_HOOK_HANDLE OutHandle; // handle returned to user  
+    void*           Trampoline;
+    INT             IsExecuted;
+    void*           HookIntro; // . NET Intro function  
+    UCHAR*          OldProc;  // old target function      
+    void*           HookProc; // function we detour to
+    void*           HookOutro;   // .NET Outro function  
+    int*            IsExecutedPtr;
+    BYTE            rbTrampolineCode[DETOUR_TRAMPOLINE_CODE_SIZE];    
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 120);
+//C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 120);
 
 enum {
     SIZE_OF_JMP = 8
@@ -1819,12 +1834,68 @@ Description:
 
 	return InHandle;
 }
-int EmptyHook()
+
+
+LONG WINAPI LhUninstallHook(TRACED_HOOK_HANDLE InHandle)
 {
-    return 2;
+/*
+Description:
+
+    Removes the given hook. To also release associated resources,
+    you will have to call LhWaitForPendingRemovals(). In any case
+    your hook handler will never be executed again, after calling this
+    method.
+
+Parameters:
+
+    - InHandle
+
+        A traced hook handle. If the hook is already removed, this method
+        will still return STATUS_SUCCESS.
+*/
+    LONG error = -1;
+
+    PDETOUR_TRAMPOLINE      Hook = NULL;    
+    LONG                    NtStatus = -1;
+    BOOLEAN                 IsAllocated = FALSE;
+
+     if(!IsValidPointer(InHandle, sizeof(HOOK_TRACE_INFO)))
+        return FALSE;
+
+    RtlAcquireLock(&GlobalHookLock);
+    {
+        if((InHandle->Link != NULL) && LhIsValidHandle(InHandle, &Hook))
+        {
+            InHandle->Link = NULL;
+
+            if(Hook->HookProc != NULL)
+            {
+                Hook->HookProc = NULL;  
+
+                IsAllocated = TRUE;
+            }
+        }
+        DetourTransactionBegin();
+        DetourUpdateThread(GetCurrentThread());
+        DetourDetach(&(PVOID&)Hook->OldProc, Hook->pbDetour);
+    
+        error = DetourTransactionCommit(); 
+
+        if(!IsAllocated)
+        {
+            RtlReleaseLock(&GlobalHookLock);
+
+            RETURN;
+        }
+
+    }
+    RtlReleaseLock(&GlobalHookLock);
+
+    RETURN(STATUS_SUCCESS);
+
+FINALLY_OUTRO:
+    return NtStatus;
 }
-
-
 
 LONG LhIsThreadIntercepted(
 	TRACED_HOOK_HANDLE InHook,
@@ -2093,7 +2164,6 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
             o->pTrampoline->OldProc = o->pTrampoline->rbCode;
             o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
             o->pTrampoline->IsExecutedPtr = new int[1] {0};
-
             PBYTE Ptr = (PBYTE)o->pTrampoline->Trampoline;
             for(ULONG Index = 0; Index < TrampolineSize; Index++)
             {
@@ -2138,7 +2208,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->Trampoline = endOfTramp;
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
 			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
-			o->pTrampoline->IsExecutedPtr = new int[1] {0};
+			o->pTrampoline->IsExecutedPtr = new int[1] {0};    
             // relocate relative addresses the trampoline uses the above function pointers   
             for(int x = 0; x < trampolinePtrCount; x++) {
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) -= (INT)trampolineStart;
