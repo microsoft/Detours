@@ -64,7 +64,7 @@ CFLAGS=$(CFLAGS) /D_$(DETOURS_TARGET_PROCESSOR:X64=AMD64)_ # redundant with wind
 !ENDIF
 
 DEPS = $(LIBD)\syelog.lib $(LIBD)\detours.lib
-LIBS = $(DEPS)
+LIBS = $(DEPS) aux_ulib.lib
 
 ##############################################################################
 ##
