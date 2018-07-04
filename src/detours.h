@@ -595,6 +595,8 @@ LONG LhInstallHook(
             void* InCallback,
             TRACED_HOOK_HANDLE OutHandle);
 
+LONG WINAPI LhUninstallHook(TRACED_HOOK_HANDLE InHandle);
+
 PVOID WINAPI DetourGetHookHandleForFunction(PVOID * ppPointer);
 LONG WINAPI DetourSetCallbackForLocalHook(PVOID* ppPointer, PVOID pCallback);
 
