@@ -1,10 +1,7 @@
 ##############################################################################
 ##
-##  Makefile for Detours.
+##  Makefile for CoreHook Detours.
 ##
-##  Microsoft Research Detours Package
-##
-##  Copyright (c) Microsoft Corporation.  All rights reserved.
 ##
 
 ROOT = .
