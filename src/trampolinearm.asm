@@ -12,22 +12,22 @@ NETIntro        ; .NET Barrier Intro Function
         DCB 0
         DCB 0
         DCB 0
-OldProc        ;DCD 0 ; Original Replaced Function
+OldProc        ; Original Replaced Function
         DCB 0
         DCB 0
         DCB 0
         DCB 0
-NewProc        ;DCD 0 ; Detour Function
+NewProc        ; Detour Function
         DCB 0
         DCB 0
         DCB 0
         DCB 0
-NETOutro       ;DCD 0 ; .NET Barrier Outro Function
+NETOutro       ; .NET Barrier Outro Function
         DCB 0
         DCB 0
         DCB 0
         DCB 0
-IsExecutedPtr  ;DCD 0 ; Count of times trampoline was executed
+IsExecutedPtr  ; Count of times trampoline was executed
         DCB 0
         DCB 0
         DCB 0
