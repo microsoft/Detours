@@ -1,0 +1,9 @@
+#include "detver.h"
+
+#define VER_INTERNALNAME_STR        "corehook" DETOURS_STRINGIFY(DETOURS_BITS)
+#define VER_ORIGINALFILENAME_STR    "corehook" DETOURS_STRINGIFY(DETOURS_BITS) ".dll"
+#define VER_FILEDESCRIPTION_STR     "CoreHook Detours Module"
+#define VER_COMPANYNAME_STR         "Unknown Corporation"
+#define VER_LEGALCOPYRIGHT_STR      "Copyright (c) Unknown Corporation. No rights reserved."
+#define VER_PRODUCTNAME_STR         "Microsoft (R) Windows (R) Operating System"
+#include "common.ver"

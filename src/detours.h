@@ -473,6 +473,93 @@ typedef VOID * PDETOUR_LOADED_BINARY;
 LONG WINAPI DetourTransactionBegin(VOID);
 LONG WINAPI DetourTransactionAbort(VOID);
 LONG WINAPI DetourTransactionCommit(VOID);
+void* WINAPI DetourGetLastHandle(VOID);
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// dotnet trampoline barrier definitions
+//
+#define MAX_HOOK_COUNT              1024
+#define MAX_ACE_COUNT               128
+#define MAX_THREAD_COUNT            128
+#define MAX_PASSTHRU_SIZE           1024 * 64
+
+#define ASSERT2(expr, Msg)          RtlAssert((BOOL)(expr),(LPCWSTR) Msg);
+#define THROW(code, Msg)            { NtStatus = (code); RtlSetLastError(GetLastError(), NtStatus, Msg); goto THROW_OUTRO; }
+
+#define RTL_SUCCESS(ntstatus)       SUCCEEDED(ntstatus)
+
+#define STATUS_SUCCESS              0
+#define RETURN                      { RtlSetLastError(STATUS_SUCCESS, STATUS_SUCCESS, (PWCHAR)L""); NtStatus = STATUS_SUCCESS; goto FINALLY_OUTRO; }
+#define FORCE(expr)                 { if(!RTL_SUCCESS(NtStatus = (expr))) goto THROW_OUTRO; }
+#define IsValidPointer				RtlIsValidPointer
+
+
+BOOL RtlIsValidPointer(PVOID InPtr, ULONG InSize);
+
+typedef struct _DETOUR_TRAMPOLINE * PLOCAL_HOOK_INFO;
+
+typedef struct _HOOK_ACL_
+{
+	ULONG                   Count;
+	BOOL                    IsExclusive;
+	ULONG                   Entries[MAX_ACE_COUNT];
+}HOOK_ACL;
+
+typedef struct _HOOK_TRACE_INFO_
+{
+    PLOCAL_HOOK_INFO        Link;
+}HOOK_TRACE_INFO, *TRACED_HOOK_HANDLE;
+
+/*
+    Setup the ACLs after hook installation. Please note that every
+    hook starts suspended. You will have to set a proper ACL to
+    make it active!
+*/
+
+	LONG LhSetInclusiveACL(
+				ULONG* InThreadIdList,
+				ULONG InThreadCount,
+				TRACED_HOOK_HANDLE InHandle);
+
+	LONG LhSetExclusiveACL(
+				ULONG* InThreadIdList,
+				ULONG InThreadCount,
+				TRACED_HOOK_HANDLE InHandle);
+
+	LONG LhSetGlobalInclusiveACL(
+				ULONG* InThreadIdList,
+				ULONG InThreadCount);
+
+	LONG LhSetGlobalExclusiveACL(
+				ULONG* InThreadIdList,
+				ULONG InThreadCount);
+
+	LONG LhIsThreadIntercepted(
+				TRACED_HOOK_HANDLE InHook,
+				ULONG InThreadID,
+				BOOL* OutResult);
+
+    LONG LhSetACL(
+                HOOK_ACL* InAcl,
+                BOOL InIsExclusive,
+                ULONG* InThreadIdList,
+                ULONG InThreadCount);
+
+    HOOK_ACL* LhBarrierGetAcl();                
+/*
+    The following barrier methods are meant to be used in hook handlers only!
+
+    They will all fail with STATUS_NOT_SUPPORTED if called outside a
+    valid hook handler...
+*/
+LONG LhBarrierGetCallback(PVOID* OutValue);
+
+LONG LhBarrierGetReturnAddress(PVOID* OutValue);
+
+LONG LhBarrierGetAddressOfReturnAddress(PVOID** OutValue);
+
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
@@ -493,6 +580,25 @@ BOOL WINAPI DetourSetIgnoreTooSmall(_In_ BOOL fIgnore);
 BOOL WINAPI DetourSetRetainRegions(_In_ BOOL fRetain);
 PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound);
 PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
+
+void LhBarrierThreadDetach();
+
+LONG LhBarrierProcessAttach();
+void LhBarrierProcessDetach();
+
+void LhCriticalInitialize();
+void LhCriticalFinalize();
+
+LONG LhInstallHook(
+            void* InEntryPoint,
+            void* InHookProc,
+            void* InCallback,
+            TRACED_HOOK_HANDLE OutHandle);
+
+LONG WINAPI LhUninstallHook(TRACED_HOOK_HANDLE InHandle);
+
+PVOID WINAPI DetourGetHookHandleForFunction(PVOID * ppPointer);
+LONG WINAPI DetourSetCallbackForLocalHook(PVOID* ppPointer, PVOID pCallback);
 
 ////////////////////////////////////////////////////////////// Code Functions.
 //
@@ -1050,6 +1156,108 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 #define MM_ALLOCATION_GRANULARITY 0x10000
 
 //////////////////////////////////////////////////////////////////////////////
+
+
+//LONG LhBarrierBeginStackTrace(PVOID* OutBackup);
+
+//LONG LhBarrierEndStackTrace(PVOID InBackup);
+
+BOOL LhIsValidHandle(
+            TRACED_HOOK_HANDLE InTracedHandle,
+            PLOCAL_HOOK_INFO* OutHandle);
+
+BOOL IsLoaderLock();
+BOOL AcquireSelfProtection();
+
+void RtlAssert(BOOL InAssert,LPCWSTR lpMessageText);
+void RtlSetLastError(LONG InCode, LONG InNtStatus, WCHAR* InMessage);
+
+typedef struct _RTL_SPIN_LOCK_
+{
+    CRITICAL_SECTION        Lock;
+    BOOL                 IsOwned;
+}RTL_SPIN_LOCK;
+void RtlInitializeLock(RTL_SPIN_LOCK* InLock);
+
+void RtlAcquireLock(RTL_SPIN_LOCK* InLock);
+
+void RtlReleaseLock(RTL_SPIN_LOCK* InLock);
+
+void RtlDeleteLock(RTL_SPIN_LOCK* InLock);
+
+void RtlSleep(ULONG InTimeout);
+
+
+
+
+
+typedef struct _RUNTIME_INFO_
+{
+	// "true" if the current thread is within the related hook handler
+	BOOL            IsExecuting;
+	// the hook this information entry belongs to... This allows a per thread and hook storage!
+	DWORD           HLSIdent;
+	// the return address of the current thread's hook handler...
+	void*           RetAddress;
+    // the address of the return address of the current thread's hook handler...
+	void**          AddrOfRetAddr;
+}RUNTIME_INFO;
+
+typedef struct _THREAD_RUNTIME_INFO_
+{
+	RUNTIME_INFO*		Entries;
+	RUNTIME_INFO*		Current;
+	void*				Callback;
+	BOOL				IsProtected;
+}THREAD_RUNTIME_INFO, *LPTHREAD_RUNTIME_INFO;
+
+typedef struct _THREAD_LOCAL_STORAGE_
+{
+    THREAD_RUNTIME_INFO		Entries[MAX_THREAD_COUNT];
+    DWORD					IdList[MAX_THREAD_COUNT];
+    RTL_SPIN_LOCK			ThreadSafe;
+}THREAD_LOCAL_STORAGE;
+
+typedef struct _BARRIER_UNIT_
+{
+	HOOK_ACL				GlobalACL;
+	BOOL					IsInitialized;
+	THREAD_LOCAL_STORAGE	TLS;
+}BARRIER_UNIT;
+
+
+BOOL TlsGetCurrentValue(
+            THREAD_LOCAL_STORAGE* InTls,                
+            THREAD_RUNTIME_INFO** OutValue);
+BOOL TlsAddCurrentThread(THREAD_LOCAL_STORAGE* InTls);
+
+void RtlFreeMemory(void* InPointer);
+
+void* RtlAllocateMemory(
+            BOOL InZeroMemory, 
+            ULONG InSize);
+
+#undef RtlCopyMemory
+void RtlCopyMemory(
+            PVOID InDest,
+            PVOID InSource,
+            ULONG InByteCount);
+
+#undef RtlZeroMemory
+void RtlZeroMemory(
+            PVOID InTarget,
+            ULONG InByteCount);
+
+BOOL IsThreadIntercepted(
+	HOOK_ACL* LocalACL, 
+	ULONG InThreadID);
+void ReleaseSelfProtection();                
+
+
+
+extern BARRIER_UNIT         Unit;
+extern RTL_SPIN_LOCK        GlobalHookLock;
+
 
 #endif // DETOURS_INTERNAL
 #endif // __cplusplus

@@ -34,6 +34,20 @@ CFLAGS=$(CFLAGS) /D_USING_V110_SDK71_
 CFLAGS=$(CFLAGS) /analyze
 !endif
 
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
+ASM_SOURCES=trampolinex64.asm
+ML=ml64
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "X86"
+ASM_SOURCES=trampolinex86.asm
+ML=ml
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM"
+ASM_SOURCES=trampolinearm.asm
+ARMASM=armasm
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
+ASM_SOURCES=trampolinearm64.asm
+ARMASM64=armasm64
+!ENDIF
+
 OBJS = \
     $(OBJD)\detours.obj     \
     $(OBJD)\modules.obj     \
@@ -45,10 +59,20 @@ OBJS = \
     $(OBJD)\disolia64.obj   \
     $(OBJD)\disolarm.obj    \
     $(OBJD)\disolarm64.obj  \
+    $(OBJD)\barrier.obj     \
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"    
+    $(OBJD)\trampolinex64.obj \
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "X86"    
+    $(OBJD)\trampolinex86.obj \
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM"    
+    $(OBJD)\trampolinearm.obj \
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"    
+    $(OBJD)\trampolinearm64.obj \
+!ENDIF
 
 ##############################################################################
 ##
-.SUFFIXES: .cpp .h .obj
+.SUFFIXES: .asm .cpp .h .obj
 
 !ifdef DETOURS_ANALYZE
 .cpp{$(OBJD)}.obj:
@@ -108,6 +132,20 @@ $(OBJD)\disolx64.obj: disasm.cpp detours.h
 $(OBJD)\disolia64.obj: disasm.cpp detours.h
 $(OBJD)\disolarm.obj: disasm.cpp detours.h
 $(OBJD)\disolarm64.obj: disasm.cpp detours.h
+$(OBJD)\barrier.obj: barrier.cpp detours.h
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
+$(OBJD)\trampolinex64.obj: trampolinex64.asm
+     $(ML) /c /Sn /Fo $(OBJD)\trampolinex64.obj /nologo $(ASM_SOURCES)
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "X86"
+$(OBJD)\trampolinex86.obj: trampolinex86.asm
+     $(ML) /c /Sn /Fo $(OBJD)\trampolinex86.obj /nologo $(ASM_SOURCES)
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM"
+$(OBJD)\trampolinearm.obj: $(ASM_SOURCES)
+     $(ARMASM) -o $(OBJD)\trampolinearm.obj $(ASM_SOURCES)
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
+$(OBJD)\trampolinearm64.obj: $(ASM_SOURCES)
+     $(ARMASM64) -o $(OBJD)\trampolinearm64.obj $(ASM_SOURCES)
+!ENDIF
 
 test: all
     cd $(MAKEDIR)\..\samples\slept
