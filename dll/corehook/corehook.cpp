@@ -2,7 +2,6 @@
 #include <windows.h>
 #include "detours.h"
 
-
 BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
 {
     (void)hinst;
@@ -18,7 +17,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
 
         LhBarrierProcessAttach();
 
-	    LhCriticalInitialize();
+        LhCriticalInitialize();
 
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
