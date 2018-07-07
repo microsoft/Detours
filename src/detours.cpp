@@ -1113,7 +1113,7 @@ static void detour_runnable_trampoline_regions()
     // Mark all of the regions as executable.
     for (PDETOUR_REGION pRegion = s_pRegions; pRegion != NULL; pRegion = pRegion->pNext) {
         DWORD dwOld;
-        VirtualProtect(pRegion, DETOUR_REGION_SIZE, PAGE_EXECUTE_READWRITE, &dwOld);
+        VirtualProtect(pRegion, DETOUR_REGION_SIZE, PAGE_EXECUTE_READ, &dwOld);
         FlushInstructionCache(hProcess, pRegion, DETOUR_REGION_SIZE);
     }
 }
@@ -1980,7 +1980,18 @@ LONG WINAPI DetourSetCallbackForLocalHook(PVOID* ppPointer, PVOID pCallback)
     PDETOUR_TRAMPOLINE pTrampoline =
         (PDETOUR_TRAMPOLINE)DetourCodeFromPointer(*ppPointer, NULL);
     if(pTrampoline != NULL) {
+		DWORD dwOld = 0;
+		DWORD error = 0;
+		if (!VirtualProtect(pTrampoline, sizeof(DETOUR_TRAMPOLINE), PAGE_READWRITE, &dwOld)) {
+			error = GetLastError();
+			DETOUR_BREAK();
+		}
+		DWORD dwOld2 = 0;
         pTrampoline->Callback = pCallback;
+		if (!VirtualProtect(pTrampoline, sizeof(DETOUR_TRAMPOLINE), dwOld, &dwOld2)) {
+			error = GetLastError();
+			DETOUR_BREAK();
+		}
         return 0;
     }
 

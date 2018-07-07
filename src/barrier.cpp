@@ -313,12 +313,17 @@ Parameters:
         if(InThreadIdList[Index] == 0)
             InThreadIdList[Index] = GetCurrentThreadId();
     }
+	DWORD dwOld;
+	if (VirtualProtect(InAcl, sizeof(HOOK_ACL), PAGE_READWRITE, &dwOld)) {
+		// set ACL...
+		InAcl->IsExclusive = InIsExclusive;
+		InAcl->Count = InThreadCount;
 
-    // set ACL...
-    InAcl->IsExclusive = InIsExclusive;
-    InAcl->Count = InThreadCount;
+		RtlCopyMemory(InAcl->Entries, InThreadIdList, InThreadCount * sizeof(ULONG));
 
-    RtlCopyMemory(InAcl->Entries, InThreadIdList, InThreadCount * sizeof(ULONG));
+		DWORD dwOld2;
+		VirtualProtect(InAcl, sizeof(HOOK_ACL), dwOld, &dwOld2);
+	}
 
     return 0;
 }
