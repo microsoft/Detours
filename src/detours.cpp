@@ -1870,8 +1870,17 @@ Parameters:
 
             if(Hook->HookProc != NULL)
             {
+                DWORD dwOld = 0;
+                if (!VirtualProtect(&Hook->HookProc , sizeof(PVOID), PAGE_READWRITE, &dwOld)) {
+                    error = GetLastError();
+                    DETOUR_BREAK();
+                }                
                 Hook->HookProc = NULL;  
-
+                DWORD dwOld2 = 0;
+                if (!VirtualProtect(&Hook->HookProc, sizeof(PVOID), dwOld, &dwOld2)) {
+                    error = GetLastError();
+                    DETOUR_BREAK();
+                }
                 IsAllocated = TRUE;
             }
         }
