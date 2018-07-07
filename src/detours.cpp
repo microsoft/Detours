@@ -1338,9 +1338,13 @@ static void detour_free_trampoline(PDETOUR_TRAMPOLINE pTrampoline)
 {
     PDETOUR_REGION pRegion = (PDETOUR_REGION)
         ((ULONG_PTR)pTrampoline & ~(ULONG_PTR)0xffff);
-#ifdef DETOURS_ARM
-    delete[] pTrampoline->IsExecutedPtr;
-    delete[] pTrampoline->OutHandle;  
+#if defined(DETOURS_X86) || defined(DETOURS_X64) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
+    if( pTrampoline->IsExecutedPtr != NULL) {
+        delete[] pTrampoline->IsExecutedPtr;
+    }
+    if( pTrampoline->OutHandle != NULL) {    
+        delete[] pTrampoline->OutHandle;
+    }
     if (GlobalSlotList[pTrampoline->HLSIndex] == pTrampoline->HLSIdent)
     {
         GlobalSlotList[pTrampoline->HLSIndex] = 0;
