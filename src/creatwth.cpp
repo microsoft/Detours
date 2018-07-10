@@ -949,6 +949,9 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 {
     LPCSTR * rlpDlls = NULL;
     DWORD Result = 9900;
+    DWORD cOffset = 0;
+    DWORD cSize = 0;
+    HANDLE hProcess = NULL;
 
     if (s_pHelper == NULL) {
         DETOUR_TRACE(("DetourFinishHelperProcess called with s_pHelper = NULL.\n"));
@@ -956,7 +959,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
         goto Cleanup;
     }
 
-    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, s_pHelper->pid);
+    hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, s_pHelper->pid);
     if (hProcess == NULL) {
         DETOUR_TRACE(("OpenProcess(pid=%d) failed: %d\n",
                       s_pHelper->pid, GetLastError()));
@@ -965,8 +968,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
     }
 
     rlpDlls = new NOTHROW LPCSTR [s_pHelper->nDlls];
-    DWORD cSize = s_pHelper->cb - sizeof(DETOUR_EXE_HELPER);
-    DWORD cOffset = 0;
+    cSize = s_pHelper->cb - sizeof(DETOUR_EXE_HELPER);
     for (DWORD n = 0; n < s_pHelper->nDlls; n++) {
         size_t cchDest = 0;
         HRESULT hr = StringCchLengthA(&s_pHelper->rDlls[cOffset], cSize - cOffset, &cchDest);
@@ -1029,6 +1031,8 @@ BOOL WINAPI AllocExeHelper(_Out_ PDETOUR_EXE_HELPER *pHelper,
 {
     PDETOUR_EXE_HELPER Helper = NULL;
     BOOL Result = FALSE;
+    _Field_range_(0, cSize - 4) DWORD cOffset = 0;
+    DWORD cSize = 4;
 
     if (pHelper == NULL) {
         goto Cleanup;
@@ -1040,7 +1044,6 @@ BOOL WINAPI AllocExeHelper(_Out_ PDETOUR_EXE_HELPER *pHelper,
         goto Cleanup;
     }
 
-    DWORD cSize = 4;
     for (DWORD n = 0; n < nDlls; n++) {
         HRESULT hr;
         size_t cchDest = 0;
@@ -1062,7 +1065,6 @@ BOOL WINAPI AllocExeHelper(_Out_ PDETOUR_EXE_HELPER *pHelper,
     Helper->pid = dwTargetPid;
     Helper->nDlls = nDlls;
 
-    _Field_range_(0, cSize - 4) DWORD cOffset = 0;
     for (DWORD n = 0; n < nDlls; n++) {
         HRESULT hr;
         size_t cchDest = 0;
@@ -1154,6 +1156,7 @@ BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
     CHAR szCommand[MAX_PATH];
     PDETOUR_EXE_HELPER helper = NULL;
     HRESULT hr;
+    DWORD nLen = GetEnvironmentVariableA("WINDIR", szExe, ARRAYSIZE(szExe));
 
     DETOUR_TRACE(("DetourProcessViaHelperDlls(pid=%d,dlls=%d)\n", dwTargetPid, nDlls));
     if (nDlls < 1 || nDlls > 4096) {
@@ -1164,7 +1167,6 @@ BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
-    DWORD nLen = GetEnvironmentVariableA("WINDIR", szExe, ARRAYSIZE(szExe));
     if (nLen == 0 || nLen >= ARRAYSIZE(szExe)) {
         goto Cleanup;
     }
@@ -1250,6 +1252,7 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
     WCHAR szCommand[MAX_PATH];
     PDETOUR_EXE_HELPER helper = NULL;
     HRESULT hr;
+    DWORD nLen = GetEnvironmentVariableW(L"WINDIR", szExe, ARRAYSIZE(szExe));
 
     DETOUR_TRACE(("DetourProcessViaHelperDlls(pid=%d,dlls=%d)\n", dwTargetPid, nDlls));
     if (nDlls < 1 || nDlls > 4096) {
@@ -1260,7 +1263,6 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
-    DWORD nLen = GetEnvironmentVariableW(L"WINDIR", szExe, ARRAYSIZE(szExe));
     if (nLen == 0 || nLen >= ARRAYSIZE(szExe)) {
         goto Cleanup;
     }
