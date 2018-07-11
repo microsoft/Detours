@@ -755,7 +755,7 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 
 #ifdef DETOURS_ARM
 
-const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 208 + 6 * 4;
+const ULONG DETOUR_TRAMPOLINE_CODE_SIZE = 0xdc + 6 * 4;
 
 struct _DETOUR_TRAMPOLINE
 {
@@ -784,7 +784,7 @@ struct _DETOUR_TRAMPOLINE
     BYTE            rbTrampolineCode[DETOUR_TRAMPOLINE_CODE_SIZE];
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 900);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 912);
 
 enum {
     SIZE_OF_JMP = 8
@@ -890,7 +890,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
     // We have to place trampolines within +/- 2GB of code.
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
-    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
+    DETOUR_TRACE(("[%p..%p..%p]\n", (PVOID)lo, pbCode, (PVOID)hi));
 
     *ppLower = (PDETOUR_TRAMPOLINE)lo;
     *ppUpper = (PDETOUR_TRAMPOLINE)hi;
@@ -1340,7 +1340,7 @@ static void detour_free_trampoline(PDETOUR_TRAMPOLINE pTrampoline)
         ((ULONG_PTR)pTrampoline & ~(ULONG_PTR)0xffff);
 #if defined(DETOURS_X86) || defined(DETOURS_X64) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
     if( pTrampoline->IsExecutedPtr != NULL) {
-        delete[] pTrampoline->IsExecutedPtr;
+        delete pTrampoline->IsExecutedPtr;
     }
     if( pTrampoline->OutHandle != NULL) {    
         delete[] pTrampoline->OutHandle;
@@ -1665,7 +1665,7 @@ ULONG GetTrampolinePtr()
 }
 #endif
 
-ULONGLONG WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
+UINT WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** InAddrOfRetAddr)
 {
     /*
     Description:
@@ -1677,13 +1677,13 @@ ULONGLONG WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void
     RUNTIME_INFO*		        Runtime;
 	BOOL						Exists;
 
-	DETOUR_TRACE(("Barrier Intro InHandle=%p, InRetAddr=%p, InAddrOfRetAddr=%p \n",
-        InHandle, InRetAddr, InAddrOfRetAddr) );
+
 
 #if defined(DETOURS_X64) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
 	InHandle = (DETOUR_TRAMPOLINE*)((PBYTE)(InHandle) - (sizeof(DETOUR_TRAMPOLINE) - DETOUR_TRAMPOLINE_CODE_SIZE));
 #endif
-
+	DETOUR_TRACE(("Barrier Intro InHandle=%p, InRetAddr=%p, InAddrOfRetAddr=%p \n",
+        InHandle, InRetAddr, InAddrOfRetAddr) );
 	// are we in OS loader lock?
 	if(IsLoaderLock())
 	{
@@ -1697,12 +1697,14 @@ ULONGLONG WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void
 
 		return FALSE;
 	}
-
+	DETOUR_TRACE(("Barrier Intro TlsGetCurrentValue \n") );
 	// open pointer table
 	Exists = TlsGetCurrentValue(&Unit.TLS, &Info);
 
 	if(!Exists)
 	{
+	    DETOUR_TRACE(("Barrier Intro TlsAddCurrentThread \n") );
+        
 		if(!TlsAddCurrentThread(&Unit.TLS))
 			return FALSE;
 	}
@@ -1715,38 +1717,51 @@ ULONGLONG WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void
 		Self protection prevents any further hook interception for the current fiber,
 		while setting up the "Thread Deadlock Barrier"...
 	*/
+	DETOUR_TRACE(("Barrier Intro AcquireSelfProtection \n") );
+
 	if(!AcquireSelfProtection())
 	{
 		/*  !!Note that the assembler code does not invoke LhBarrierOutro() in this case!! */
 
 		return FALSE;
 	}
+	DETOUR_TRACE(("Barrier Intro InHandle->HLSIndex %d \n", InHandle->HLSIndex) );
 
 	ASSERT2(InHandle->HLSIndex < MAX_HOOK_COUNT,L"detours.cpp - InHandle->HLSIndex < MAX_HOOK_COUNT");
 
 	if(!Exists)
 	{
+	    DETOUR_TRACE(("Barrier Intro TlsGetCurrentValue \n") );
+        
 		TlsGetCurrentValue(&Unit.TLS, &Info);
+	    DETOUR_TRACE(("Barrier Intro RtlAllocateMemory \n") );
 
 		Info->Entries = (RUNTIME_INFO*)RtlAllocateMemory(TRUE, sizeof(RUNTIME_INFO) * MAX_HOOK_COUNT);
 
 		if(Info->Entries == NULL)
 			goto DONT_INTERCEPT;
 	}
+	DETOUR_TRACE(("Barrier Intro Info->Entries %p \n", &Info->Entries[InHandle->HLSIndex]) );
 
 	// get hook runtime info...
 	Runtime = &Info->Entries[InHandle->HLSIndex];
+	DETOUR_TRACE(("Barrier Intro Runtime %p \n", Runtime) );
 
 	if(Runtime->HLSIdent != InHandle->HLSIdent)
 	{
 		// just reset execution information
 		Runtime->HLSIdent = InHandle->HLSIdent;
 		Runtime->IsExecuting = FALSE;
+        DETOUR_TRACE(("Barrier Intro Runtime is executing set to false \n") );
+        
 	}
 
 	// detect loops in hook execution hiearchy.
 	if(Runtime->IsExecuting)
 	{
+        DETOUR_TRACE(("Barrier Intro Runtime is executing \n") );
+
+
 		/*
 			This implies that actually the handler has invoked itself. Because of
 			the special HookLocalStorage, this is now also signaled if other
@@ -1759,6 +1774,7 @@ ULONGLONG WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void
 
 		goto DONT_INTERCEPT;
 	}
+	DETOUR_TRACE(("Barrier Intro InHandle->Callback %p \n", InHandle->Callback) );
 
 	Info->Callback = InHandle->Callback;
 	Info->Current = Runtime;
@@ -1767,6 +1783,7 @@ ULONGLONG WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void
 		Now we will negotiate thread/process access based on global and local ACL...
 	*/
 	Runtime->IsExecuting = IsThreadIntercepted(&InHandle->LocalACL, GetCurrentThreadId());
+    DETOUR_TRACE(("Barrier Intro Runtime->IsExecutin %d \n", Runtime->IsExecuting) );
 
 	if(!Runtime->IsExecuting)
 		goto DONT_INTERCEPT;
@@ -1774,8 +1791,10 @@ ULONGLONG WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void
 	// save some context specific information
 	Runtime->RetAddress = InRetAddr;
 	Runtime->AddrOfRetAddr = InAddrOfRetAddr;
+    DETOUR_TRACE(("Barrier Intro ReleaseSelfProtection \n") );
 
 	ReleaseSelfProtection();
+    DETOUR_TRACE(("Barrier Intro return TRUE \n") );
 	
 	return TRUE;
 
@@ -1789,6 +1808,7 @@ DONT_INTERCEPT:
 
 		ReleaseSelfProtection();
 	}
+    DETOUR_TRACE(("Barrier Intro return FALSE \n") );
 
 	return FALSE;
 }
@@ -2162,7 +2182,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->Trampoline = endOfTramp;
 			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
 			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
-			o->pTrampoline->IsExecutedPtr = new int[1] {0};
+			o->pTrampoline->IsExecutedPtr = new int();
 
             InsertTraceHandle(o->pTrampoline);
 
@@ -2187,7 +2207,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
             o->pTrampoline->Trampoline = endOfTramp;
             o->pTrampoline->OldProc = o->pTrampoline->rbCode;
             o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
-            o->pTrampoline->IsExecutedPtr = new int[1] {0};
+            o->pTrampoline->IsExecutedPtr = new int();
             PBYTE Ptr = (PBYTE)o->pTrampoline->Trampoline;
             for(ULONG Index = 0; Index < TrampolineSize; Index++)
             {
@@ -2230,9 +2250,17 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
             o->pTrampoline->HookIntro = BarrierIntro;
 			o->pTrampoline->HookOutro = BarrierOutro;
 			o->pTrampoline->Trampoline = endOfTramp;
-			o->pTrampoline->OldProc = o->pTrampoline->rbCode;
-			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
-			o->pTrampoline->IsExecutedPtr = new int[1] {0};    
+			o->pTrampoline->OldProc = DETOURS_PBYTE_TO_PFUNC(o->pTrampoline->rbCode);
+			o->pTrampoline->HookProc = DETOURS_PBYTE_TO_PFUNC(o->pTrampoline->pbDetour);            
+             DETOUR_TRACE(("detours: oldProc=%p: "
+                          "%02x %02x %02x %02x "
+                          "%02x %02x %02x %02x "
+                          "%02x %02x %02x %02x [oldProc]\n",
+                          o->pTrampoline->OldProc,
+                          o->pTrampoline->OldProc[0], o->pTrampoline->OldProc[1], o->pTrampoline->OldProc[2], o->pTrampoline->OldProc[3],
+                          o->pTrampoline->OldProc[4], o->pTrampoline->OldProc[5], o->pTrampoline->OldProc[6], o->pTrampoline->OldProc[7],
+                          o->pTrampoline->OldProc[8], o->pTrampoline->OldProc[9], o->pTrampoline->OldProc[10], o->pTrampoline->OldProc[11]));          
+			o->pTrampoline->IsExecutedPtr = new int();    
             // relocate relative addresses the trampoline uses the above function pointers   
             for(int x = 0; x < trampolinePtrCount; x++) {
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) -= (INT)trampolineStart;
