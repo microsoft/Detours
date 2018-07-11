@@ -96,9 +96,6 @@ void RtlCopyMemory(
 
 void* RtlAllocateMemory(BOOL InZeroMemory, ULONG InSize)
 {
-	DETOUR_TRACE(("RtlAllocateMemory InHandle=%p, InZeroMemory=%d, InSize=%d \n",
-        hCoreHookHeap, InZeroMemory, InSize) );
-
     void*       Result = 
 #ifdef _DEBUG
 		HeapAlloc(hCoreHookHeap, 0, InSize);

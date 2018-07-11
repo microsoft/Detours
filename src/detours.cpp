@@ -1678,7 +1678,6 @@ UINT WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** In
 	BOOL						Exists;
 
 
-
 #if defined(DETOURS_X64) || defined(DETOURS_ARM) || defined(DETOURS_ARM64)
 	InHandle = (DETOUR_TRAMPOLINE*)((PBYTE)(InHandle) - (sizeof(DETOUR_TRAMPOLINE) - DETOUR_TRAMPOLINE_CODE_SIZE));
 #endif
@@ -1697,14 +1696,12 @@ UINT WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** In
 
 		return FALSE;
 	}
-	DETOUR_TRACE(("Barrier Intro TlsGetCurrentValue \n") );
+
 	// open pointer table
 	Exists = TlsGetCurrentValue(&Unit.TLS, &Info);
 
 	if(!Exists)
-	{
-	    DETOUR_TRACE(("Barrier Intro TlsAddCurrentThread \n") );
-        
+	{        
 		if(!TlsAddCurrentThread(&Unit.TLS))
 			return FALSE;
 	}
@@ -1717,51 +1714,36 @@ UINT WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** In
 		Self protection prevents any further hook interception for the current fiber,
 		while setting up the "Thread Deadlock Barrier"...
 	*/
-	DETOUR_TRACE(("Barrier Intro AcquireSelfProtection \n") );
-
 	if(!AcquireSelfProtection())
 	{
 		/*  !!Note that the assembler code does not invoke LhBarrierOutro() in this case!! */
 
 		return FALSE;
 	}
-	DETOUR_TRACE(("Barrier Intro InHandle->HLSIndex %d \n", InHandle->HLSIndex) );
-
 	ASSERT2(InHandle->HLSIndex < MAX_HOOK_COUNT,L"detours.cpp - InHandle->HLSIndex < MAX_HOOK_COUNT");
 
 	if(!Exists)
-	{
-	    DETOUR_TRACE(("Barrier Intro TlsGetCurrentValue \n") );
-        
+	{        
 		TlsGetCurrentValue(&Unit.TLS, &Info);
-	    DETOUR_TRACE(("Barrier Intro RtlAllocateMemory \n") );
-
 		Info->Entries = (RUNTIME_INFO*)RtlAllocateMemory(TRUE, sizeof(RUNTIME_INFO) * MAX_HOOK_COUNT);
 
 		if(Info->Entries == NULL)
 			goto DONT_INTERCEPT;
 	}
-	DETOUR_TRACE(("Barrier Intro Info->Entries %p \n", &Info->Entries[InHandle->HLSIndex]) );
 
 	// get hook runtime info...
 	Runtime = &Info->Entries[InHandle->HLSIndex];
-	DETOUR_TRACE(("Barrier Intro Runtime %p \n", Runtime) );
 
 	if(Runtime->HLSIdent != InHandle->HLSIdent)
 	{
 		// just reset execution information
 		Runtime->HLSIdent = InHandle->HLSIdent;
-		Runtime->IsExecuting = FALSE;
-        DETOUR_TRACE(("Barrier Intro Runtime is executing set to false \n") );
-        
+		Runtime->IsExecuting = FALSE;        
 	}
 
 	// detect loops in hook execution hiearchy.
 	if(Runtime->IsExecuting)
 	{
-        DETOUR_TRACE(("Barrier Intro Runtime is executing \n") );
-
-
 		/*
 			This implies that actually the handler has invoked itself. Because of
 			the special HookLocalStorage, this is now also signaled if other
@@ -1774,7 +1756,6 @@ UINT WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** In
 
 		goto DONT_INTERCEPT;
 	}
-	DETOUR_TRACE(("Barrier Intro InHandle->Callback %p \n", InHandle->Callback) );
 
 	Info->Callback = InHandle->Callback;
 	Info->Current = Runtime;
@@ -1783,7 +1764,6 @@ UINT WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** In
 		Now we will negotiate thread/process access based on global and local ACL...
 	*/
 	Runtime->IsExecuting = IsThreadIntercepted(&InHandle->LocalACL, GetCurrentThreadId());
-    DETOUR_TRACE(("Barrier Intro Runtime->IsExecutin %d \n", Runtime->IsExecuting) );
 
 	if(!Runtime->IsExecuting)
 		goto DONT_INTERCEPT;
@@ -1791,11 +1771,8 @@ UINT WINAPI BarrierIntro(DETOUR_TRAMPOLINE* InHandle, void* InRetAddr, void** In
 	// save some context specific information
 	Runtime->RetAddress = InRetAddr;
 	Runtime->AddrOfRetAddr = InAddrOfRetAddr;
-    DETOUR_TRACE(("Barrier Intro ReleaseSelfProtection \n") );
 
-	ReleaseSelfProtection();
-    DETOUR_TRACE(("Barrier Intro return TRUE \n") );
-	
+	ReleaseSelfProtection();	
 	return TRUE;
 
 DONT_INTERCEPT:
@@ -1808,7 +1785,6 @@ DONT_INTERCEPT:
 
 		ReleaseSelfProtection();
 	}
-    DETOUR_TRACE(("Barrier Intro return FALSE \n") );
 
 	return FALSE;
 }
