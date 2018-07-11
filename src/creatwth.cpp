@@ -572,7 +572,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         }
     }
 
-    DETOUR_TRACE(("    32BitExe=%d 32BitProcess\n", bHas32BitExe, bIs32BitProcess));
+    DETOUR_TRACE(("    32BitExe=%d 32BitProcess=%d\n", bHas32BitExe, bIs32BitProcess));
 
     return DetourUpdateProcessWithDllEx(hProcess,
                                         hModule,
@@ -606,7 +606,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         bIs32BitExe = TRUE;
     }
 
-    DETOUR_TRACE(("    32BitExe=%d 32BitProcess\n", bIs32BitExe, bIs32BitProcess));
+    DETOUR_TRACE(("    32BitExe=%d 32BitProcess=%d\n", bIs32BitExe, bIs32BitProcess));
 
     if (hModule == NULL) {
         SetLastError(ERROR_INVALID_OPERATION);
