@@ -324,6 +324,9 @@ Parameters:
 		DWORD dwOld2;
 		VirtualProtect(InAcl, sizeof(HOOK_ACL), dwOld, &dwOld2);
 	}
+    else {
+        return -3;
+    }
 
     return 0;
 }

@@ -102,9 +102,9 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     }
 
     DETOUR_TRACE(("     Imports: %p..%p\n",
-                  (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress,
-                  (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress +
-                  inh.IMPORT_DIRECTORY.Size));
+                  (PVOID)((DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress),
+                  (PVOID)((DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress +
+                  inh.IMPORT_DIRECTORY.Size)));
 
     DWORD nOldDlls = inh.IMPORT_DIRECTORY.Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
     DWORD obRem = sizeof(IMAGE_IMPORT_DESCRIPTOR) * nDlls;

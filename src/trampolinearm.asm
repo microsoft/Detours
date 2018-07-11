@@ -7,6 +7,8 @@ Trampoline_ASM_ARM FUNCTION
         DCB 0   ; help with alignment
         DCB 0
         DCB 0
+    
+       
 NETIntro        ; .NET Barrier Intro Function
         DCB 0
         DCB 0
@@ -37,7 +39,8 @@ IsExecutedPtr  ; Count of times trampoline was executed
       
 start     
         PUSH    {r0, r1, r2, r3, r4, lr}
-        VPUSH   {d0-d7}
+        PUSH    {r5, r6, r7, r8, r10, r11}        
+        VPUSH   {d8-d15}
         LDR     r5, =IsExecutedPtr
         LDR     r5, [r5]
         MOV     r1, #0x0               
@@ -64,6 +67,7 @@ try_dec_lock
         DMB     ish		
 
         LDR   r5, =OldProc
+        LDR   r5, [r5]        
         B     TRAMPOLINE_EXIT
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; call hook handler or original method...
 CALL_NET_ENTRY
@@ -72,8 +76,8 @@ CALL_NET_ENTRY
 
         LDR     r0, =IsExecutedPtr
         ADD     r0, r0, #4 ; Hook handle (only a position hint)
-        ADDS    r2, sp, #0x54 ; original sp (address of return address)
-        LDR     r1, [sp, #0x54] ; return address (value stored in original sp)
+        ADDS    r2, sp, #0x6C ; original sp (address of return address)
+        LDR     r1, [sp, #0x6C] ; return address (value stored in original sp)
         LDR     r4, =NETIntro
         LDR     r4, [r4]
         BLX     r4 ; Hook->NETIntro(Hook, RetAddr, InitialSP);
@@ -103,14 +107,14 @@ CALL_HOOK_HANDLER
         LDR     r5, =NewProc
         LDR     r5, [r5]
         LDR     r4, =CALL_NET_OUTRO ; adjust return address
-        STR     r4, [sp, #0x54] ; store outro return to stack after hook handler is called         
+        STR     r4, [sp, #0x6C] ; store outro return to stack after hook handler is called         
         B       TRAMPOLINE_EXIT
  ; this is where the handler returns...
 CALL_NET_OUTRO
-        MOV     r1, 0
-        PUSH    r1
+        MOV     r3, 0
+        PUSH    r3
         ADDS    r1, sp, #0
-        PUSH    r0 ; save return handler
+        PUSH    {r0, r1, r2} ; save return handler
         LDR     r0, =IsExecutedPtr
         ADD     r0, r0, #4 ; get address of next Hook struct pointer
         ; Param 2: Address of return address
@@ -129,23 +133,24 @@ try_dec_lock3
         BNE     try_dec_lock3
         DMB     ish
 
-        POP     {r0,lr} ; restore return value of user handler...
+        POP     {r0, r1, r2, lr} ; restore return value of user handler...
 ; finally return to saved return address - the caller of this trampoline...        
         BX      lr
 
 TRAMPOLINE_EXIT
-        
-        VPOP   {d0-d7}        
+        MOV     r9, r5
+        VPOP   {d8-d15}    
+        POP    {r5, r6, r7, r8, r10, r11}            
         POP    {r0, r1, r2, r3, r4, lr}
-
-        MOV     pc, r5
+        
+        BX      r9 ; MOV     pc, r9
 
 ; outro signature, to automatically determine code size        
-        dcb     0x78
-        dcb     0x56
-        dcb     0x34
-        dcb     0x12  
-
+        DCB     0x78
+        DCB     0x56
+        DCB     0x34
+        DCB     0x12  
+      
         ENDFUNC
 
         END                     
