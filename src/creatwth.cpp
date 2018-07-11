@@ -180,16 +180,6 @@ static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbBase, DWORD cbAllo
 
         PBYTE pbAddress = (PBYTE)(((DWORD_PTR)mbi.BaseAddress + 0xffff) & ~(DWORD_PTR)0xffff);
 
-#ifdef _WIN64
-        // The distance from pbBase to pbAddress must fit in 32 bits.
-        //
-        const size_t GB4 = ((((size_t)1) << 32) - 1);
-        if ((size_t)(pbAddress - pbBase) > GB4) {
-            DETOUR_TRACE(("FindAndAllocateNearBase(1) failing due to distance >4GB %p\n", pbAddress));
-            return NULL;
-        }
-#endif
-
         DETOUR_TRACE(("Free region %p..%p\n",
                       mbi.BaseAddress,
                       (PBYTE)mbi.BaseAddress + mbi.RegionSize));
@@ -201,14 +191,7 @@ static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbBase, DWORD cbAllo
                 DETOUR_TRACE(("VirtualAllocEx(%p) failed: %d\n", pbAddress, GetLastError()));
                 continue;
             }
-#ifdef _WIN64
-            // The distance from pbBase to pbAddress must fit in 32 bits.
-            //
-            if ((size_t)(pbAddress - pbBase) > GB4) {
-                DETOUR_TRACE(("FindAndAllocateNearBase(2) failing due to distance >4GB %p\n", pbAddress));
-                return NULL;
-            }
-#endif
+
             DETOUR_TRACE(("[%p..%p] Allocated for import table.\n",
                           pbAlloc, pbAlloc + cbAlloc));
             return pbAlloc;

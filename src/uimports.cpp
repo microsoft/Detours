@@ -147,6 +147,20 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     PIMAGE_IMPORT_DESCRIPTOR piid = (PIMAGE_IMPORT_DESCRIPTOR)pbNew;
     DWORD_XX *pt;
 
+#ifdef _WIN64
+    // The offset from pbModule to any replacement import must fit into 32 bits.
+    // For simplicity, we check that the offset to the last byte fits into 32 bits,
+    // instead of the largest offset we'll actually use. The values are very similar.
+    const size_t GB4 = ((((size_t)1) << 32) - 1);
+    const size_t maxPossibleOffset = (size_t)(pbNewIid + cbNew - 1 - pbModule);
+
+    if (maxPossibleOffset > GB4) {
+        DETOUR_TRACE(("Offset into the allocation for new imports is >4GB %zx\n",
+                      maxPossibleOffset));
+        goto finish;
+    }
+#endif
+
     DWORD obBase = (DWORD)(pbNewIid - pbModule);
     DWORD dwProtect = 0;
 
