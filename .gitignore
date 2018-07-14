@@ -1,0 +1,11 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+*.ipch
+*.suo
+/.vs
+*.user
+/vc/.vs/Detours/v15
+/vc/Debug
+/vc/x64

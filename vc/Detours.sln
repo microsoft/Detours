@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2035
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Detours", "Detours.vcxproj", "{37489709-8054-4903-9C49-A79846049FC9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		DebugMDd|x64 = DebugMDd|x64
+		DebugMDd|x86 = DebugMDd|x86
+		DebugMTd|x64 = DebugMTd|x64
+		DebugMTd|x86 = DebugMTd|x86
+		ReleaseMD|x64 = ReleaseMD|x64
+		ReleaseMD|x86 = ReleaseMD|x86
+		ReleaseMT|x64 = ReleaseMT|x64
+		ReleaseMT|x86 = ReleaseMT|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{37489709-8054-4903-9C49-A79846049FC9}.DebugMDd|x64.ActiveCfg = DebugMDd|x64
+		{37489709-8054-4903-9C49-A79846049FC9}.DebugMDd|x64.Build.0 = DebugMDd|x64
+		{37489709-8054-4903-9C49-A79846049FC9}.DebugMDd|x86.ActiveCfg = DebugMDd|Win32
+		{37489709-8054-4903-9C49-A79846049FC9}.DebugMDd|x86.Build.0 = DebugMDd|Win32
+		{37489709-8054-4903-9C49-A79846049FC9}.DebugMTd|x64.ActiveCfg = DebugMTd|x64
+		{37489709-8054-4903-9C49-A79846049FC9}.DebugMTd|x64.Build.0 = DebugMTd|x64
+		{37489709-8054-4903-9C49-A79846049FC9}.DebugMTd|x86.ActiveCfg = DebugMTd|Win32
+		{37489709-8054-4903-9C49-A79846049FC9}.DebugMTd|x86.Build.0 = DebugMTd|Win32
+		{37489709-8054-4903-9C49-A79846049FC9}.ReleaseMD|x64.ActiveCfg = ReleaseMD|x64
+		{37489709-8054-4903-9C49-A79846049FC9}.ReleaseMD|x64.Build.0 = ReleaseMD|x64
+		{37489709-8054-4903-9C49-A79846049FC9}.ReleaseMD|x86.ActiveCfg = ReleaseMD|Win32
+		{37489709-8054-4903-9C49-A79846049FC9}.ReleaseMD|x86.Build.0 = ReleaseMD|Win32
+		{37489709-8054-4903-9C49-A79846049FC9}.ReleaseMT|x64.ActiveCfg = ReleaseMD|x64
+		{37489709-8054-4903-9C49-A79846049FC9}.ReleaseMT|x64.Build.0 = ReleaseMD|x64
+		{37489709-8054-4903-9C49-A79846049FC9}.ReleaseMT|x86.ActiveCfg = ReleaseMT|Win32
+		{37489709-8054-4903-9C49-A79846049FC9}.ReleaseMT|x86.Build.0 = ReleaseMT|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1E71C644-7F30-4025-B1DF-6A4F07A2EDB3}
+	EndGlobalSection
+EndGlobal
