@@ -1,10 +1,10 @@
 #define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS 1
 
-#pragma warning(disable:4068) // unknown pragma (suppress)
+#pragma warning(disable : 4068) // unknown pragma (suppress)
 
 #if _MSC_VER >= 1900
 #pragma warning(push)
-#pragma warning(disable:4091) // empty typedef
+#pragma warning(disable : 4091) // empty typedef
 #endif
 
 #define _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE 1
@@ -14,7 +14,7 @@
 #else
 #pragma warning(push)
 #if _MSC_VER > 1400
-#pragma warning(disable:6102 6103) // /analyze warnings
+#pragma warning(disable : 6102 6103) // /analyze warnings
 #endif
 #include <strsafe.h>
 #pragma warning(pop)
@@ -24,7 +24,7 @@
 #define DETOURS_INTERNAL
 #include "detours.h"
 
-#if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
+#if DETOURS_VERSION != 0x4c0c1 // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
 #endif
 
@@ -33,39 +33,38 @@
 #endif
 
 // allocate at DLL Entry
-HANDLE              hCoreHookHeap = NULL;
+HANDLE hCoreHookHeap = NULL;
 
-BARRIER_UNIT         Unit;
+BARRIER_UNIT Unit;
 
-
-void RtlInitializeLock(RTL_SPIN_LOCK* OutLock)
+void RtlInitializeLock(RTL_SPIN_LOCK *OutLock)
 {
     RtlZeroMemory(OutLock, sizeof(RTL_SPIN_LOCK));
 
     InitializeCriticalSection(&OutLock->Lock);
 }
 
-void RtlAcquireLock(RTL_SPIN_LOCK* InLock)
+void RtlAcquireLock(RTL_SPIN_LOCK *InLock)
 {
     EnterCriticalSection(&InLock->Lock);
 
-    ASSERT2(!InLock->IsOwned,L"barrier.cpp - !InLock->IsOwned");
+    ASSERT2(!InLock->IsOwned, L"barrier.cpp - !InLock->IsOwned");
 
     InLock->IsOwned = TRUE;
 }
 
-void RtlReleaseLock(RTL_SPIN_LOCK* InLock)
+void RtlReleaseLock(RTL_SPIN_LOCK *InLock)
 {
-    ASSERT2(InLock->IsOwned,L"barrier.cpp - InLock->IsOwned");
+    ASSERT2(InLock->IsOwned, L"barrier.cpp - InLock->IsOwned");
 
     InLock->IsOwned = FALSE;
 
     LeaveCriticalSection(&InLock->Lock);
 }
 
-void RtlDeleteLock(RTL_SPIN_LOCK* InLock)
+void RtlDeleteLock(RTL_SPIN_LOCK *InLock)
 {
-    ASSERT2(!InLock->IsOwned,L"barrier.cpp - InLock->IsOwned");
+    ASSERT2(!InLock->IsOwned, L"barrier.cpp - InLock->IsOwned");
 
     DeleteCriticalSection(&InLock->Lock);
 }
@@ -75,17 +74,16 @@ void RtlSleep(ULONG InTimeout)
     Sleep(InTimeout);
 }
 
-
 void RtlCopyMemory(
-            PVOID InDest,
-            PVOID InSource,
-            ULONG InByteCount)
+    PVOID InDest,
+    PVOID InSource,
+    ULONG InByteCount)
 {
-    ULONG       Index;
-    UCHAR*      Dest = (UCHAR*)InDest;
-    UCHAR*      Src = (UCHAR*)InSource;
+    ULONG Index;
+    UCHAR *Dest = (UCHAR *)InDest;
+    UCHAR *Src = (UCHAR *)InSource;
 
-    for(Index = 0; Index < InByteCount; Index++)
+    for (Index = 0; Index < InByteCount; Index++)
     {
         *Dest = *Src;
 
@@ -94,33 +92,32 @@ void RtlCopyMemory(
     }
 }
 
-void* RtlAllocateMemory(BOOL InZeroMemory, ULONG InSize)
+void *RtlAllocateMemory(BOOL InZeroMemory, ULONG InSize)
 {
-    void*       Result = 
+    void *Result =
 #ifdef _DEBUG
-		HeapAlloc(hCoreHookHeap, 0, InSize);
+        HeapAlloc(hCoreHookHeap, 0, InSize);
 #else
         HeapAlloc(hCoreHookHeap, 0, InSize);
 #endif
 
-    if(InZeroMemory && (Result != NULL))
+    if (InZeroMemory && (Result != NULL))
         RtlZeroMemory(Result, InSize);
 
     return Result;
 }
 
-
 #ifndef _DEBUG
-    #pragma optimize ("", off) // suppress _memset
+#pragma optimize("", off) // suppress _memset
 #endif
 void RtlZeroMemory(
-            PVOID InTarget,
-            ULONG InByteCount)
+    PVOID InTarget,
+    ULONG InByteCount)
 {
-    ULONG           Index;
-    UCHAR*          Target = (UCHAR*)InTarget;
+    ULONG Index;
+    UCHAR *Target = (UCHAR *)InTarget;
 
-    for(Index = 0; Index < InByteCount; Index++)
+    for (Index = 0; Index < InByteCount; Index++)
     {
         *Target = 0;
 
@@ -128,29 +125,30 @@ void RtlZeroMemory(
     }
 }
 #ifndef _DEBUG
-    #pragma optimize ("", on) 
+#pragma optimize("", on)
 #endif
 
-
-LONG RtlProtectMemory(void* InPointer, ULONG InSize, ULONG InNewProtection)
+LONG RtlProtectMemory(void *InPointer, ULONG InSize, ULONG InNewProtection)
 {
-    DWORD       OldProtect;
-    LONG        NtStatus;
+    DWORD OldProtect;
+    LONG NtStatus;
 
-    if(!VirtualProtect(InPointer, InSize, InNewProtection, &OldProtect)) {
-        THROW(STATUS_INVALID_PARAMETER, (WCHAR*)L"Unable to make memory executable.")
+    if (!VirtualProtect(InPointer, InSize, InNewProtection, &OldProtect))
+    {
+        THROW(STATUS_INVALID_PARAMETER, (WCHAR *)L"Unable to make memory executable.")
     }
-    else {
+    else
+    {
         return 0;
     }
 THROW_OUTRO:
-//FINALLY_OUTRO:
+    //FINALLY_OUTRO:
     return NtStatus;
 }
 
-void RtlFreeMemory(void* InPointer)
+void RtlFreeMemory(void *InPointer)
 {
-	ASSERT2(InPointer != NULL,L"barrier.cpp - InPointer != NULL");
+    ASSERT2(InPointer != NULL, L"barrier.cpp - InPointer != NULL");
 
 #ifdef _DEBUG
     //free(InPointer);
@@ -159,34 +157,34 @@ void RtlFreeMemory(void* InPointer)
 #endif
 }
 
-LONG RtlInterlockedIncrement(LONG* RefValue)
+LONG RtlInterlockedIncrement(LONG *RefValue)
 {
     return InterlockedIncrement(RefValue);
 }
 
 BOOL RtlIsValidPointer(PVOID InPtr, ULONG InSize)
 {
-    if((InPtr == NULL) || (InPtr == (PVOID)~0))
+    if ((InPtr == NULL) || (InPtr == (PVOID)~0))
         return FALSE;
 
-    ASSERT2(!IsBadReadPtr(InPtr, InSize),L"barrier.cpp - !IsBadReadPtr(InPtr, InSize)");
+    ASSERT2(!IsBadReadPtr(InPtr, InSize), L"barrier.cpp - !IsBadReadPtr(InPtr, InSize)");
 
     return TRUE;
 }
 
-static PWCHAR           LastError = (PWCHAR)L"";
-static ULONG            LastErrorCode = 0;
+static PWCHAR LastError = (PWCHAR)L"";
+static ULONG LastErrorCode = 0;
 
-void RtlSetLastError(LONG InCode, LONG InNtStatus, WCHAR* InMessage)
+void RtlSetLastError(LONG InCode, LONG InNtStatus, WCHAR *InMessage)
 {
     LastErrorCode = InCode;
 
-    if(InMessage == NULL)
+    if (InMessage == NULL)
         LastError = (PWCHAR)L"";
     else
     {
-        if(InNtStatus == 0) {
-
+        if (InNtStatus == 0)
+        {
         }
 #if _DEBUG
         LastErrorCode = InNtStatus;
@@ -194,9 +192,9 @@ void RtlSetLastError(LONG InCode, LONG InNtStatus, WCHAR* InMessage)
         LastError = (PWCHAR)InMessage;
     }
 }
-void RtlAssert(BOOL InAssert,LPCWSTR lpMessageText)
+void RtlAssert(BOOL InAssert, LPCWSTR lpMessageText)
 {
-    if(InAssert)
+    if (InAssert)
         return;
 
 #ifdef _DEBUG
@@ -205,12 +203,11 @@ void RtlAssert(BOOL InAssert,LPCWSTR lpMessageText)
     FatalAppExitW(0, lpMessageText);
 }
 
-
 LONG LhSetGlobalInclusiveACL(
-            ULONG* InThreadIdList,
-            ULONG InThreadCount)
+    ULONG *InThreadIdList,
+    ULONG InThreadCount)
 {
-/*
+    /*
 Description:
 
     Sets an inclusive global ACL based on the given thread ID list.
@@ -228,10 +225,10 @@ Parameters:
 }
 
 LONG LhSetGlobalExclusiveACL(
-            ULONG* InThreadIdList,
-            ULONG InThreadCount)
+    ULONG *InThreadIdList,
+    ULONG InThreadCount)
 {
-/*
+    /*
 Description:
 
     Sets an exclusive global ACL based on the given thread ID list.
@@ -249,10 +246,10 @@ Parameters:
 }
 
 BOOL LhIsValidHandle(
-            TRACED_HOOK_HANDLE InTracedHandle,
-            PLOCAL_HOOK_INFO* OutHandle)
+    TRACED_HOOK_HANDLE InTracedHandle,
+    PLOCAL_HOOK_INFO *OutHandle)
 {
-/*
+    /*
 Description:
 
     A handle is considered to be valid, if the whole structure
@@ -260,21 +257,21 @@ Description:
     hook is installed!
 
 */
-    if(!IsValidPointer(InTracedHandle, sizeof(HOOK_TRACE_INFO)))
+    if (!IsValidPointer(InTracedHandle, sizeof(HOOK_TRACE_INFO)))
         return FALSE;
 
-    if(OutHandle != NULL)
+    if (OutHandle != NULL)
         *OutHandle = InTracedHandle->Link;
 
     return TRUE;
 }
 LONG LhSetACL(
-            HOOK_ACL* InAcl,
-            BOOL InIsExclusive,
-            ULONG* InThreadIdList,
-            ULONG InThreadCount)
+    HOOK_ACL *InAcl,
+    BOOL InIsExclusive,
+    ULONG *InThreadIdList,
+    ULONG InThreadCount)
 {
-/*
+    /*
 Description:
 
     This method is used internally to provide a generic interface to
@@ -298,72 +295,73 @@ Parameters:
         MAX_ACE_COUNT! 
 */
 
-    ULONG           Index;
+    ULONG Index;
 
-    ASSERT2(IsValidPointer(InAcl, sizeof(HOOK_ACL)),L"barrier.cpp - IsValidPointer(InAcl, sizeof(HOOK_ACL))");
+    ASSERT2(IsValidPointer(InAcl, sizeof(HOOK_ACL)), L"barrier.cpp - IsValidPointer(InAcl, sizeof(HOOK_ACL))");
 
-    if(InThreadCount > MAX_ACE_COUNT)
+    if (InThreadCount > MAX_ACE_COUNT)
         return -2;
 
-    if(!IsValidPointer(InThreadIdList, InThreadCount * sizeof(ULONG)))
+    if (!IsValidPointer(InThreadIdList, InThreadCount * sizeof(ULONG)))
         return -1;
 
-    for(Index = 0; Index < InThreadCount; Index++)
+    for (Index = 0; Index < InThreadCount; Index++)
     {
-        if(InThreadIdList[Index] == 0)
+        if (InThreadIdList[Index] == 0)
             InThreadIdList[Index] = GetCurrentThreadId();
     }
-	DWORD dwOld;
-	if (VirtualProtect(InAcl, sizeof(HOOK_ACL), PAGE_READWRITE, &dwOld)) {
-		// set ACL...
-		InAcl->IsExclusive = InIsExclusive;
-		InAcl->Count = InThreadCount;
+    DWORD dwOld;
+    if (VirtualProtect(InAcl, sizeof(HOOK_ACL), PAGE_READWRITE, &dwOld))
+    {
+        // set ACL...
+        InAcl->IsExclusive = InIsExclusive;
+        InAcl->Count = InThreadCount;
 
-		RtlCopyMemory(InAcl->Entries, InThreadIdList, InThreadCount * sizeof(ULONG));
+        RtlCopyMemory(InAcl->Entries, InThreadIdList, InThreadCount * sizeof(ULONG));
 
-		DWORD dwOld2;
-		VirtualProtect(InAcl, sizeof(HOOK_ACL), dwOld, &dwOld2);
-	}
-    else {
+        DWORD dwOld2;
+        VirtualProtect(InAcl, sizeof(HOOK_ACL), dwOld, &dwOld2);
+    }
+    else
+    {
         return -3;
     }
 
     return 0;
 }
 
-HOOK_ACL* LhBarrierGetAcl()
+HOOK_ACL *LhBarrierGetAcl()
 {
-     return &Unit.GlobalACL;
+    return &Unit.GlobalACL;
 }
 
 LONG LhBarrierProcessAttach()
 {
-/*
+    /*
 Description:
 
     Will be called on DLL load and initializes all barrier structures.
 */
-	RtlZeroMemory(&Unit, sizeof(Unit));
+    RtlZeroMemory(&Unit, sizeof(Unit));
 
-	// globally accept all threads...
-	Unit.GlobalACL.IsExclusive = TRUE;
+    // globally accept all threads...
+    Unit.GlobalACL.IsExclusive = TRUE;
 
-	// allocate private heap
+    // allocate private heap
     RtlInitializeLock(&Unit.TLS.ThreadSafe);
 
-    Unit.IsInitialized =  AuxUlibInitialize() ? TRUE: FALSE;;
+    Unit.IsInitialized = AuxUlibInitialize() ? TRUE : FALSE;
 
     hCoreHookHeap = HeapCreate(0, 0, 0);
 
-	return 0;
+    return 0;
 }
 
-
 BOOL TlsGetCurrentValue(
-            THREAD_LOCAL_STORAGE* InTls,                
-            THREAD_RUNTIME_INFO** OutValue)
+    THREAD_LOCAL_STORAGE *InTls,
+    THREAD_RUNTIME_INFO **OutValue)
 {
-/*
+    /*
 Description:
 
     Queries the THREAD_RUNTIME_INFO for the calling thread.
@@ -384,25 +382,25 @@ Returns:
 
     FALSE if the caller was not registered in the storage, TRUE otherwise.
 */
-	ULONG		CurrentId = (ULONG)GetCurrentThreadId();
+    ULONG CurrentId = (ULONG)GetCurrentThreadId();
 
-    LONG        Index;
+    LONG Index;
 
-	for(Index = 0; Index < MAX_THREAD_COUNT; Index++)
-	{
-		if(InTls->IdList[Index] == CurrentId)
-		{
-			*OutValue = &InTls->Entries[Index];
+    for (Index = 0; Index < MAX_THREAD_COUNT; Index++)
+    {
+        if (InTls->IdList[Index] == CurrentId)
+        {
+            *OutValue = &InTls->Entries[Index];
 
-			return TRUE;
-		}
-	}
+            return TRUE;
+        }
+    }
 
-	return FALSE;
+    return FALSE;
 }
-BOOL TlsAddCurrentThread(THREAD_LOCAL_STORAGE* InTls)
+BOOL TlsAddCurrentThread(THREAD_LOCAL_STORAGE *InTls)
 {
-/*
+    /*
 Description:
 
     Tries to reserve a THREAD_RUNTIME_INFO entry for the calling thread.
@@ -426,40 +424,40 @@ Returns:
 
     TRUE on success, FALSE otherwise.
 */
-	ULONG		CurrentId = (ULONG)GetCurrentThreadId();
+    ULONG CurrentId = (ULONG)GetCurrentThreadId();
 
-	LONG		Index = -1;
-    LONG		i;
+    LONG Index = -1;
+    LONG i;
 
     RtlAcquireLock(&InTls->ThreadSafe);
 
     // select Index AND check whether thread is already registered.
-	for(i = 0; i < MAX_THREAD_COUNT; i++)
-	{
-		if((InTls->IdList[i] == 0) && (Index == -1))
-			Index = i;
-		
-		ASSERT2(InTls->IdList[i] != CurrentId,L"barrier.cpp - InTls->IdList[i] != CurrentId");
-	}
+    for (i = 0; i < MAX_THREAD_COUNT; i++)
+    {
+        if ((InTls->IdList[i] == 0) && (Index == -1))
+            Index = i;
 
-	if(Index == -1)
-	{
-		RtlReleaseLock(&InTls->ThreadSafe);
+        ASSERT2(InTls->IdList[i] != CurrentId, L"barrier.cpp - InTls->IdList[i] != CurrentId");
+    }
 
-		return FALSE;
-	}
+    if (Index == -1)
+    {
+        RtlReleaseLock(&InTls->ThreadSafe);
 
-	InTls->IdList[Index] = CurrentId;
-	RtlZeroMemory(&InTls->Entries[Index], sizeof(THREAD_RUNTIME_INFO));
-	
-	RtlReleaseLock(&InTls->ThreadSafe);
+        return FALSE;
+    }
 
-	return TRUE;
+    InTls->IdList[Index] = CurrentId;
+    RtlZeroMemory(&InTls->Entries[Index], sizeof(THREAD_RUNTIME_INFO));
+
+    RtlReleaseLock(&InTls->ThreadSafe);
+
+    return TRUE;
 }
 
-void TlsRemoveCurrentThread(THREAD_LOCAL_STORAGE* InTls)
+void TlsRemoveCurrentThread(THREAD_LOCAL_STORAGE *InTls)
 {
-/*
+    /*
 Description:
 
     Removes the caller from the local storage. If the caller
@@ -471,72 +469,72 @@ Parameters:
 
         The storage from which the caller should be removed.
 */
-	ULONG		    CurrentId = (ULONG)GetCurrentThreadId();
-    ULONG           Index;
+    ULONG CurrentId = (ULONG)GetCurrentThreadId();
+    ULONG Index;
 
     RtlAcquireLock(&InTls->ThreadSafe);
 
-	for(Index = 0; Index < MAX_THREAD_COUNT; Index++)
-	{
-		if(InTls->IdList[Index] == CurrentId)
-		{
-			InTls->IdList[Index] = 0;
+    for (Index = 0; Index < MAX_THREAD_COUNT; Index++)
+    {
+        if (InTls->IdList[Index] == CurrentId)
+        {
+            InTls->IdList[Index] = 0;
 
-			RtlZeroMemory(&InTls->Entries[Index], sizeof(THREAD_RUNTIME_INFO));
-		}
-	}
+            RtlZeroMemory(&InTls->Entries[Index], sizeof(THREAD_RUNTIME_INFO));
+        }
+    }
 
-	RtlReleaseLock(&InTls->ThreadSafe);
+    RtlReleaseLock(&InTls->ThreadSafe);
 }
 
 void LhBarrierProcessDetach()
 {
-/*
+    /*
 Description:
 
     Will be called on DLL unload.
 */
-	ULONG			Index;
+    ULONG Index;
 
-	RtlDeleteLock(&Unit.TLS.ThreadSafe);
+    RtlDeleteLock(&Unit.TLS.ThreadSafe);
 
-	// release thread specific resources
-	for(Index = 0; Index < MAX_THREAD_COUNT; Index++)
-	{
-		if(Unit.TLS.Entries[Index].Entries != NULL)
-			RtlFreeMemory(Unit.TLS.Entries[Index].Entries);
-	}
+    // release thread specific resources
+    for (Index = 0; Index < MAX_THREAD_COUNT; Index++)
+    {
+        if (Unit.TLS.Entries[Index].Entries != NULL)
+            RtlFreeMemory(Unit.TLS.Entries[Index].Entries);
+    }
 
-	RtlZeroMemory(&Unit, sizeof(Unit));
+    RtlZeroMemory(&Unit, sizeof(Unit));
 
-    HeapDestroy(hCoreHookHeap);    
+    HeapDestroy(hCoreHookHeap);
 }
 
 void LhBarrierThreadDetach()
 {
-/*
+    /*
 Description:
 
     Will be called on thread termination and cleans up the TLS.
 */
-	LPTHREAD_RUNTIME_INFO		Info;
+    LPTHREAD_RUNTIME_INFO Info;
 
-	if(TlsGetCurrentValue(&Unit.TLS, &Info))
-	{
-		if(Info->Entries != NULL)
-			RtlFreeMemory(Info->Entries);
+    if (TlsGetCurrentValue(&Unit.TLS, &Info))
+    {
+        if (Info->Entries != NULL)
+            RtlFreeMemory(Info->Entries);
 
-		Info->Entries = NULL;
-	}
+        Info->Entries = NULL;
+    }
 
-	TlsRemoveCurrentThread(&Unit.TLS);
+    TlsRemoveCurrentThread(&Unit.TLS);
 }
 
-RTL_SPIN_LOCK               GlobalHookLock;
+RTL_SPIN_LOCK GlobalHookLock;
 
 void LhCriticalInitialize()
 {
-/*
+    /*
 Description:
     
     Fail safe initialization of global hooking structures...
@@ -547,18 +545,18 @@ Description:
 
 void LhCriticalFinalize()
 {
-/*
+    /*
 Description:
 
     Will be called in the DLL_PROCESS_DETACH event and just uninstalls
     all hooks. If it is possible also their memory is released. 
 */
-	RtlDeleteLock(&GlobalHookLock);
+    RtlDeleteLock(&GlobalHookLock);
 }
 
 BOOL IsLoaderLock()
 {
-/*
+    /*
 Returns:
 
     TRUE if the current thread hols the OS loader lock, or the library was not initialized
@@ -567,15 +565,14 @@ Returns:
     FALSE if it is safe to execute the hook handler.
 
 */
-	BOOL     IsLoaderLock = FALSE;
+    BOOL IsLoaderLock = FALSE;
 
-	return (!AuxUlibIsDLLSynchronizationHeld(&IsLoaderLock) || IsLoaderLock || !Unit.IsInitialized);
+    return (!AuxUlibIsDLLSynchronizationHeld(&IsLoaderLock) || IsLoaderLock || !Unit.IsInitialized);
 }
-
 
 BOOL AcquireSelfProtection()
 {
-/*
+    /*
 Description:
 
     To provide more convenience for writing the TDB, this self protection
@@ -592,19 +589,19 @@ Returns:
     this case!
 
 */
-	LPTHREAD_RUNTIME_INFO		Runtime = NULL;
+    LPTHREAD_RUNTIME_INFO Runtime = NULL;
 
-	if(!TlsGetCurrentValue(&Unit.TLS, &Runtime) || Runtime->IsProtected)
-		return FALSE;
+    if (!TlsGetCurrentValue(&Unit.TLS, &Runtime) || Runtime->IsProtected)
+        return FALSE;
 
-	Runtime->IsProtected = TRUE;
+    Runtime->IsProtected = TRUE;
 
-	return TRUE;
+    return TRUE;
 }
 
 void ReleaseSelfProtection()
 {
-/*
+    /*
 Description:
 
     Exists the TDB self protection. Refer to AcquireSelfProtection() for more
@@ -612,41 +609,38 @@ Description:
 
     An assertion is raised if the caller has not owned the self protection.
 */
-	LPTHREAD_RUNTIME_INFO		Runtime = NULL;
+    LPTHREAD_RUNTIME_INFO Runtime = NULL;
 
-	ASSERT2(TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected,L"barrier.c - TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected");
+    ASSERT2(TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected, L"barrier.c - TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected");
 
-	Runtime->IsProtected = FALSE;
+    Runtime->IsProtected = FALSE;
 }
 
-
-
 BOOL ACLContains(
-	HOOK_ACL* InACL,
-	ULONG InCheckID)
+    HOOK_ACL *InACL,
+    ULONG InCheckID)
 {
-/*
+    /*
 Returns:
 
     TRUE if the given ACL contains the given ID, FALSE otherwise.
 */
-    ULONG           Index;
+    ULONG Index;
 
-	for(Index = 0; Index < InACL->Count; Index++)
-	{
-		if(InACL->Entries[Index] == InCheckID)
-			return TRUE;
-	}
+    for (Index = 0; Index < InACL->Count; Index++)
+    {
+        if (InACL->Entries[Index] == InCheckID)
+            return TRUE;
+    }
 
-	return FALSE;
+    return FALSE;
 }
 
-
 BOOL IsThreadIntercepted(
-	HOOK_ACL* LocalACL, 
-	ULONG InThreadID)
+    HOOK_ACL *LocalACL,
+    ULONG InThreadID)
 {
-/*
+    /*
 Description:
 
     Please refer to LhIsThreadIntercepted() for more information.
@@ -656,48 +650,48 @@ Returns:
     TRUE if the given thread is intercepted by the global AND local ACL,
     FALSE otherwise.
 */
-	ULONG				CheckID;
+    ULONG CheckID;
 
-	if(InThreadID == 0)
-		CheckID = GetCurrentThreadId();
-	else
-		CheckID = InThreadID;
+    if (InThreadID == 0)
+        CheckID = GetCurrentThreadId();
+    else
+        CheckID = InThreadID;
 
-	if(ACLContains(&Unit.GlobalACL, CheckID))
-	{
-		if(ACLContains(LocalACL, CheckID))
-		{
-			if(LocalACL->IsExclusive)
-				return FALSE;
-		}
-		else
-		{
-			if(!LocalACL->IsExclusive)
-				return FALSE;
-		}
+    if (ACLContains(&Unit.GlobalACL, CheckID))
+    {
+        if (ACLContains(LocalACL, CheckID))
+        {
+            if (LocalACL->IsExclusive)
+                return FALSE;
+        }
+        else
+        {
+            if (!LocalACL->IsExclusive)
+                return FALSE;
+        }
 
-		return !Unit.GlobalACL.IsExclusive;
-	}
-	else
-	{
-		if(ACLContains(LocalACL, CheckID))
-		{
-			if(LocalACL->IsExclusive)
-				return FALSE;
-		}
-		else
-		{
-			if(!LocalACL->IsExclusive)
-				return FALSE;
-		}
+        return !Unit.GlobalACL.IsExclusive;
+    }
+    else
+    {
+        if (ACLContains(LocalACL, CheckID))
+        {
+            if (LocalACL->IsExclusive)
+                return FALSE;
+        }
+        else
+        {
+            if (!LocalACL->IsExclusive)
+                return FALSE;
+        }
 
-		return Unit.GlobalACL.IsExclusive;
-	}
+        return Unit.GlobalACL.IsExclusive;
+    }
 }
 
-LONG LhBarrierGetCallback(PVOID* OutValue)
+LONG LhBarrierGetCallback(PVOID *OutValue)
 {
-/*
+    /*
 Description:
 
     Is expected to be called inside a hook handler. Otherwise it
@@ -706,19 +700,19 @@ Description:
     call.
 
 */
-    LONG            NtStatus;
-	LPTHREAD_RUNTIME_INFO       Runtime;
+    LONG NtStatus;
+    LPTHREAD_RUNTIME_INFO Runtime;
 
-    if(!IsValidPointer(OutValue, sizeof(PVOID)))
+    if (!IsValidPointer(OutValue, sizeof(PVOID)))
         THROW(STATUS_INVALID_PARAMETER, (PWCHAR)L"Invalid result storage specified.");
 
-	if(!TlsGetCurrentValue(&Unit.TLS, &Runtime))
+    if (!TlsGetCurrentValue(&Unit.TLS, &Runtime))
         THROW(-1, (PWCHAR)("The caller is not inside a hook handler."));
 
-	if(Runtime->Current != NULL)
-		*OutValue = Runtime->Callback;
-	else
-		THROW(-1, (PWCHAR)L"The caller is not inside a hook handler.");
+    if (Runtime->Current != NULL)
+        *OutValue = Runtime->Callback;
+    else
+        THROW(-1, (PWCHAR)L"The caller is not inside a hook handler.");
 
     RETURN;
 
@@ -728,12 +722,12 @@ FINALLY_OUTRO:
 }
 
 LONG LhInstallHook(
-            void* InEntryPoint,
-            void* InHookProc,
-            void* InCallback,
-            TRACED_HOOK_HANDLE OutHandle)
+    void *InEntryPoint,
+    void *InHookProc,
+    void *InCallback,
+    TRACED_HOOK_HANDLE OutHandle)
 {
-/*
+    /*
 Description:
 
     Installs a hook at the given entry point, redirecting all
@@ -788,18 +782,19 @@ Returns:
 
     error = DetourUpdateThread(GetCurrentThread());
 
-    error = DetourAttach(&(PVOID&)InEntryPoint, InHookProc);
+    error = DetourAttach(&(PVOID &)InEntryPoint, InHookProc);
 
     error = DetourTransactionCommit();
 
-	TRACED_HOOK_HANDLE handle = (TRACED_HOOK_HANDLE)DetourGetHookHandleForFunction(&(PVOID&)InEntryPoint);
+    TRACED_HOOK_HANDLE handle = (TRACED_HOOK_HANDLE)DetourGetHookHandleForFunction(&(PVOID &)InEntryPoint);
 
-    if(OutHandle != NULL && handle != NULL) {
+    if (OutHandle != NULL && handle != NULL)
+    {
         OutHandle->Link = handle->Link;
     }
-    if(InCallback != NULL) {
-        error = DetourSetCallbackForLocalHook(&(PVOID&)InEntryPoint, InCallback);        
+    if (InCallback != NULL)
+    {
+        error = DetourSetCallbackForLocalHook(&(PVOID &)InEntryPoint, InCallback);
     }
     return error;
 }
-

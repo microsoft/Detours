@@ -1970,6 +1970,60 @@ Parameters:
 
     return LhSetACL(&Handle->LocalACL, FALSE, InThreadIdList, InThreadCount);
 }
+LONG LhGetHookBypassAddress(
+            TRACED_HOOK_HANDLE InHook,
+            PVOID** OutAddress)
+{
+/*
+Description:
+
+	Retrieves the address to bypass the hook. Using the returned value to call the original
+	function bypasses all thread safety measures and must be used with care.
+	This function should be called each time the address is required to ensure the hook  and
+	associated memory is still valid at the time of use.
+	CAUTION:
+	This must be used with extreme caution. If the hook is uninstalled and pending hooks 
+	removed, the address returned by this function will no longer point to valid memory and 
+	attempting to use the address will result in unexpected behaviour, most likely crashing 
+	the process.
+
+Parameters:
+
+	- InHook
+
+		The hook to retrieve the relocated entry point for.
+
+	- OutAddress
+
+		Upon successfully retrieving the hook details this will contain
+		the address of the relocated function entry point. This address
+		can be used to call the original function from outside of a hook
+		while still bypassing the hook.
+	
+Returns:
+
+	STATUS_SUCCESS             - OutAddress will contain the result
+	STATUS_INVALID_PARAMETER_1 - the hook is invalid
+	STATUS_INVALID_PARAMETER_3 - the target pointer is invalid
+
+*/
+	LONG    			NtStatus;
+	PLOCAL_HOOK_INFO    Handle;
+
+	if (!LhIsValidHandle(InHook, &Handle))
+		THROW(-1, L"The given hook handle is invalid or already disposed.");
+
+	if (!IsValidPointer(OutAddress, sizeof(PVOID*)))
+		THROW(-3, L"Invalid pointer for result storage.");
+
+	*OutAddress = (PVOID*)Handle->OldProc;
+
+	RETURN;
+
+THROW_OUTRO:
+FINALLY_OUTRO:
+	return NtStatus;
+}
 static TRACED_HOOK_HANDLE           LastOutHandle = NULL;
 void* WINAPI DetourGetLastHandle()
 {

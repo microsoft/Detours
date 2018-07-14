@@ -33,12 +33,22 @@ $(BIND)\corehook$(DETOURS_BITS).dll $(BIND)\corehook$(DETOURS_BITS).lib: \
         /export:DetourFinishHelperProcess,@1,NONAME \
         /export:DetourAttach \
         /export:DetourTransactionBegin \
+        /export:DetourTransactionAbort \
+        /export:DetourCreateProcessWithDllsW \
+        /export:DetourCreateProcessWithDllsA \
+        /export:DetourCreateProcessWithDllExW \
+        /export:DetourCreateProcessWithDllExA \
+        /export:DetourCopyPayloadToProcess \
         /export:DetourUpdateThread \
         /export:DetourTransactionCommit \
         /export:DetourGetLastHandle \
         /export:DetourGetHookHandleForFunction \
         /export:DetourSetCallbackForLocalHook \
         /export:DetourDetach \
+        /export:DetourEnumerateExports \
+        /export:DetourEnumerateModules \
+        /export:DetourEnumerateImports \
+        /export:DetourFindFunction \
         /export:DetourIsHelperProcess \
         /export:DetourRestoreAfterWith \
         /export:DetourGetEntryPoint \
@@ -52,6 +62,7 @@ $(BIND)\corehook$(DETOURS_BITS).dll $(BIND)\corehook$(DETOURS_BITS).lib: \
         /export:LhSetGlobalInclusiveACL \
         /export:LhIsThreadIntercepted \
         /export:LhBarrierProcessAttach \
+        /export:LhGetHookBypassAddress \
         $(LIBS)
 
 $(OBJD)\corehook$(DETOURS_BITS).bsc : $(OBJD)\corehook.obj
