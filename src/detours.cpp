@@ -1343,7 +1343,7 @@ static void detour_free_trampoline(PDETOUR_TRAMPOLINE pTrampoline)
         delete pTrampoline->IsExecutedPtr;
     }
     if( pTrampoline->OutHandle != NULL) {    
-        delete[] pTrampoline->OutHandle;
+        delete pTrampoline->OutHandle;
     }
     if (GlobalSlotList[pTrampoline->HLSIndex] == pTrampoline->HLSIdent)
     {
@@ -1836,240 +1836,39 @@ Description:
 }
 
 
-LONG WINAPI LhUninstallHook(TRACED_HOOK_HANDLE InHandle)
-{
-/*
-Description:
-
-    Removes the given hook. To also release associated resources,
-    you will have to call LhWaitForPendingRemovals(). In any case
-    your hook handler will never be executed again, after calling this
-    method.
-
-Parameters:
-
-    - InHandle
-
-        A traced hook handle. If the hook is already removed, this method
-        will still return STATUS_SUCCESS.
-*/
-    LONG error = -1;
-
-    PDETOUR_TRAMPOLINE      Hook = NULL;    
-    LONG                    NtStatus = -1;
-    BOOLEAN                 IsAllocated = FALSE;
-
-     if(!IsValidPointer(InHandle, sizeof(HOOK_TRACE_INFO)))
-        return FALSE;
-
-    RtlAcquireLock(&GlobalHookLock);
-    {
-        if((InHandle->Link != NULL) && LhIsValidHandle(InHandle, &Hook))
-        {
-            InHandle->Link = NULL;
-
-            if(Hook->HookProc != NULL)
-            {
-                DWORD dwOld = 0;
-                if (!VirtualProtect(&Hook->HookProc , sizeof(PVOID), PAGE_READWRITE, &dwOld)) {
-                    error = GetLastError();
-                    DETOUR_BREAK();
-                }                
-                Hook->HookProc = NULL;  
-                DWORD dwOld2 = 0;
-                if (!VirtualProtect(&Hook->HookProc, sizeof(PVOID), dwOld, &dwOld2)) {
-                    error = GetLastError();
-                    DETOUR_BREAK();
-                }
-                IsAllocated = TRUE;
-            }
-        }
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
-        DetourDetach(&(PVOID&)Hook->OldProc, Hook->pbDetour);
-    
-        error = DetourTransactionCommit(); 
-
-        if(!IsAllocated)
-        {
-            RtlReleaseLock(&GlobalHookLock);
-
-            RETURN;
-        }
-
-    }
-    RtlReleaseLock(&GlobalHookLock);
-
-    RETURN(STATUS_SUCCESS);
-
-FINALLY_OUTRO:
-    return NtStatus;
-}
-
-LONG LhIsThreadIntercepted(
-	TRACED_HOOK_HANDLE InHook,
-	ULONG InThreadID,
-    BOOL* OutResult)
-{
-/*
-Description:
-
-    This method will negotiate whether a given thread passes
-    the ACLs and would invoke the related hook handler. Refer
-    to the source code of Is[Thread/Process]Intercepted() for more information
-    about the implementation.
-
-*/
-    LONG                NtStatus;
-    PLOCAL_HOOK_INFO    Handle;
-
-    if(!LhIsValidHandle(InHook, &Handle))
-        THROW(-1, (PWCHAR)L"The given hook handle is invalid or already disposed.");
-
-    if(!IsValidPointer(OutResult, sizeof(BOOL)))
-        THROW(-3, (PWCHAR)L"Invalid pointer for result storage.");
-
-    *OutResult = IsThreadIntercepted(&Handle->LocalACL, InThreadID);
-
-    RETURN;
-
-THROW_OUTRO:
-FINALLY_OUTRO:
-    return NtStatus;
-}
-
-LONG LhSetInclusiveACL(
-            ULONG* InThreadIdList,
-            ULONG InThreadCount,
-            TRACED_HOOK_HANDLE InHandle)
-{
-/*
-Description:
-
-    Sets an inclusive hook local ACL based on the given thread ID list.
-    Only threads in this list will be intercepted by the hook. If the
-    global ACL also is inclusive, then all threads stated there are
-    intercepted too.
-
-Parameters:
-    - InThreadIdList
-        An array of thread IDs. If you specific zero for an entry in this array,
-        it will be automatically replaced with the calling thread ID.
-
-    - InThreadCount
-        The count of entries listed in the thread ID list. This value must not exceed
-        MAX_ACE_COUNT! 
-
-    - InHandle
-        The hook handle whose local ACL is going to be set.
-*/
-    PLOCAL_HOOK_INFO        Handle;
-
-    if(!LhIsValidHandle(InHandle, &Handle))
-        return -3;
-
-    return LhSetACL(&Handle->LocalACL, FALSE, InThreadIdList, InThreadCount);
-}
-LONG LhGetHookBypassAddress(
-            TRACED_HOOK_HANDLE InHook,
-            PVOID** OutAddress)
-{
-/*
-Description:
-
-	Retrieves the address to bypass the hook. Using the returned value to call the original
-	function bypasses all thread safety measures and must be used with care.
-	This function should be called each time the address is required to ensure the hook  and
-	associated memory is still valid at the time of use.
-	CAUTION:
-	This must be used with extreme caution. If the hook is uninstalled and pending hooks 
-	removed, the address returned by this function will no longer point to valid memory and 
-	attempting to use the address will result in unexpected behaviour, most likely crashing 
-	the process.
-
-Parameters:
-
-	- InHook
-
-		The hook to retrieve the relocated entry point for.
-
-	- OutAddress
-
-		Upon successfully retrieving the hook details this will contain
-		the address of the relocated function entry point. This address
-		can be used to call the original function from outside of a hook
-		while still bypassing the hook.
-	
-Returns:
-
-	STATUS_SUCCESS             - OutAddress will contain the result
-	STATUS_INVALID_PARAMETER_1 - the hook is invalid
-	STATUS_INVALID_PARAMETER_3 - the target pointer is invalid
-
-*/
-	LONG    			NtStatus;
-	PLOCAL_HOOK_INFO    Handle;
-
-	if (!LhIsValidHandle(InHook, &Handle))
-		THROW(-1, L"The given hook handle is invalid or already disposed.");
-
-	if (!IsValidPointer(OutAddress, sizeof(PVOID*)))
-		THROW(-3, L"Invalid pointer for result storage.");
-
-	*OutAddress = (PVOID*)Handle->OldProc;
-
-	RETURN;
-
-THROW_OUTRO:
-FINALLY_OUTRO:
-	return NtStatus;
-}
 static TRACED_HOOK_HANDLE           LastOutHandle = NULL;
 void* WINAPI DetourGetLastHandle()
 {
     return LastOutHandle;
 }
-PVOID WINAPI DetourGetHookHandleForFunction(PVOID* ppPointer)
+TRACED_HOOK_HANDLE WINAPI DetourGetHookHandleForFunction(PDETOUR_TRAMPOLINE pTrampoline)
 {
-    PDETOUR_TRAMPOLINE pTrampoline =
-        (PDETOUR_TRAMPOLINE)DetourCodeFromPointer(*ppPointer, NULL);
     if(pTrampoline != NULL) {
         return pTrampoline->OutHandle;
     }
     return NULL;
 }
-LONG WINAPI DetourSetCallbackForLocalHook(PVOID* ppPointer, PVOID pCallback)
+LONG WINAPI DetourSetCallbackForLocalHook(PDETOUR_TRAMPOLINE pTrampoline, PVOID pCallback)
 {
-    PDETOUR_TRAMPOLINE pTrampoline =
-        (PDETOUR_TRAMPOLINE)DetourCodeFromPointer(*ppPointer, NULL);
     if(pTrampoline != NULL) {
-		DWORD dwOld = 0;
-		DWORD error = 0;
-		if (!VirtualProtect(pTrampoline, sizeof(DETOUR_TRAMPOLINE), PAGE_READWRITE, &dwOld)) {
-			error = GetLastError();
-			DETOUR_BREAK();
-		}
-		DWORD dwOld2 = 0;
         pTrampoline->Callback = pCallback;
-		if (!VirtualProtect(pTrampoline, sizeof(DETOUR_TRAMPOLINE), dwOld, &dwOld2)) {
-			error = GetLastError();
-			DETOUR_BREAK();
-		}
         return 0;
     }
 
     return -1;
 }
+
 VOID InsertTraceHandle(PDETOUR_TRAMPOLINE pTrampoline)
 {
-    memset(&pTrampoline->LocalACL, 0, sizeof(HOOK_ACL));
+	if (pTrampoline != NULL && pTrampoline->OutHandle != NULL) {
+		memset(&pTrampoline->LocalACL, 0, sizeof(HOOK_ACL));
 
-    TRACED_HOOK_HANDLE OutHandle 
-        = (TRACED_HOOK_HANDLE) new unsigned char[sizeof(HOOK_TRACE_INFO)];
+		TRACED_HOOK_HANDLE OutHandle = new HOOK_TRACE_INFO();
 
-    LastOutHandle = pTrampoline->OutHandle = OutHandle;
+		LastOutHandle = pTrampoline->OutHandle = OutHandle;
 
-    OutHandle->Link = pTrampoline;
+		OutHandle->Link = pTrampoline;
+	}
 }
 
 LONG AddTrampolineToGlobalList(PDETOUR_TRAMPOLINE pTrampoline)
@@ -2101,6 +1900,284 @@ LONG AddTrampolineToGlobalList(PDETOUR_TRAMPOLINE pTrampoline)
 
     return Exists;
 }
+
+
+LONG LhInstallHook(
+	void *InEntryPoint,
+	void *InHookProc,
+	void *InCallback,
+	TRACED_HOOK_HANDLE OutHandle)
+{
+	/*
+	Description:
+
+	Installs a hook at the given entry point, redirecting all
+	calls to the given hooking method. The returned handle will
+	either be released on library unloading or explicitly through
+	LhUninstallHook() or LhUninstallAllHooks().
+
+	Parameters:
+
+	- InEntryPoint
+
+	An entry point to hook. Not all entry points are hookable. In such
+	a case STATUS_NOT_SUPPORTED will be returned.
+
+	- InHookProc
+
+	The method that should be called instead of the given entry point.
+	Please note that calling convention, parameter count and return value
+	shall match EXACTLY!
+
+	- InCallback
+
+	An uninterpreted callback later available through
+	LhBarrierGetCallback().
+
+	- OutPHandle
+
+	The memory portion supplied by *OutHandle is expected to be preallocated
+	by the caller. This structure is then filled by the method on success and
+	must stay valid for hook-life time. Only if you explicitly call one of
+	the hook uninstallation APIs, you can safely release the handle memory.
+
+	Returns:
+
+	STATUS_NO_MEMORY
+
+	Unable to allocate memory around the target entry point.
+
+	STATUS_NOT_SUPPORTED
+
+	The target entry point contains unsupported instructions.
+
+	STATUS_INSUFFICIENT_RESOURCES
+
+	The limit of MAX_HOOK_COUNT simultaneous hooks was reached.
+
+	*/
+
+	LONG    NtStatus = -1;
+	LONG    error = -1;
+
+	// validate parameters
+	if (!IsValidPointer(InEntryPoint, 1))
+		THROW(-2, L"Invalid entry point.");
+
+	if (!IsValidPointer(InHookProc, 1))
+		THROW(-3, L"Invalid hook procedure.");
+
+	if (!IsValidPointer(OutHandle, sizeof(HOOK_TRACE_INFO)))
+		THROW(-4, L"The hook handle storage is expected to be allocated by the caller.");
+
+	if (OutHandle->Link != NULL)
+		THROW(-5, L"The given trace handle seems to already be associated with a hook.");
+
+	error = DetourTransactionBegin();
+
+	error = DetourUpdateThread(GetCurrentThread());
+
+	PDETOUR_TRAMPOLINE pTrampoline = NULL;
+	error = DetourAttachEx(&(PVOID &)InEntryPoint, InHookProc, &pTrampoline, NULL, NULL);
+
+	if (!error)
+	{
+		DetourSetCallbackForLocalHook(pTrampoline, InCallback);
+	}
+
+	error = DetourTransactionCommit();
+	if (!error) {
+		if (OutHandle != NULL) {
+			TRACED_HOOK_HANDLE handle = DetourGetHookHandleForFunction(pTrampoline);
+			if (handle != NULL) {
+				OutHandle->Link = handle->Link;
+			}
+		}
+	}
+THROW_OUTRO:
+
+	return error;
+}
+
+
+LONG WINAPI LhUninstallHook(TRACED_HOOK_HANDLE InHandle)
+{
+	/*
+	Description:
+
+	Removes the given hook. To also release associated resources,
+	you will have to call LhWaitForPendingRemovals(). In any case
+	your hook handler will never be executed again, after calling this
+	method.
+
+	Parameters:
+
+	- InHandle
+
+	A traced hook handle. If the hook is already removed, this method
+	will still return STATUS_SUCCESS.
+	*/
+	LONG error = -1;
+
+	PDETOUR_TRAMPOLINE      Hook = NULL;
+	LONG                    NtStatus = -1;
+	BOOLEAN                 IsAllocated = FALSE;
+
+	if (!IsValidPointer(InHandle, sizeof(HOOK_TRACE_INFO)))
+		return FALSE;
+
+	RtlAcquireLock(&GlobalHookLock);
+	{
+		if ((InHandle->Link != NULL) && LhIsValidHandle(InHandle, &Hook))
+		{
+            DetourTransactionBegin();
+            DetourUpdateThread(GetCurrentThread());
+            DetourDetach(&(PVOID&)Hook->OldProc, Hook->pbDetour);
+			InHandle->Link = NULL;
+
+			if (Hook->HookProc != NULL)
+			{
+				Hook->HookProc = NULL;
+
+				IsAllocated = TRUE;
+			}
+            error = DetourTransactionCommit();
+
+            if (!IsAllocated)
+            {
+                RtlReleaseLock(&GlobalHookLock);
+
+                RETURN;
+            }
+		}
+	}
+	RtlReleaseLock(&GlobalHookLock);
+
+	RETURN(STATUS_SUCCESS);
+
+FINALLY_OUTRO:
+	return NtStatus;
+}
+
+LONG LhIsThreadIntercepted(
+	TRACED_HOOK_HANDLE InHook,
+	ULONG InThreadID,
+	BOOL* OutResult)
+{
+	/*
+	Description:
+
+	This method will negotiate whether a given thread passes
+	the ACLs and would invoke the related hook handler. Refer
+	to the source code of Is[Thread/Process]Intercepted() for more information
+	about the implementation.
+
+	*/
+	LONG                NtStatus;
+	PLOCAL_HOOK_INFO    Handle;
+
+	if (!LhIsValidHandle(InHook, &Handle))
+		THROW(-1, (PWCHAR)L"The given hook handle is invalid or already disposed.");
+
+	if (!IsValidPointer(OutResult, sizeof(BOOL)))
+		THROW(-3, (PWCHAR)L"Invalid pointer for result storage.");
+
+	*OutResult = IsThreadIntercepted(&Handle->LocalACL, InThreadID);
+
+	RETURN;
+
+THROW_OUTRO:
+FINALLY_OUTRO:
+	return NtStatus;
+}
+
+LONG LhSetInclusiveACL(
+	ULONG* InThreadIdList,
+	ULONG InThreadCount,
+	TRACED_HOOK_HANDLE InHandle)
+{
+	/*
+	Description:
+
+	Sets an inclusive hook local ACL based on the given thread ID list.
+	Only threads in this list will be intercepted by the hook. If the
+	global ACL also is inclusive, then all threads stated there are
+	intercepted too.
+
+	Parameters:
+	- InThreadIdList
+	An array of thread IDs. If you specific zero for an entry in this array,
+	it will be automatically replaced with the calling thread ID.
+
+	- InThreadCount
+	The count of entries listed in the thread ID list. This value must not exceed
+	MAX_ACE_COUNT!
+
+	- InHandle
+	The hook handle whose local ACL is going to be set.
+	*/
+	PLOCAL_HOOK_INFO        Handle;
+
+	if (!LhIsValidHandle(InHandle, &Handle))
+		return -3;
+
+	return LhSetACL(&Handle->LocalACL, FALSE, InThreadIdList, InThreadCount);
+}
+LONG LhGetHookBypassAddress(
+	TRACED_HOOK_HANDLE InHook,
+	PVOID** OutAddress)
+{
+	/*
+	Description:
+
+	Retrieves the address to bypass the hook. Using the returned value to call the original
+	function bypasses all thread safety measures and must be used with care.
+	This function should be called each time the address is required to ensure the hook  and
+	associated memory is still valid at the time of use.
+	CAUTION:
+	This must be used with extreme caution. If the hook is uninstalled and pending hooks
+	removed, the address returned by this function will no longer point to valid memory and
+	attempting to use the address will result in unexpected behaviour, most likely crashing
+	the process.
+
+	Parameters:
+
+	- InHook
+
+	The hook to retrieve the relocated entry point for.
+
+	- OutAddress
+
+	Upon successfully retrieving the hook details this will contain
+	the address of the relocated function entry point. This address
+	can be used to call the original function from outside of a hook
+	while still bypassing the hook.
+
+	Returns:
+
+	STATUS_SUCCESS             - OutAddress will contain the result
+	STATUS_INVALID_PARAMETER_1 - the hook is invalid
+	STATUS_INVALID_PARAMETER_3 - the target pointer is invalid
+
+	*/
+	LONG    			NtStatus;
+	PLOCAL_HOOK_INFO    Handle;
+
+	if (!LhIsValidHandle(InHook, &Handle))
+		THROW(-1, L"The given hook handle is invalid or already disposed.");
+
+	if (!IsValidPointer(OutAddress, sizeof(PVOID*)))
+		THROW(-3, L"Invalid pointer for result storage.");
+
+	*OutAddress = (PVOID*)Handle->OldProc;
+
+	RETURN;
+
+THROW_OUTRO:
+FINALLY_OUTRO:
+	return NtStatus;
+}
+
 LONG LhSetExclusiveACL(
             ULONG* InThreadIdList,
             ULONG InThreadCount,
@@ -2214,8 +2291,6 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->HookProc = o->pTrampoline->pbDetour;
 			o->pTrampoline->IsExecutedPtr = new int();
 
-            InsertTraceHandle(o->pTrampoline);
-
             AddTrampolineToGlobalList(o->pTrampoline);
 
             detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, (PBYTE*)&o->pTrampoline->Trampoline);
@@ -2257,8 +2332,6 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
                 Ptr++;
             }
 
-            InsertTraceHandle(o->pTrampoline);
-
             AddTrampolineToGlobalList(o->pTrampoline);
 
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, (PBYTE)o->pTrampoline->Trampoline);
@@ -2296,8 +2369,6 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) -= (INT)trampolineStart;
                 *(INT*)((endOfTramp + TrampolineSize) + (x * sizeof(PVOID))) += (INT)endOfTramp;                
             }
-            InsertTraceHandle(o->pTrampoline);
-
             AddTrampolineToGlobalList(o->pTrampoline);
 
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, (PBYTE)o->pTrampoline->Trampoline);
@@ -2785,6 +2856,7 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
 
     pTrampoline->pbRemain = pbTarget + cbTarget;
     pTrampoline->pbDetour = (PBYTE)pDetour;
+    InsertTraceHandle(pTrampoline);
 
 #ifdef DETOURS_IA64
     pTrampoline->ppldDetour = ppldDetour;
