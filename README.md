@@ -39,7 +39,7 @@ Building the DLL requires Visual Studio and nmake (it has been tested with `Visu
 ## Installing
 
 * For X86, the output directory is `bin.X86` and the output file is `corehook32.dll`.
-* For X64, the output directory is `bin.X64` and the output file is `corehook32.dll`.
+* For X64, the output directory is `bin.X64` and the output file is `corehook64.dll`.
 * For ARM, the output directory is `bin.ARM` and the output file is `corehook32.dll`.
 * For ARM64, the output directory is `bin.ARM64` and the output file is `corehook64.dll`.
 
