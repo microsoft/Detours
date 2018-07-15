@@ -22,9 +22,9 @@ Building the DLL requires Visual Studio and nmake (it has been tested with `Visu
  nmake DETOURS_TARGET_PROCESSOR=X64
  ```
 
-### ARM32
+### ARM
 
-* For ARM32, start the `vcvarsx86_arm.bat`. Then `cd` to the `CoreHook.Hooking` directory, and run:
+* For ARM, start the `vcvarsx86_arm.bat`. Then `cd` to the `CoreHook.Hooking` directory, and run:
 
  ```
  nmake DETOURS_TARGET_PROCESSOR=ARM
@@ -40,7 +40,7 @@ Building the DLL requires Visual Studio and nmake (it has been tested with `Visu
 
 * For X86, the output directory is `bin.X86` and the output file is `corehook32.dll`.
 * For X64, the output directory is `bin.X64` and the output file is `corehook32.dll`.
-* For ARM32, the output directory is `bin.ARM` and the output file is `corehook32.dll`.
+* For ARM, the output directory is `bin.ARM` and the output file is `corehook32.dll`.
 * For ARM64, the output directory is `bin.ARM64` and the output file is `corehook64.dll`.
 
 Copy the desired file for your target architecture to the output directory of the program that uses [CoreHook](https://github.com/unknownv2/CoreHook/).
