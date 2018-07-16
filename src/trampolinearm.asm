@@ -40,7 +40,7 @@ IsExecutedPtr  ; Count of times trampoline was executed
 start     
         PUSH    {r0, r1, r2, r3, r4, lr}
         PUSH    {r5, r6, r7, r8, r10, r11}        
-        VPUSH   {d8-d15}
+        VPUSH   {d0-d7}
         LDR     r5, =IsExecutedPtr
         LDR     r5, [r5]
         MOV     r1, #0x0               
@@ -139,9 +139,9 @@ try_dec_lock3
 
 TRAMPOLINE_EXIT
         MOV     r9, r5
-        VPOP   {d8-d15}    
-        POP    {r5, r6, r7, r8, r10, r11}            
-        POP    {r0, r1, r2, r3, r4, lr}
+        VPOP    {d0-d7}    
+        POP     {r5, r6, r7, r8, r10, r11}            
+        POP     {r0, r1, r2, r3, r4, lr}
         
         BX      r9 ; MOV     pc, r9
 
