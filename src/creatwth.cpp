@@ -148,7 +148,7 @@ static HMODULE WINAPI EnumerateModulesInProcess(HANDLE hProcess,
 //
 // Find a region of memory in which we can create a replacement import table.
 //
-static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbBase, DWORD cbAlloc)
+static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbModule, PBYTE pbBase, DWORD cbAlloc)
 {
     MEMORY_BASIC_INFORMATION mbi;
     ZeroMemory(&mbi, sizeof(mbi));
@@ -178,16 +178,24 @@ static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbBase, DWORD cbAllo
             continue;
         }
 
-        PBYTE pbAddress = (PBYTE)(((DWORD_PTR)mbi.BaseAddress + 0xffff) & ~(DWORD_PTR)0xffff);
+        // Use the max of mbi.BaseAddress and pbBase, in case mbi.BaseAddress < pbBase.
+        PBYTE pbAddress = (PBYTE)mbi.BaseAddress > pbBase ? (PBYTE)mbi.BaseAddress : pbBase;
+
+        // Round pbAddress up to the nearest MM allocation boundary.
+        const DWORD_PTR mmGranularityMinusOne = (DWORD_PTR)(MM_ALLOCATION_GRANULARITY -1);
+        pbAddress = (PBYTE)(((DWORD_PTR)pbAddress + mmGranularityMinusOne) & ~mmGranularityMinusOne);
 
 #ifdef _WIN64
-        // The distance from pbBase to pbAddress must fit in 32 bits.
-        //
+        // The offset from pbModule to any replacement import must fit into 32 bits.
+        // For simplicity, we check that the offset to the last byte fits into 32 bits,
+        // instead of the largest offset we'll actually use. The values are very similar.
         const size_t GB4 = ((((size_t)1) << 32) - 1);
-        if ((size_t)(pbAddress - pbBase) > GB4) {
+        if ((size_t)(pbAddress + cbAlloc - 1 - pbModule) > GB4) {
             DETOUR_TRACE(("FindAndAllocateNearBase(1) failing due to distance >4GB %p\n", pbAddress));
             return NULL;
         }
+#else
+        UNREFERENCED_PARAMETER(pbModule);
 #endif
 
         DETOUR_TRACE(("Free region %p..%p\n",
@@ -202,9 +210,8 @@ static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbBase, DWORD cbAllo
                 continue;
             }
 #ifdef _WIN64
-            // The distance from pbBase to pbAddress must fit in 32 bits.
-            //
-            if ((size_t)(pbAddress - pbBase) > GB4) {
+            // The offset from pbModule to any replacement import must fit into 32 bits.
+            if ((size_t)(pbAddress + cbAlloc - 1 - pbModule) > GB4) {
                 DETOUR_TRACE(("FindAndAllocateNearBase(2) failing due to distance >4GB %p\n", pbAddress));
                 return NULL;
             }
