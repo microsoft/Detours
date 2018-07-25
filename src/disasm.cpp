@@ -205,46 +205,45 @@ class CDetourDis
         ULONG       nFixedSize16    : 4;    // Fixed size when 16 bit operand
         ULONG       nModOffset      : 4;    // Offset to mod/rm byte (0=none)
         ULONG       nRelOffset      : 4;    // Offset to relative target.
-        ULONG       nTargetBack     : 4;    // Offset back to absolute or rip target
         ULONG       nFlagBits       : 4;    // Flags for DYNAMIC, etc.
         COPYFUNC    pfCopy;                 // Function pointer.
     };
 
   protected:
-    // These macros define common uses of nFixedSize..pfCopy.
-#define ENTRY_DataIgnored           0, 0, 0, 0, 0, 0,
-#define ENTRY_CopyBytes1            1, 1, 0, 0, 0, 0, &CDetourDis::CopyBytes
+// These macros define common uses of nFixedSize, nFixedSize16, nModOffset, nRelOffset, nFlagBits, pfCopy.
+#define ENTRY_DataIgnored           0, 0, 0, 0, 0,
+#define ENTRY_CopyBytes1            1, 1, 0, 0, 0, &CDetourDis::CopyBytes
 #ifdef DETOURS_X64
-#define ENTRY_CopyBytes1Address     9, 5, 0, 0, 0, ADDRESS, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes1Address     9, 5, 0, 0, ADDRESS, &CDetourDis::CopyBytes
 #else
-#define ENTRY_CopyBytes1Address     5, 3, 0, 0, 0, ADDRESS, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes1Address     5, 3, 0, 0, ADDRESS, &CDetourDis::CopyBytes
 #endif
-#define ENTRY_CopyBytes1Dynamic     1, 1, 0, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2            2, 2, 0, 0, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes1Dynamic     1, 1, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes2            2, 2, 0, 0, 0, &CDetourDis::CopyBytes
 #define ENTRY_CopyBytes2Jump        ENTRY_DataIgnored &CDetourDis::CopyBytesJump
-#define ENTRY_CopyBytes2CantJump    2, 2, 0, 1, 0, NOENLARGE, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2Dynamic     2, 2, 0, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3            3, 3, 0, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Dynamic     3, 3, 0, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Or5         5, 3, 0, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Or5Dynamic  5, 3, 0, 0, 0, DYNAMIC, &CDetourDis::CopyBytes // x86 only
+#define ENTRY_CopyBytes2CantJump    2, 2, 0, 1, NOENLARGE, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes2Dynamic     2, 2, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3            3, 3, 0, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Dynamic     3, 3, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Or5         5, 3, 0, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Or5Dynamic  5, 3, 0, 0, DYNAMIC, &CDetourDis::CopyBytes // x86 only
 #ifdef DETOURS_X64
-#define ENTRY_CopyBytes3Or5Rax      5, 3, 0, 0, 0, RAX, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Or5Target   5, 5, 0, 1, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Or5Rax      5, 3, 0, 0, RAX, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Or5Target   5, 5, 0, 1, 0, &CDetourDis::CopyBytes
 #else
-#define ENTRY_CopyBytes3Or5Rax      5, 3, 0, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Or5Target   5, 3, 0, 1, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Or5Rax      5, 3, 0, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Or5Target   5, 3, 0, 1, 0, &CDetourDis::CopyBytes
 #endif
-#define ENTRY_CopyBytes4            4, 4, 0, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes5            5, 5, 0, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes5Or7Dynamic  7, 5, 0, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes7            7, 7, 0, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2Mod         2, 2, 1, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2ModDynamic  2, 2, 1, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2Mod1        3, 3, 1, 0, 1, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2ModOperand  6, 4, 1, 0, 4, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Mod         3, 3, 2, 0, 0, 0, &CDetourDis::CopyBytes // SSE3 0F 38 opcode modrm
-#define ENTRY_CopyBytes3Mod1        4, 4, 2, 0, 1, 0, &CDetourDis::CopyBytes // SSE3 0F 3A opcode modrm .. imm8
+#define ENTRY_CopyBytes4            4, 4, 0, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes5            5, 5, 0, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes5Or7Dynamic  7, 5, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes7            7, 7, 0, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes2Mod         2, 2, 1, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes2ModDynamic  2, 2, 1, 0, DYNAMIC, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes2Mod1        3, 3, 1, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes2ModOperand  6, 4, 1, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Mod         3, 3, 2, 0, 0, &CDetourDis::CopyBytes // SSE3 0F 38 opcode modrm
+#define ENTRY_CopyBytes3Mod1        4, 4, 2, 0, 0, &CDetourDis::CopyBytes // SSE3 0F 3A opcode modrm .. imm8
 #define ENTRY_CopyBytesPrefix       ENTRY_DataIgnored &CDetourDis::CopyBytesPrefix
 #define ENTRY_CopyBytesSegment      ENTRY_DataIgnored &CDetourDis::CopyBytesSegment
 #define ENTRY_CopyBytesRax          ENTRY_DataIgnored &CDetourDis::CopyBytesRax
@@ -418,15 +417,7 @@ PBYTE CDetourDis::CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
         }
 #ifdef DETOURS_X64
         else if (bFlags & RIP) {
-            UINT nTargetBack = pEntry->nTargetBack;
-            // nTargetBack describes immediate bytes at the end: 1, 2, or 4.
-            // 2 vs. 4 is selected via 66 operand size override.
-            ASSERT(nTargetBack == 0 || nTargetBack == 1 || nTargetBack == 4);
-            if (nTargetBack == 4 && m_bOperandOverride && !m_bRaxOverride) {
-                nTargetBack = 2;
-            }
-
-            nRelOffset = nBytes - (4 + nTargetBack);
+            nRelOffset = nModOffset + 1;
             cbTarget = 4;
         }
 #endif
