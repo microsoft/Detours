@@ -138,7 +138,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     }
     DETOUR_TRACE(("pbBase = %p\n", pbBase));
 
-    PBYTE pbNewIid = FindAndAllocateNearBase(hProcess, pbBase, cbNew);
+    PBYTE pbNewIid = FindAndAllocateNearBase(hProcess, pbModule, pbBase, cbNew);
     if (pbNewIid == NULL) {
         DETOUR_TRACE(("FindAndAllocateNearBase failed.\n"));
         goto finish;

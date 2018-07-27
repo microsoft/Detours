@@ -21,7 +21,7 @@ The [`Detours`](https://github.com/microsoft/detours) repository is where develo
 Here are some ways you can participate in the project:
 
 * [Answer questions](https://github.com/microsoft/detours/issues) about using Detours.
-* [Improve the Wiki](https://github.com/microsoft/detours/Wiki).
+* [Improve the Wiki](https://github.com/microsoft/detours/wiki).
 * [Submit bugs](https://github.com/microsoft/detours/issues) and help us verify fixes and changes as they are checked in.
 * Review [source code changes](https://github.com/microsoft/detours/pulls).
 

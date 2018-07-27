@@ -148,7 +148,7 @@ static HMODULE WINAPI EnumerateModulesInProcess(HANDLE hProcess,
 //
 // Find a region of memory in which we can create a replacement import table.
 //
-static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbBase, DWORD cbAlloc)
+static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbModule, PBYTE pbBase, DWORD cbAlloc)
 {
     MEMORY_BASIC_INFORMATION mbi;
     ZeroMemory(&mbi, sizeof(mbi));
@@ -178,16 +178,24 @@ static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbBase, DWORD cbAllo
             continue;
         }
 
-        PBYTE pbAddress = (PBYTE)(((DWORD_PTR)mbi.BaseAddress + 0xffff) & ~(DWORD_PTR)0xffff);
+        // Use the max of mbi.BaseAddress and pbBase, in case mbi.BaseAddress < pbBase.
+        PBYTE pbAddress = (PBYTE)mbi.BaseAddress > pbBase ? (PBYTE)mbi.BaseAddress : pbBase;
+
+        // Round pbAddress up to the nearest MM allocation boundary.
+        const DWORD_PTR mmGranularityMinusOne = (DWORD_PTR)(MM_ALLOCATION_GRANULARITY -1);
+        pbAddress = (PBYTE)(((DWORD_PTR)pbAddress + mmGranularityMinusOne) & ~mmGranularityMinusOne);
 
 #ifdef _WIN64
-        // The distance from pbBase to pbAddress must fit in 32 bits.
-        //
+        // The offset from pbModule to any replacement import must fit into 32 bits.
+        // For simplicity, we check that the offset to the last byte fits into 32 bits,
+        // instead of the largest offset we'll actually use. The values are very similar.
         const size_t GB4 = ((((size_t)1) << 32) - 1);
-        if ((size_t)(pbAddress - pbBase) > GB4) {
+        if ((size_t)(pbAddress + cbAlloc - 1 - pbModule) > GB4) {
             DETOUR_TRACE(("FindAndAllocateNearBase(1) failing due to distance >4GB %p\n", pbAddress));
             return NULL;
         }
+#else
+        UNREFERENCED_PARAMETER(pbModule);
 #endif
 
         DETOUR_TRACE(("Free region %p..%p\n",
@@ -202,9 +210,8 @@ static PBYTE FindAndAllocateNearBase(HANDLE hProcess, PBYTE pbBase, DWORD cbAllo
                 continue;
             }
 #ifdef _WIN64
-            // The distance from pbBase to pbAddress must fit in 32 bits.
-            //
-            if ((size_t)(pbAddress - pbBase) > GB4) {
+            // The offset from pbModule to any replacement import must fit into 32 bits.
+            if ((size_t)(pbAddress + cbAlloc - 1 - pbModule) > GB4) {
                 DETOUR_TRACE(("FindAndAllocateNearBase(2) failing due to distance >4GB %p\n", pbAddress));
                 return NULL;
             }
@@ -949,6 +956,9 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 {
     LPCSTR * rlpDlls = NULL;
     DWORD Result = 9900;
+    DWORD cOffset = 0;
+    DWORD cSize = 0;
+    HANDLE hProcess = NULL;
 
     if (s_pHelper == NULL) {
         DETOUR_TRACE(("DetourFinishHelperProcess called with s_pHelper = NULL.\n"));
@@ -956,7 +966,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
         goto Cleanup;
     }
 
-    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, s_pHelper->pid);
+    hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, s_pHelper->pid);
     if (hProcess == NULL) {
         DETOUR_TRACE(("OpenProcess(pid=%d) failed: %d\n",
                       s_pHelper->pid, GetLastError()));
@@ -965,8 +975,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
     }
 
     rlpDlls = new NOTHROW LPCSTR [s_pHelper->nDlls];
-    DWORD cSize = s_pHelper->cb - sizeof(DETOUR_EXE_HELPER);
-    DWORD cOffset = 0;
+    cSize = s_pHelper->cb - sizeof(DETOUR_EXE_HELPER);
     for (DWORD n = 0; n < s_pHelper->nDlls; n++) {
         size_t cchDest = 0;
         HRESULT hr = StringCchLengthA(&s_pHelper->rDlls[cOffset], cSize - cOffset, &cchDest);
@@ -1029,6 +1038,8 @@ BOOL WINAPI AllocExeHelper(_Out_ PDETOUR_EXE_HELPER *pHelper,
 {
     PDETOUR_EXE_HELPER Helper = NULL;
     BOOL Result = FALSE;
+    _Field_range_(0, cSize - 4) DWORD cOffset = 0;
+    DWORD cSize = 4;
 
     if (pHelper == NULL) {
         goto Cleanup;
@@ -1040,7 +1051,6 @@ BOOL WINAPI AllocExeHelper(_Out_ PDETOUR_EXE_HELPER *pHelper,
         goto Cleanup;
     }
 
-    DWORD cSize = 4;
     for (DWORD n = 0; n < nDlls; n++) {
         HRESULT hr;
         size_t cchDest = 0;
@@ -1062,7 +1072,6 @@ BOOL WINAPI AllocExeHelper(_Out_ PDETOUR_EXE_HELPER *pHelper,
     Helper->pid = dwTargetPid;
     Helper->nDlls = nDlls;
 
-    _Field_range_(0, cSize - 4) DWORD cOffset = 0;
     for (DWORD n = 0; n < nDlls; n++) {
         HRESULT hr;
         size_t cchDest = 0;
@@ -1154,6 +1163,7 @@ BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
     CHAR szCommand[MAX_PATH];
     PDETOUR_EXE_HELPER helper = NULL;
     HRESULT hr;
+    DWORD nLen = GetEnvironmentVariableA("WINDIR", szExe, ARRAYSIZE(szExe));
 
     DETOUR_TRACE(("DetourProcessViaHelperDlls(pid=%d,dlls=%d)\n", dwTargetPid, nDlls));
     if (nDlls < 1 || nDlls > 4096) {
@@ -1164,7 +1174,6 @@ BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
-    DWORD nLen = GetEnvironmentVariableA("WINDIR", szExe, ARRAYSIZE(szExe));
     if (nLen == 0 || nLen >= ARRAYSIZE(szExe)) {
         goto Cleanup;
     }
@@ -1250,6 +1259,7 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
     WCHAR szCommand[MAX_PATH];
     PDETOUR_EXE_HELPER helper = NULL;
     HRESULT hr;
+    DWORD nLen = GetEnvironmentVariableW(L"WINDIR", szExe, ARRAYSIZE(szExe));
 
     DETOUR_TRACE(("DetourProcessViaHelperDlls(pid=%d,dlls=%d)\n", dwTargetPid, nDlls));
     if (nDlls < 1 || nDlls > 4096) {
@@ -1260,7 +1270,6 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
-    DWORD nLen = GetEnvironmentVariableW(L"WINDIR", szExe, ARRAYSIZE(szExe));
     if (nLen == 0 || nLen >= ARRAYSIZE(szExe)) {
         goto Cleanup;
     }
