@@ -3686,15 +3686,26 @@ class CDetourDis
         {
             DWORD Opcode1 : 5;      // Must be 00000 == 0
             DWORD Rn : 5;           // Register number
-            DWORD Opcode2 : 22;     // Must be 1101011000011111000000 == 0x3587c0
+            DWORD Opcode2 : 22;     // Must be 1101011000011111000000 == 0x3587c0 for Br
+                                    //                                   0x358fc0 for Brl
         } s;
-        static DWORD AssembleBr(DWORD rn)
+        static DWORD Assemble(DWORD rn, bool link)
         {
             Br temp;
             temp.s.Opcode1 = 0;
             temp.s.Rn = rn;
             temp.s.Opcode2 = 0x3587c0;
+            if (link)
+                temp.Assembled |= 0x00200000;
             return temp.Assembled;
+        }
+        static DWORD AssembleBr(DWORD rn)
+        {
+            return Assemble(rn, false);
+        }
+        static DWORD AssembleBrl(DWORD rn)
+        {
+            return Assemble(rn, true);
         }
     };
 
@@ -3839,6 +3850,8 @@ class CDetourDis
     BYTE    CopyAdr(BYTE* pSource, BYTE* pDest, ULONG instruction);
     BYTE    CopyBcc(BYTE* pSource, BYTE* pDest, ULONG instruction);
     BYTE    CopyB(BYTE* pSource, BYTE* pDest, ULONG instruction);
+    BYTE    CopyBl(BYTE* pSource, BYTE* pDest, ULONG instruction);
+    BYTE    CopyB_or_Bl(BYTE* pSource, BYTE* pDest, ULONG instruction, bool link);
     BYTE    CopyCbz(BYTE* pSource, BYTE* pDest, ULONG instruction);
     BYTE    CopyTbz(BYTE* pSource, BYTE* pDest, ULONG instruction);
     BYTE    CopyLdrLiteral(BYTE* pSource, BYTE* pDest, ULONG instruction);
@@ -3890,7 +3903,7 @@ PBYTE CDetourDis::CopyInstruction(PBYTE pDst,
     } else if ((Instruction & 0xff000010) == 0x54000000) {
         CopiedSize = CopyBcc(pSrc, pDst, Instruction);
     } else if ((Instruction & 0x7c000000) == 0x14000000) {
-        CopiedSize = CopyB(pSrc, pDst, Instruction);
+        CopiedSize = CopyB_or_Bl(pSrc, pDst, Instruction, (Instruction & 0x80000000) != 0);
     } else if ((Instruction & 0x7e000000) == 0x34000000) {
         CopiedSize = CopyCbz(pSrc, pDst, Instruction);
     } else if ((Instruction & 0x7e000000) == 0x36000000) {
@@ -4051,7 +4064,7 @@ BYTE CDetourDis::CopyBcc(BYTE* pSource, BYTE* pDest, ULONG instruction)
     return (BYTE)((BYTE*)pDstInst - pDest);
 }
 
-BYTE CDetourDis::CopyB(BYTE* pSource, BYTE* pDest, ULONG instruction)
+BYTE CDetourDis::CopyB_or_Bl(BYTE* pSource, BYTE* pDest, ULONG instruction, bool link)
 {
     Branch26& decoded = (Branch26&)(instruction);
     PULONG pDstInst = (PULONG)(pDest);
@@ -4060,20 +4073,30 @@ BYTE CDetourDis::CopyB(BYTE* pSource, BYTE* pDest, ULONG instruction)
     m_pbTarget = pTarget;
     LONG64 delta = pTarget - pDest;
 
-    // output as B
+    // output as B or BRL
     if (delta >= -(1 << 27) && (delta < (1 << 27)))
     {
-        EmitInstruction(pDstInst, Branch26::AssembleB((LONG)delta));
+        EmitInstruction(pDstInst, Branch26::Assemble(link, (LONG)delta));
     }
 
-    // output as MOV x17, Target; BR x17 (BIG assumption that x17 isn't being used for anything!!)
+    // output as MOV x17, Target; BR or BRL x17 (BIG assumption that x17 isn't being used for anything!!)
     else
     {
         EmitMovImmediate(pDstInst, 17, (ULONG_PTR)pTarget);
-        EmitInstruction(pDstInst, Br::AssembleBr(17));
+        EmitInstruction(pDstInst, Br::Assemble(17, link));
     }
 
     return (BYTE)((BYTE*)pDstInst - pDest);
+}
+
+BYTE CDetourDis::CopyB(BYTE* pSource, BYTE* pDest, ULONG instruction)
+{
+    return CopyB_or_Bl(pSource, pDest, instruction, false);
+}
+
+BYTE CDetourDis::CopyBl(BYTE* pSource, BYTE* pDest, ULONG instruction)
+{
+    return CopyB_or_Bl(pSource, pDest, instruction, true);
 }
 
 BYTE CDetourDis::CopyCbz(BYTE* pSource, BYTE* pDest, ULONG instruction)
