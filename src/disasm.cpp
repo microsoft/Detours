@@ -312,7 +312,7 @@ class CDetourDis
 
     LONG                m_lScratchExtra;
     PBYTE               m_pbScratchTarget;
-    BYTE                m_rbScratchDst[64];
+    BYTE                m_rbScratchDst[64]; // matches or exceeds rbCode
 };
 
 PVOID WINAPI DetourCopyInstruction(_In_opt_ PVOID pDst,
@@ -2538,7 +2538,7 @@ class CDetourDis
     PBYTE   m_pbPool;
     LONG    m_lExtra;
 
-    BYTE    m_rbScratchDst[64];
+    BYTE    m_rbScratchDst[64]; // matches or exceeds rbCode
 
     static const COPYENTRY s_rceCopyTable[33];
 };
@@ -3870,7 +3870,7 @@ class CDetourDis
 
   protected:
     PBYTE   m_pbTarget;
-    BYTE    m_rbScratchDst[64];
+    BYTE    m_rbScratchDst[128]; // matches or exceeds rbCode
 };
 
 BYTE CDetourDis::PureCopy32(BYTE* pSource, BYTE* pDest)
