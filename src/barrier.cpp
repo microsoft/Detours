@@ -611,7 +611,7 @@ Description:
 */
     LPTHREAD_RUNTIME_INFO Runtime = NULL;
 
-    ASSERT2(TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected, L"barrier.c - TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected");
+    ASSERT2(TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected, L"barrier.cpp - TlsGetCurrentValue(&Unit.TLS, &Runtime) && Runtime->IsProtected");
 
     Runtime->IsProtected = FALSE;
 }
@@ -707,7 +707,7 @@ Description:
         THROW(STATUS_INVALID_PARAMETER, (PWCHAR)L"Invalid result storage specified.");
 
     if (!TlsGetCurrentValue(&Unit.TLS, &Runtime))
-        THROW(-1, (PWCHAR)("The caller is not inside a hook handler."));
+        THROW(-1, (PWCHAR)L"The caller is not inside a hook handler.");
 
     if (Runtime->Current != NULL)
         *OutValue = Runtime->Callback;

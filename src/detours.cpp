@@ -1957,8 +1957,9 @@ LONG LhInstallHook(
 
 	*/
 
-	LONG    NtStatus = -1;
-	LONG    error = -1;
+	LONG                NtStatus = -1;
+	LONG                error = -1;
+	PDETOUR_TRAMPOLINE  pTrampoline = NULL;
 
 	// validate parameters
 	if (!IsValidPointer(InEntryPoint, 1))
@@ -1977,22 +1978,18 @@ LONG LhInstallHook(
 
 	error = DetourUpdateThread(GetCurrentThread());
 
-	PDETOUR_TRAMPOLINE pTrampoline = NULL;
 	error = DetourAttachEx(&(PVOID &)InEntryPoint, InHookProc, &pTrampoline, NULL, NULL);
 
 	if (!error)
 	{
 		DetourSetCallbackForLocalHook(pTrampoline, InCallback);
-	}
-
-	error = DetourTransactionCommit();
-	if (!error) {
-		if (OutHandle != NULL) {
-			TRACED_HOOK_HANDLE handle = DetourGetHookHandleForFunction(pTrampoline);
-			if (handle != NULL) {
-				OutHandle->Link = handle->Link;
-			}
-		}
+        error = DetourTransactionCommit();
+        if (OutHandle != NULL && !error) {
+            TRACED_HOOK_HANDLE handle = DetourGetHookHandleForFunction(pTrampoline);
+            if (handle != NULL) {
+                OutHandle->Link = handle->Link;
+            }
+        }    
 	}
 THROW_OUTRO:
 
@@ -2355,7 +2352,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 			o->pTrampoline->Trampoline = endOfTramp;
 			o->pTrampoline->OldProc = DETOURS_PBYTE_TO_PFUNC(o->pTrampoline->rbCode);
 			o->pTrampoline->HookProc = DETOURS_PBYTE_TO_PFUNC(o->pTrampoline->pbDetour);            
-             DETOUR_TRACE(("detours: oldProc=%p: "
+            DETOUR_TRACE(("detours: oldProc=%p: "
                           "%02x %02x %02x %02x "
                           "%02x %02x %02x %02x "
                           "%02x %02x %02x %02x [oldProc]\n",
@@ -2856,6 +2853,7 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
 
     pTrampoline->pbRemain = pbTarget + cbTarget;
     pTrampoline->pbDetour = (PBYTE)pDetour;
+
     InsertTraceHandle(pTrampoline);
 
 #ifdef DETOURS_IA64
