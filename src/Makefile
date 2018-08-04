@@ -1,10 +1,8 @@
 ##############################################################################
 ##
-##  Makefile for Detours.
+##  Makefile for CoreHook Binary Hooking Module.
 ##
-##  Microsoft Research Detours Package, Version 4.0.1
-##
-##  Copyright (c) Microsoft Corporation.  All rights reserved.
+##  Based on Microsoft Research Detours Package, Version 4.0.1
 ##
 
 ROOT = ..
