@@ -72,7 +72,7 @@ $(OBJD)\corehook$(DETOURS_BITS).bsc : $(OBJD)\corehook.obj
 
 clean:
     -del *~ 2>nul
-    -del $(BIND)\dslept*.* 2>nul
+    -del $(BIND)\corehook*.* 2>nul
     -rmdir /q /s $(OBJD) 2>nul
 
 realclean: clean

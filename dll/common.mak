@@ -1,10 +1,6 @@
 ##############################################################################
 ##
-##  Common makefile for Detours test programs.
-##
-##  Microsoft Research Detours Package
-##
-##  Copyright (c) Microsoft Corporation.  All rights reserved.
+##  Common makefile for corehook DLL.
 ##
 
 !IF "$(ROOT)" == ""
