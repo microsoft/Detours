@@ -1980,17 +1980,18 @@ LONG LhInstallHook(
 
 	error = DetourAttachEx(&(PVOID &)InEntryPoint, InHookProc, &pTrampoline, NULL, NULL);
 
-	if (!error)
+	if (error == NO_ERROR)
 	{
 		DetourSetCallbackForLocalHook(pTrampoline, InCallback);
-        error = DetourTransactionCommit();
-        if (OutHandle != NULL && !error) {
-            TRACED_HOOK_HANDLE handle = DetourGetHookHandleForFunction(pTrampoline);
-            if (handle != NULL) {
-                OutHandle->Link = handle->Link;
-            }
-        }    
 	}
+    error = DetourTransactionCommit();
+    if (OutHandle != NULL && error == NO_ERROR)
+    {
+        TRACED_HOOK_HANDLE handle = DetourGetHookHandleForFunction(pTrampoline);
+        if (handle != NULL) {
+            OutHandle->Link = handle->Link;
+        }
+    }
 THROW_OUTRO:
 
 	return error;
