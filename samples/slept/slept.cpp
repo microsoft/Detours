@@ -67,7 +67,7 @@ DWORD WINAPI TestTicksEx(DWORD Add)
 
         Add = pdw[Add] - Add;
 
-        delete pdw;
+        delete [] pdw;
     }
     else {
         Add = dwSlept + Add;
