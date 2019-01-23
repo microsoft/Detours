@@ -387,7 +387,6 @@ typedef struct _DETOUR_EXE_RESTORE
 #ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC    // some environments do not have this
         BYTE                raw[sizeof(IMAGE_NT_HEADERS64) +
                                 sizeof(IMAGE_SECTION_HEADER) * 32];
-        C_ASSERT(sizeof(IMAGE_NT_HEADERS64) == 0x108);
 #else
         BYTE                raw[0x108 + sizeof(IMAGE_SECTION_HEADER) * 32];
 #endif
@@ -395,6 +394,10 @@ typedef struct _DETOUR_EXE_RESTORE
     DETOUR_CLR_HEADER   clr;
 
 } DETOUR_EXE_RESTORE, *PDETOUR_EXE_RESTORE;
+
+#ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC
+C_ASSERT(sizeof(IMAGE_NT_HEADERS64) == 0x108);
+#endif
 
 // The size can change, but assert for clarity due to the muddying #ifdefs.
 #ifdef _WIN64
