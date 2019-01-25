@@ -1714,17 +1714,13 @@ BOOL CImage::Write(HANDLE hFile)
         m_nNextFileAddr = Max(m_SectionHeaders[n].PointerToRawData +
                               m_SectionHeaders[n].SizeOfRawData,
                               m_nNextFileAddr);
-#if 0
-        m_nNextVirtAddr = Max(m_SectionHeaders[n].VirtualAddress +
-                              m_SectionHeaders[n].Misc.VirtualSize,
-                              m_nNextVirtAddr);
-#else
+        // Old images have VirtualSize == 0 as a matter of course, e.g. NT 3.1.
+        // In which case, use SizeOfRawData instead.
         m_nNextVirtAddr = Max(m_SectionHeaders[n].VirtualAddress +
                               (m_SectionHeaders[n].Misc.VirtualSize
                                ? m_SectionHeaders[n].Misc.VirtualSize
                                : SectionAlign(m_SectionHeaders[n].SizeOfRawData)),
                               m_nNextVirtAddr);
-#endif
 
         m_nExtraOffset = Max(m_nNextFileAddr, m_nExtraOffset);
 
