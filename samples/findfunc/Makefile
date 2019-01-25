@@ -9,6 +9,17 @@
 
 !include ..\common.mak
 
+# ARM64 does not like base addresses below 4GB.
+# Append two extra zeros for it.
+#
+!if "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
+TARGET_BASE=0x190000000
+EXTEND_BASE=0x1a0000000
+!else
+TARGET_BASE=0x1900000
+EXTEND_BASE=0x1a00000
+!endif
+
 LIBS=$(LIBS) kernel32.lib
 
 ##############################################################################
@@ -44,7 +55,7 @@ $(BIND)\target$(DETOURS_BITS).dll $(BIND)\target$(DETOURS_BITS).lib: \
         $(OBJD)\target.obj $(OBJD)\target.res \
         /link $(LINKFLAGS) /subsystem:console \
         /export:Target \
-        /base:0x1900000 \
+        /base:$(TARGET_BASE) \
         $(LIBS)
 
 $(OBJD)\target$(DETOURS_BITS).bsc : $(OBJD)\target.obj
@@ -60,7 +71,7 @@ $(BIND)\extend$(DETOURS_BITS).dll $(BIND)\extend$(DETOURS_BITS).lib: \
         $(OBJD)\extend.obj $(OBJD)\extend.res \
         /link $(LINKFLAGS) /subsystem:console \
         /export:DetourFinishHelperProcess,@1,NONAME \
-        /base:0x1a00000 \
+        /base:$(EXTEND_BASE) \
         $(LIBS)
 
 $(OBJD)\extend$(DETOURS_BITS).bsc : $(OBJD)\extend.obj
