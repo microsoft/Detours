@@ -1715,6 +1715,7 @@ BOOL CImage::Write(HANDLE hFile)
                               m_SectionHeaders[n].SizeOfRawData,
                               m_nNextFileAddr);
         // Old images have VirtualSize == 0 as a matter of course, e.g. NT 3.1.
+        // In which case, use SizeOfRawData instead.
         m_nNextVirtAddr = Max(m_SectionHeaders[n].VirtualAddress +
                               (m_SectionHeaders[n].Misc.VirtualSize
                                ? m_SectionHeaders[n].Misc.VirtualSize
