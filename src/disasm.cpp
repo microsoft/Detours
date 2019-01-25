@@ -196,7 +196,6 @@ class CDetourDis
     };
 
   protected:
-<<<<<<< HEAD
 // These macros define common uses of nFixedSize, nFixedSize16, nModOffset, nRelOffset, nFlagBits, pfCopy.
 #define ENTRY_DataIgnored           0, 0, 0, 0, 0,
 #define ENTRY_CopyBytes1            1, 1, 0, 0, 0, &CDetourDis::CopyBytes
@@ -253,7 +252,6 @@ class CDetourDis
 #define ENTRY_CopyBytesXop1         6, 6, 4, 0, 0, &CDetourDis::CopyBytes // 0x8F xop1 xop2 opcode modrm ... imm8
 #define ENTRY_CopyBytesXop4         9, 9, 4, 0, 0, &CDetourDis::CopyBytes // 0x8F xop1 xop2 opcode modrm ... imm32
 #define ENTRY_Invalid               ENTRY_DataIgnored &CDetourDis::Invalid
-#define ENTRY_End                   ENTRY_DataIgnored NULL
 
     PBYTE CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyBytesPrefix(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
@@ -286,8 +284,8 @@ class CDetourDis
     PBYTE CopyXop(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
 
   protected:
-    static const COPYENTRY  s_rceCopyTable[257];
-    static const COPYENTRY  s_rceCopyTable0F[257];
+    static const COPYENTRY  s_rceCopyTable[];
+    static const COPYENTRY  s_rceCopyTable0F[];
     static const BYTE       s_rbModRm[256];
     static PBYTE            s_pbModuleBeg;
     static PBYTE            s_pbModuleEnd;
@@ -753,7 +751,7 @@ PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p)
 {
     static const COPYENTRY ceF38 = /* 38 */ ENTRY_CopyBytes2Mod;
     static const COPYENTRY ceF3A = /* 3A */ ENTRY_CopyBytes2Mod1;
-    static const COPYENTRY Invalid = /* C4 */ ENTRY_Invalid;
+    static const COPYENTRY ceInvalid = /* C4 */ ENTRY_Invalid;
 
     switch (p & 3) {
     case 0: break;
@@ -955,7 +953,7 @@ const BYTE CDetourDis::s_rbModRm[256] = {
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0                  // Fx
 };
 
-const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[257] =
+const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[] =
 {
     /* 00 */ ENTRY_CopyBytes2Mod,                      // ADD /r
     /* 01 */ ENTRY_CopyBytes2Mod,                      // ADD /r
@@ -1300,10 +1298,9 @@ const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[257] =
     /* FD */ ENTRY_CopyBytes1,                         // STD
     /* FE */ ENTRY_CopyBytes2Mod,                      // DEC/1,INC/0
     /* FF */ ENTRY_CopyFF,                             // CALL/2
-    /*  0 */ ENTRY_End,
 };
 
-const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable0F[257] =
+const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable0F[] =
 {
 #ifdef DETOURS_X86
     /* 00 */ ENTRY_Copy0F00,                           // sldt/0 str/1 lldt/2 ltr/3 err/4 verw/5 jmpe/6/dynamic invalid/7
@@ -1595,11 +1592,12 @@ const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable0F[257] =
     /* FD */ ENTRY_CopyBytes2Mod,                      // PADDW/r
     /* FE */ ENTRY_CopyBytes2Mod,                      // PADDD/r
     /* FF */ ENTRY_Invalid,                            // _FF
-    /*  0 */ ENTRY_End,
 };
 
 BOOL CDetourDis::SanityCheckSystem()
 {
+    C_ASSERT(ARRAYSIZE(CDetourDis::s_rceCopyTable) == 256);
+    C_ASSERT(ARRAYSIZE(CDetourDis::s_rceCopyTable0F) == 256);
     return TRUE;
 }
 #endif // defined(DETOURS_X64) || defined(DETOURS_X86)
