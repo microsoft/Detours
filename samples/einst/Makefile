@@ -10,11 +10,16 @@
 !include ..\common.mak
 
 # ARM64 does not like base addresses below 4GB.
-
+# Append two extra zeros for it.
+#
 !if "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
-DETOURS_BASE_SUFFIX=00
+EDLL1X_BASE=0x710000000
+EDLL2X_BASE=0x720000000
+EDLL3X_BASE=0x730000000
 !else
-DETOURS_BASE_SUFFIX=
+EDLL1X_BASE=0x7100000
+EDLL2X_BASE=0x7200000
+EDLL3X_BASE=0x7300000
 !endif
 
 LIBS=$(LIBS) kernel32.lib user32.lib
@@ -68,7 +73,7 @@ $(BIND)\edll1x$(DETOURS_BITS).dll : $(OBJD)\edll1x.obj $(DEPS)
         $(OBJD)\edll1x.obj /LD \
         /link $(LINKFLAGS) $(LIBS) \
         /subsystem:windows \
-        /base:0x7100000$(DETOURS_BASE_SUFFIX)
+        /base:$(EDLL1X_BASE)
 
 $(OBJD)\edll1x$(DETOURS_BITS).bsc : $(OBJD)\edll1x.obj
     bscmake /v /n /o $@ $(OBJD)\edll1x.sbr
@@ -80,7 +85,7 @@ $(BIND)\edll2x$(DETOURS_BITS).dll : $(OBJD)\edll2x.obj $(DEPS)
         $(OBJD)\edll2x.obj /LD \
         /link $(LINKFLAGS) $(LIBS) \
         /subsystem:console \
-        /base:0x7200000$(DETOURS_BASE_SUFFIX)
+        /base:$(EDLL2X_BASE)
 
 $(OBJD)\edll2x$(DETOURS_BITS).bsc : $(OBJD)\edll2x.obj
     bscmake /v /n /o $@ $(OBJD)\edll2x.sbr
@@ -92,7 +97,7 @@ $(BIND)\edll3x$(DETOURS_BITS).dll : $(OBJD)\edll3x.obj $(DEPS)
         $(OBJD)\edll3x.obj /LD \
         /link $(LINKFLAGS) $(LIBS) \
         /subsystem:console \
-        /base:0x7300000$(DETOURS_BASE_SUFFIX)
+        /base:$(EDLL3X_BASE)
 
 $(OBJD)\edll3x$(DETOURS_BITS).bsc : $(OBJD)\edll3x.obj
     bscmake /v /n /o $@ $(OBJD)\edll3x.sbr
