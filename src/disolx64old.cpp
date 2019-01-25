@@ -1,0 +1,3 @@
+#define DETOURS_X64_OFFLINE_LIBRARY
+#define DETOURS_TEST_OLD_DISASM_MODRM
+#include "disasm.cpp"

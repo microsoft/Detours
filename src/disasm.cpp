@@ -53,9 +53,20 @@
 
 #if defined(DETOURS_X86_OFFLINE_LIBRARY)
 
+#ifdef DETOURS_TEST_OLD_DISASM_MODRM
+
+#define DetourCopyInstruction DetourCopyInstructionX86OldForTest
+#define DetourSetCodeModule   DetourSetCodeModuleX86OldForTest
+#define CDetourDis            CDetourDisX86OldForTest
+
+#else
+
 #define DetourCopyInstruction   DetourCopyInstructionX86
 #define DetourSetCodeModule     DetourSetCodeModuleX86
 #define CDetourDis              CDetourDisX86
+
+#endif
+
 #define DETOURS_X86
 
 #elif defined(DETOURS_X64_OFFLINE_LIBRARY)
@@ -65,9 +76,20 @@
 //#error X64 disassembler can only build for 64-bit.
 #endif
 
+#ifdef DETOURS_TEST_OLD_DISASM_MODRM
+
+#define DetourCopyInstruction DetourCopyInstructionX64OldForTest
+#define DetourSetCodeModule   DetourSetCodeModuleX64OldForTest
+#define CDetourDis            CDetourDisX64OldForTest
+
+#else
+
 #define DetourCopyInstruction   DetourCopyInstructionX64
 #define DetourSetCodeModule     DetourSetCodeModuleX64
 #define CDetourDis              CDetourDisX64
+
+#endif
+
 #define DETOURS_X64
 
 #elif defined(DETOURS_ARM_OFFLINE_LIBRARY)
@@ -88,6 +110,7 @@
 
 #define DetourCopyInstruction   DetourCopyInstructionIA64
 #define DetourSetCodeModule     DetourSetCodeModuleIA64
+#define CDetourDis              CDetourDisIA64
 #define DETOURS_IA64
 
 #else
@@ -190,6 +213,17 @@ class CDetourDis
         RAX         = 0x8u,
     };
 
+#ifdef DETOURS_TEST_OLD_DISASM_MODRM
+
+    // ModR/M Flags
+    enum {
+        SIB         = 0x10u,
+        RIP         = 0x20u,
+        NOTSIB      = 0x0fu,
+    };
+
+#endif
+
     struct COPYENTRY
     {
         // Many of these fields are often ignored. See ENTRY_DataIgnored.
@@ -286,6 +320,9 @@ class CDetourDis
   protected:
     static const COPYENTRY  s_rceCopyTable[257];
     static const COPYENTRY  s_rceCopyTable0F[257];
+#ifdef DETOURS_TEST_OLD_DISASM_MODRM
+    static const BYTE       s_rbModRm[256];
+#endif
     static PBYTE            s_pbModuleBeg;
     static PBYTE            s_pbModuleEnd;
     static BOOL             s_fLimitReferencesToModule;
@@ -384,9 +421,43 @@ PBYTE CDetourDis::CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     UINT nBytes = nBytesFixed;
     UINT nRelOffset = pEntry->nRelOffset;
     UINT cbTarget = nBytes - nRelOffset;
+
+
     if (nModOffset > 0) {
         ASSERT(nRelOffset == 0);
         BYTE const bModRm = pbSrc[nModOffset];
+
+#ifdef DETOURS_TEST_OLD_DISASM_MODRM
+
+        BYTE const bFlags = s_rbModRm[bModRm];
+
+        nBytes += bFlags & NOTSIB;
+
+        if (bFlags & SIB) {
+            BYTE const bSib = pbSrc[nModOffset + 1];
+
+            if ((bSib & 0x07) == 0x05) {
+                if ((bModRm & 0xc0) == 0x00) {
+                    nBytes += 4;
+                }
+                else if ((bModRm & 0xc0) == 0x40) {
+                    nBytes += 1;
+                }
+                else if ((bModRm & 0xc0) == 0x80) {
+                    nBytes += 4;
+                }
+            }
+            cbTarget = nBytes - nRelOffset;
+        }
+#ifdef DETOURS_X64
+        else if (bFlags & RIP) {
+            nRelOffset = nModOffset + 1;
+            cbTarget = 4;
+        }
+#endif // DETOURS_X64
+
+#else // DETOURS_TEST_OLD_DISASM_MODRM
+
 /*
 modrm/sib byte encoding
 http://jaykrell2.blogspot.com/2014/01/x86-instruction-encoding-this-is-well.html
@@ -415,11 +486,14 @@ SIB byte has three fields
 If SIB.base == 5 then:
 mode=00: 32bit displacement, no base
 mode=01: 8bit displacement, base=EBP
-mode=10: 32bit displacement, base=EBP
+mode=10: 32bit displacement, base=EBP (32bit displacement even w/o SIB)
 */
         BYTE const mode = (bModRm >> 6); // upper 2 bits
         BYTE const rm = (bModRm & 7); // lower 3 bits
+
+        // Mode==2 has 32bit displacement w/ or w/o SIB.
         nBytes += "\0\1\4"[mode];
+
         bool const hasSib = mode != 3 && rm == 4;
         if (hasSib) {
             nBytes += 1;
@@ -435,8 +509,11 @@ mode=10: 32bit displacement, base=EBP
             nRelOffset = nModOffset + 1;
             cbTarget = 4;
         }
-#endif
+#endif // DETOURS_X64
+#endif // DETOURS_TEST_OLD_DISASM_MODRM
+
     }
+
     CopyMemory(pbDst, pbSrc, nBytes);
 
     if (nRelOffset) {
@@ -871,6 +948,33 @@ BOOL CDetourDis::SetCodeModule(PBYTE pbBeg, PBYTE pbEnd, BOOL fLimitReferencesTo
 
 ///////////////////////////////////////////////////////// Disassembler Tables.
 //
+
+// This is not usually enabled, but is to compare old
+// and new behavior and assert that they match.
+//
+#ifdef DETOURS_TEST_OLD_DISASM_MODRM
+
+const BYTE CDetourDis::s_rbModRm[256] = {
+    0,0,0,0, SIB|1,RIP|4,0,0, 0,0,0,0, SIB|1,RIP|4,0,0, // 0x
+    0,0,0,0, SIB|1,RIP|4,0,0, 0,0,0,0, SIB|1,RIP|4,0,0, // 1x
+    0,0,0,0, SIB|1,RIP|4,0,0, 0,0,0,0, SIB|1,RIP|4,0,0, // 2x
+    0,0,0,0, SIB|1,RIP|4,0,0, 0,0,0,0, SIB|1,RIP|4,0,0, // 3x
+    1,1,1,1, 2,1,1,1, 1,1,1,1, 2,1,1,1,                 // 4x
+    1,1,1,1, 2,1,1,1, 1,1,1,1, 2,1,1,1,                 // 5x
+    1,1,1,1, 2,1,1,1, 1,1,1,1, 2,1,1,1,                 // 6x
+    1,1,1,1, 2,1,1,1, 1,1,1,1, 2,1,1,1,                 // 7x
+    4,4,4,4, 5,4,4,4, 4,4,4,4, 5,4,4,4,                 // 8x
+    4,4,4,4, 5,4,4,4, 4,4,4,4, 5,4,4,4,                 // 9x
+    4,4,4,4, 5,4,4,4, 4,4,4,4, 5,4,4,4,                 // Ax
+    4,4,4,4, 5,4,4,4, 4,4,4,4, 5,4,4,4,                 // Bx
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,                 // Cx
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,                 // Dx
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,                 // Ex
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0                  // Fx
+};
+
+#endif // DETOURS_TEST_OLD_DISASM_MODRM
+
 const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[257] =
 {
     { 0x00, ENTRY_CopyBytes2Mod },                      // ADD /r

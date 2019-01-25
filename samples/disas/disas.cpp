@@ -198,6 +198,20 @@ int TestDetourCopyInstruction(PBYTE pbSrcInstruction, PCHAR pszFunction)
         ULONG cbStep = (ULONG)((PBYTE)DetourCopyInstruction(rbDst, &pbDstPool, pbSrc,
                                                             &pbTarget, &lExtra) - pbSrc);
 
+#if defined(DETOURS_X86) || defined(DETOURS_X64)
+#if defined(DETOURS_X86)
+        const ULONG cbStepOld = (ULONG)((PBYTE)DetourCopyInstructionX86OldForTest(rbDst, &pbDstPool, pbSrc,
+                                                            &pbTarget, &lExtra) - pbSrc);
+#else
+        const ULONG cbStepOld = (ULONG)((PBYTE)DetourCopyInstructionX64OldForTest(rbDst, &pbDstPool, pbSrc,
+                                                            &pbTarget, &lExtra) - pbSrc);
+#endif
+        if (cbStepOld != cbStep)
+        {
+            printf("old vs. new %lX %lX\n", cbStepOld, cbStep);
+            __debugbreak();
+        }
+#endif
         printf("    %p:", pbSrc);
         DumpMemoryFragment(rbDst, cbStep, 10);
         printf(" ");
@@ -433,6 +447,18 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     {
         Test_t& test = tests[i];
         int computed = (int)((BYTE*)DetourCopyInstruction(NULL, NULL, test.bytes, NULL, NULL) - test.bytes);
+#if defined(DETOURS_X86) || defined(DETOURS_X64)
+#if defined(DETOURS_X86)
+        const int computedOld = (int)((BYTE*)DetourCopyInstructionX86OldForTest(NULL, NULL, test.bytes, NULL, NULL) - test.bytes);
+#else
+        const int computedOld = (int)((BYTE*)DetourCopyInstructionX64OldForTest(NULL, NULL, test.bytes, NULL, NULL) - test.bytes);
+#endif
+        if (computedOld != computed)
+        {
+            printf("old vs. new %X %X\n", computedOld, computed);
+            __debugbreak();
+        }
+#endif
         printf("i:%d len:%d computed:%d bytes{%X %X %X %X %X}\n", i, test.length, computed, test.bytes[0], test.bytes[1], test.bytes[2], test.bytes[3], test.bytes[4]);
         if (test.length != computed) {
             errors += 1;
@@ -573,6 +599,22 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
 
         LONG cbTest = (LONG)(pbNext - pbTest);
 
+
+#if defined(DETOURS_X86) || defined(DETOURS_X64)
+#if defined(DETOURS_X86)
+        const PBYTE pbNextOld = (PBYTE)DetourCopyInstructionX86OldForTest(rbDst, &pbDstPool, pbTest,
+                                                    &pbTarget, &lExtra);
+#else
+        const PBYTE pbNextOld = (PBYTE)DetourCopyInstructionX64OldForTest(rbDst, &pbDstPool, pbTest,
+                                                    &pbTarget, &lExtra);
+#endif
+        LONG cbTestOld = (LONG)(pbNextOld - pbTest);
+        if (cbTestOld != cbTest)
+        {
+            printf("old vs. new %lX %lX\n", cbTestOld, cbTest);
+            __debugbreak();
+        }
+#endif
         printf("%08x  ", (ULONG)(pbTest - pbBegin));
         DumpMemoryFragment(pbTest, cbTest, 12);
         printf("[%16p] ", pbTarget);

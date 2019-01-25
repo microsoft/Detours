@@ -42,6 +42,8 @@ OBJS = \
     $(OBJD)\creatwth.obj    \
     $(OBJD)\disolx86.obj    \
     $(OBJD)\disolx64.obj    \
+    $(OBJD)\disolx86old.obj    \
+    $(OBJD)\disolx64old.obj    \
     $(OBJD)\disolia64.obj   \
     $(OBJD)\disolarm.obj    \
     $(OBJD)\disolarm64.obj  \
@@ -105,6 +107,8 @@ $(OBJD)\image.obj : image.cpp detours.h
 $(OBJD)\creatwth.obj : creatwth.cpp uimports.cpp detours.h
 $(OBJD)\disolx86.obj: disasm.cpp detours.h
 $(OBJD)\disolx64.obj: disasm.cpp detours.h
+$(OBJD)\disolx86old.obj: disasm.cpp detours.h
+$(OBJD)\disolx64old.obj: disasm.cpp detours.h
 $(OBJD)\disolia64.obj: disasm.cpp detours.h
 $(OBJD)\disolarm.obj: disasm.cpp detours.h
 $(OBJD)\disolarm64.obj: disasm.cpp detours.h
