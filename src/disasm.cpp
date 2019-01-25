@@ -421,14 +421,10 @@ PBYTE CDetourDis::CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     UINT nBytes = nBytesFixed;
     UINT nRelOffset = pEntry->nRelOffset;
     UINT cbTarget = nBytes - nRelOffset;
-
-
     if (nModOffset > 0) {
         ASSERT(nRelOffset == 0);
         BYTE const bModRm = pbSrc[nModOffset];
-
 #ifdef DETOURS_TEST_OLD_DISASM_MODRM
-
         BYTE const bFlags = s_rbModRm[bModRm];
 
         nBytes += bFlags & NOTSIB;
@@ -476,7 +472,7 @@ mode:
 
 r/m:
 4 means SIB byte present if mode != 11
-5 means RIP relative on AMD64
+5 means RIP relative on AMD64, absolute on x86
 
 SIB byte has three fields
 2bit scale
@@ -503,13 +499,18 @@ mode=10: 32bit displacement, base=EBP (32bit displacement even w/o SIB)
                 nBytes += 4;
             cbTarget = nBytes - nRelOffset;
         }
-#ifdef DETOURS_X64
-        else if (mode == 0 && rm == 5) { // RIP relative
+        else if (mode == 0 && rm == 5) { // x86: Absolute, AMD64: RIP-relative
             nBytes += 4;
+#if defined(DETOURS_X86)
+            // Nothing -- the absolute target of the instruction
+            // is unchanged if the instruction is moved.
+#elif defined(DETOURS_X64)
             nRelOffset = nModOffset + 1;
             cbTarget = 4;
+#else
+#error unknown architecture
+#endif
         }
-#endif // DETOURS_X64
 #endif // DETOURS_TEST_OLD_DISASM_MODRM
 
     }

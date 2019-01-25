@@ -197,19 +197,30 @@ int TestDetourCopyInstruction(PBYTE pbSrcInstruction, PCHAR pszFunction)
         PVOID pbTarget = NULL;
         ULONG cbStep = (ULONG)((PBYTE)DetourCopyInstruction(rbDst, &pbDstPool, pbSrc,
                                                             &pbTarget, &lExtra) - pbSrc);
-
-#if defined(DETOURS_X86) || defined(DETOURS_X64)
+#if defined(DETOURS_X86) || defined(DETOURS_X64) // old vs. new testing
+        LONG lExtraOld = 0;
+        PVOID pbTargetOld = NULL;
 #if defined(DETOURS_X86)
         const ULONG cbStepOld = (ULONG)((PBYTE)DetourCopyInstructionX86OldForTest(rbDst, &pbDstPool, pbSrc,
-                                                            &pbTarget, &lExtra) - pbSrc);
+                                                            &pbTargetOld, &lExtraOld) - pbSrc);
 #else
         const ULONG cbStepOld = (ULONG)((PBYTE)DetourCopyInstructionX64OldForTest(rbDst, &pbDstPool, pbSrc,
-                                                            &pbTarget, &lExtra) - pbSrc);
+                                                            &pbTargetOld, &lExtraOld) - pbSrc);
 #endif
-        if (cbStepOld != cbStep)
+        if (cbStepOld != cbStep || pbTarget != pbTargetOld || lExtra != lExtraOld)
         {
-            printf("old vs. new %lX %lX\n", cbStepOld, cbStep);
+            printf("old vs. new %lX %lX be sure to run under debugger\n", cbStepOld, cbStep);
+            if (!IsDebuggerPresent())
+                exit(1);
+            // Again, step through each.
             __debugbreak();
+            DetourCopyInstruction(rbDst, &pbDstPool, pbSrc, &pbTarget, &lExtra);
+            __debugbreak();
+#if defined(DETOURS_X86)
+            DetourCopyInstructionX86OldForTest(rbDst, &pbDstPool, pbSrc, &pbTarget, &lExtra);
+#else
+            DetourCopyInstructionX64OldForTest(rbDst, &pbDstPool, pbSrc, &pbTarget, &lExtra);
+#endif
         }
 #endif
         printf("    %p:", pbSrc);
@@ -415,6 +426,24 @@ void TestBoth()
 #endif
 #endif // DETOURS_IA64
 
+struct Test_t
+{
+    int length;
+    BYTE bytes[16];
+};
+static Test_t tests[] =
+{
+    3, {0, 0x04, 0            },
+    4, {0, 0x44, 0, 1         },
+    7, {0, 0x84, 0, 1, 2, 3, 4},
+    2, {0, 0xc4               },
+
+    7, {0, 0x04, 5, 1, 2, 3, 4},
+    4, {0, 0x44, 5, 1         },
+    7, {0, 0x84, 5, 1, 2, 3, 4},
+    0
+};
+
 int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmdShow)
 {
     (void)hprev;
@@ -424,49 +453,47 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
 
 
 #if defined(DETOURS_X64) || defined(DETOURS_X86)
-    struct Test_t
-    {
-        int length;
-        BYTE bytes[16];
-    };
-    Test_t tests[] =
-    {
-        3, {0, 0x04, 0            },
-        4, {0, 0x44, 0, 1         },
-        7, {0, 0x84, 0, 1, 2, 3, 4},
-        2, {0, 0xc4               },
-
-        7, {0, 0x04, 5, 1, 2, 3, 4},
-        4, {0, 0x44, 5, 1         },
-        7, {0, 0x84, 5, 1, 2, 3, 4},
-    };
 
     //if (IsDebuggerPresent()) __debugbreak();
     int errors = 0;
     for (int i = 0; tests[i].length; ++i)
     {
         Test_t& test = tests[i];
-        int computed = (int)((BYTE*)DetourCopyInstruction(NULL, NULL, test.bytes, NULL, NULL) - test.bytes);
-#if defined(DETOURS_X86) || defined(DETOURS_X64)
+        LONG lExtra = 0;
+        PVOID pbTarget = NULL;
+        int computed = (int)((BYTE*)DetourCopyInstruction(NULL, NULL, test.bytes, &pbTarget, &lExtra) - test.bytes);
+#if defined(DETOURS_X86) || defined(DETOURS_X64) // Compare old and new.
+        LONG lExtraOld = 0;
+        PVOID pbTargetOld = NULL;
 #if defined(DETOURS_X86)
-        const int computedOld = (int)((BYTE*)DetourCopyInstructionX86OldForTest(NULL, NULL, test.bytes, NULL, NULL) - test.bytes);
+        const int computedOld = (int)((BYTE*)DetourCopyInstructionX86OldForTest(NULL, NULL, test.bytes, &pbTargetOld, &lExtraOld) - test.bytes);
 #else
-        const int computedOld = (int)((BYTE*)DetourCopyInstructionX64OldForTest(NULL, NULL, test.bytes, NULL, NULL) - test.bytes);
+        const int computedOld = (int)((BYTE*)DetourCopyInstructionX64OldForTest(NULL, NULL, test.bytes, &pbTargetOld, &lExtraOld) - test.bytes);
 #endif
-        if (computedOld != computed)
+        if (computedOld != computed || pbTarget != pbTargetOld || lExtra != lExtraOld)
         {
-            printf("old vs. new %X %X\n", computedOld, computed);
+            printf("old vs. new %X %X be sure to run under debugger\n", computedOld, computed);
+            if (!IsDebuggerPresent())
+                exit(1);
+            // Again, step through each.
             __debugbreak();
+            DetourCopyInstruction(NULL, NULL, test.bytes, NULL, NULL);
+            __debugbreak();
+#if defined(DETOURS_X86)
+            DetourCopyInstructionX86OldForTest(NULL, NULL, test.bytes, &pbTargetOld, &lExtraOld);
+#else
+            DetourCopyInstructionX64OldForTest(NULL, NULL, test.bytes, &pbTargetOld, &lExtraOld);
+#endif
         }
 #endif
         printf("i:%d len:%d computed:%d bytes{%X %X %X %X %X}\n", i, test.length, computed, test.bytes[0], test.bytes[1], test.bytes[2], test.bytes[3], test.bytes[4]);
         if (test.length != computed) {
             errors += 1;
             printf("error\n");
-            /*if (IsDebuggerPresent()) {
+            if (IsDebuggerPresent()) {
                 __debugbreak();
                 DetourCopyInstruction(NULL, NULL, test.bytes, NULL, NULL);
-            }*/
+            }
         }
     }
     if (errors) exit(errors);
@@ -601,18 +628,30 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
 
 
 #if defined(DETOURS_X86) || defined(DETOURS_X64)
+        LONG lExtraOld = 0;
+        PVOID pbTargetOld = NULL;
 #if defined(DETOURS_X86)
         const PBYTE pbNextOld = (PBYTE)DetourCopyInstructionX86OldForTest(rbDst, &pbDstPool, pbTest,
-                                                    &pbTarget, &lExtra);
+                                                    &pbTargetOld, &lExtraOld);
 #else
         const PBYTE pbNextOld = (PBYTE)DetourCopyInstructionX64OldForTest(rbDst, &pbDstPool, pbTest,
-                                                    &pbTarget, &lExtra);
+                                                    &pbTargetOld, &lExtraOld);
 #endif
         LONG cbTestOld = (LONG)(pbNextOld - pbTest);
-        if (cbTestOld != cbTest)
+        if (cbTestOld != cbTest || pbTarget != pbTargetOld || lExtra != lExtraOld)
         {
-            printf("old vs. new %lX %lX\n", cbTestOld, cbTest);
+            printf("old vs. new %lX %lX be sure to run under debugger\n", cbTestOld, cbTest);
+            if (!IsDebuggerPresent())
+                exit(1);
+            // Again, step through each.
             __debugbreak();
+            DetourCopyInstruction(rbDst, &pbDstPool, pbTest, &pbTarget, &lExtra);
+            __debugbreak();
+#if defined(DETOURS_X86)
+            DetourCopyInstructionX86OldForTest(rbDst, &pbDstPool, pbTest, &pbTargetOld, &lExtraOld);
+#else
+            DetourCopyInstructionX64OldForTest(rbDst, &pbDstPool, pbTest, &pbTargetOld, &lExtraOld);
+#endif
         }
 #endif
         printf("%08x  ", (ULONG)(pbTest - pbBegin));
