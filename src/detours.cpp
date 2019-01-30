@@ -1250,6 +1250,65 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
     return NULL;
 }
 
+static PVOID detour_alloc_trampoline_allocate_new(PBYTE pbTarget,
+                                                  PDETOUR_TRAMPOLINE pLo,
+                                                  PDETOUR_TRAMPOLINE pHi)
+{
+    PVOID pbTry = NULL;
+
+    // NB: We must always also start the search at an offset from pbTarget
+    //     in order to maintain ASLR entropy.
+
+#if defined(DETOURS_64BIT)
+    // Try looking 1GB below or lower.
+    if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
+        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget - 0x40000000);
+    }
+    // Try looking 1GB above or higher.
+    if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
+        pbTry = detour_alloc_region_from_lo(pbTarget + 0x40000000, (PBYTE)pHi);
+    }
+    // Try looking 1GB below or higher.
+    if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
+        pbTry = detour_alloc_region_from_lo(pbTarget - 0x40000000, pbTarget);
+    }
+    // Try looking 1GB above or lower.
+    if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
+        pbTry = detour_alloc_region_from_hi(pbTarget, pbTarget + 0x40000000);
+    }
+#endif
+
+    // Try anything below.
+    if (pbTry == NULL) {
+        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget);
+    }
+    // try anything above.
+    if (pbTry == NULL) {
+        pbTry = detour_alloc_region_from_lo(pbTarget, (PBYTE)pHi);
+    }
+
+    return pbTry;
+}
+
+PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
+                                                  _Out_ PDWORD pcbAllocatedSize)
+{
+    PDETOUR_TRAMPOLINE pLo;
+    PDETOUR_TRAMPOLINE pHi;
+    detour_find_jmp_bounds((PBYTE)pbTarget, &pLo, &pHi);
+
+    PVOID pbNewlyAllocated =
+        detour_alloc_trampoline_allocate_new((PBYTE)pbTarget, pLo, pHi);
+    if (pbNewlyAllocated == NULL) {
+        DETOUR_TRACE(("Couldn't find available memory region!\n"));
+        *pcbAllocatedSize = 0;
+        return NULL;
+    }
+
+    *pcbAllocatedSize = DETOUR_REGION_SIZE;
+    return pbNewlyAllocated;
+}
+
 static PDETOUR_TRAMPOLINE detour_alloc_trampoline(PBYTE pbTarget)
 {
     // We have to place trampolines within +/- 2GB of target.
@@ -1294,41 +1353,10 @@ static PDETOUR_TRAMPOLINE detour_alloc_trampoline(PBYTE pbTarget)
     // Round pbTarget down to 64KB block.
     pbTarget = pbTarget - (PtrToUlong(pbTarget) & 0xffff);
 
-    PVOID pbTry = NULL;
-
-    // NB: We must always also start the search at an offset from pbTarget
-    //     in order to maintain ASLR entropy.
-
-#if defined(DETOURS_64BIT)
-    // Try looking 1GB below or lower.
-    if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
-        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget - 0x40000000);
-    }
-    // Try looking 1GB above or higher.
-    if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
-        pbTry = detour_alloc_region_from_lo(pbTarget + 0x40000000, (PBYTE)pHi);
-    }
-    // Try looking 1GB below or higher.
-    if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
-        pbTry = detour_alloc_region_from_lo(pbTarget - 0x40000000, pbTarget);
-    }
-    // Try looking 1GB above or lower.
-    if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
-        pbTry = detour_alloc_region_from_hi(pbTarget, pbTarget + 0x40000000);
-    }
-#endif
-
-    // Try anything below.
-    if (pbTry == NULL) {
-        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget);
-    }
-    // try anything above.
-    if (pbTry == NULL) {
-        pbTry = detour_alloc_region_from_lo(pbTarget, (PBYTE)pHi);
-    }
-
-    if (pbTry != NULL) {
-        s_pRegion = (DETOUR_REGION*)pbTry;
+    PVOID pbNewlyAllocated =
+        detour_alloc_trampoline_allocate_new(pbTarget, pLo, pHi);
+    if (pbNewlyAllocated != NULL) {
+        s_pRegion = (DETOUR_REGION*)pbNewlyAllocated;
         s_pRegion->dwSignature = DETOUR_REGION_SIGNATURE;
         s_pRegion->pFree = NULL;
         s_pRegion->pNext = s_pRegions;

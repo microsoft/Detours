@@ -526,6 +526,8 @@ PVOID WINAPI DetourCopyInstruction(_In_opt_ PVOID pDst,
                                    _Out_opt_ LONG *plExtra);
 BOOL WINAPI DetourSetCodeModule(_In_ HMODULE hModule,
                                 _In_ BOOL fLimitReferencesToModule);
+PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
+                                                  _Out_ PDWORD pcbAllocatedSize);
 
 ///////////////////////////////////////////////////// Loaded Binary Functions.
 //
