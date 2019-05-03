@@ -13,6 +13,8 @@ To build the sample applications, type "nmake" in the samples directory.
 Note that you must build setdll and syslog in order to use many of the
 other sample programs.
 
+In case you receive errors when building related to "windows.h" not included in path, you must lunch previously the command "vcvars32".
+
 COMMENTS:
 =========
 Each of the sample directories has a test, which can be invoked by typing
