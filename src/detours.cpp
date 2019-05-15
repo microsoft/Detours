@@ -7,31 +7,13 @@
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
 
-#pragma warning(disable:4068) // unknown pragma (suppress)
-
-#if _MSC_VER >= 1900
-#pragma warning(push)
-#pragma warning(disable:4091) // empty typedef
-#endif
-
-#define _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE 1
-#include <windows.h>
-
-#if (_MSC_VER < 1299)
-#pragma warning(disable: 4710)
-#endif
 
 //#define DETOUR_DEBUG 1
 #define DETOURS_INTERNAL
-
 #include "detours.h"
 
 #if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
-#endif
-
-#if _MSC_VER >= 1900
-#pragma warning(pop)
 #endif
 
 #define NOTHROW
