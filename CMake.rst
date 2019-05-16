@@ -12,7 +12,6 @@ CMake support for the main project has been done for a while, but some sample pr
 * excep
 * findfunc
 * impmunge
-* Makefile
 * member
 * opengl
 * slept
