@@ -6,6 +6,15 @@
 //
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
+//  This is a test program to test the DetourAllocateRegionWithinJumpBounds
+//  API, that dynamically allocates an executable region adjacent to a given
+//  address so that we can use the region as a detour function.
+//
+//  This test program detours the function `target_function`.  Instead of
+//  simply specifying a code segment as a detour function, we specify a
+//  dynamically-allocated region into which we copy the code, altering the
+//  return value, from the assembly function `CodeTemplate` as a template.
+//
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <functional>
@@ -27,11 +36,15 @@ void Log(LPCTSTR format, ...) {
   OutputDebugString(linebuf);
 }
 
+// This is a target function to be detoured.  When detoured, it's expected to
+// return a non-nullptr value.
 void *target_function() {
   std::cout << '+' << __FUNCTION__ << std::endl;
   return nullptr;
 }
 
+// Helper function to sandwich a given function between `DetourTransactionBegin`
+// and `DetourTransactionCommit`/`DetourTransactionAbort`.
 bool DetourTransaction(std::function<bool()> callback) {
   LONG status = DetourTransactionBegin();
   if (status != NO_ERROR) {
@@ -57,6 +70,9 @@ bool DetourTransaction(std::function<bool()> callback) {
   return status == NO_ERROR;
 }
 
+// This class manages one dynamically-allocated region that is allocated by
+// the Detours API `DetourAllocateRegionWithinJumpBounds`, to which we can
+// push binary data sequentially to use it as a detour function.
 class CodeRegionFactory final {
   template <typename T>
   static const T *at(const void *base, uint32_t offset) {
@@ -72,13 +88,13 @@ class CodeRegionFactory final {
         reinterpret_cast<uint8_t*>(base) + offset);
   }
 
-  void *region_{};
-  uint8_t *current_{},
-          *current_end_{};
+  void *region_ = nullptr;
+  uint8_t *current_ = nullptr,
+          *current_end_ = nullptr;
 
 public:
   CodeRegionFactory(const void *source) {
-    DWORD new_region_size{};
+    DWORD new_region_size = 0;
     auto new_region_address =
       DetourAllocateRegionWithinJumpBounds(source, &new_region_size);
     if (new_region_address) {
@@ -97,10 +113,11 @@ public:
     }
   }
 
+  // Pushes binary data to the region if there is enough space, and returns
+  // the start address of a copy in the region if succeeded.
   void *PushTemplate(const void *start,
                      const void *end) {
-    size_t diff =
-      at<uint8_t>(end, 0) - at<uint8_t>(start, 0);
+    auto diff = at<uint8_t>(end, 0) - at<uint8_t>(start, 0);
     if (diff < 0 || current_ + diff > current_end_)
       return nullptr;
     auto start_pos = current_;
@@ -121,8 +138,8 @@ int main(int, char**) {
   void *detour_destination,
        *detour_target = reinterpret_cast<void*>(target_function);
 
-  // Fill the allocated page with a code template till the end
-  // and pick the last instance
+  // Fill the allocated page with as many instances as possible of the code
+  // template, and pick the last instance
   while (auto p = factory.PushTemplate(CodeTemplate,
                                        CodeTemplate_End)) {
     detour_destination = p;
@@ -130,9 +147,9 @@ int main(int, char**) {
 
   bool is_detoured = false;
   DetourTransaction([&]() {
-    PDETOUR_TRAMPOLINE trampoline{};
-    void *target{},
-         *detour{};
+    PDETOUR_TRAMPOLINE trampoline = nullptr;
+    void *target = nullptr,
+         *detour = nullptr;
     auto status = DetourAttachEx(&detour_target,
                                  detour_destination,
                                  &trampoline,
