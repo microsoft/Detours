@@ -1,0 +1,15 @@
+LIBRARY
+EXPORTS
+    DetourTransactionBegin            @1    PRIVATE
+    DetourTransactionAbort            @2    PRIVATE
+    DetourTransactionCommit           @3    PRIVATE
+    DetourTransactionCommitEx         @4    PRIVATE
+    DetourUpdateThread                @5    PRIVATE
+    DetourAttach                      @6    PRIVATE
+    DetourAttachEx                    @7    PRIVATE
+    DetourDetach                      @8    PRIVATE
+    DetourSetIgnoreTooSmall           @9    PRIVATE
+    DetourSetRetainRegions            @10   PRIVATE
+    DetourSetSystemRegionLowerBound   @11   PRIVATE
+    DetourSetSystemRegionUpperBound   @12   PRIVATE
+
