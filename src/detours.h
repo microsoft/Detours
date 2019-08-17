@@ -543,8 +543,8 @@ PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound)
 
 ////////////////////////////////////////////////////////////// Code Functions.
 //
-PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
-                                _In_ LPCSTR pszFunction);
+PVOID WINAPI DetourFindFunction(_In_ PCSTR pszModule,
+                                _In_ PCSTR pszFunction);
 PVOID WINAPI DetourCodeFromPointer(_In_ PVOID pPointer,
                                    _Out_opt_ PVOID *ppGlobals);
 PVOID WINAPI DetourCopyInstruction(_In_opt_ PVOID pDst,
