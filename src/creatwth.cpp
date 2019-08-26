@@ -29,24 +29,24 @@ const GUID DETOUR_EXE_HELPER_GUID = { /* ea0251b9-5cde-41b5-98d0-2af4a26b0fee */
 
 //////////////////////////////////////////////////////////////////////////////
 //
-// Enumate through modules in the target process.
+// Enumerate through modules in the target process.
 //
-static BOOL WINAPI LoadNtHeaderFromProcess(HANDLE hProcess,
-                                           HMODULE hModule,
-                                           PIMAGE_NT_HEADERS32 pNtHeader)
+static PVOID LoadNtHeaderFromProcess(HANDLE hProcess,
+                                     HMODULE hModule,
+                                     PIMAGE_NT_HEADERS32 pNtHeader)
 {
     PBYTE pbModule = (PBYTE)hModule;
 
     if (pbModule == NULL) {
         SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
+        return NULL;
     }
 
     MEMORY_BASIC_INFORMATION mbi;
     ZeroMemory(&mbi, sizeof(mbi));
 
     if (VirtualQueryEx(hProcess, hModule, &mbi, sizeof(mbi)) == 0) {
-        return FALSE;
+        return NULL;
     }
 
     IMAGE_DOS_HEADER idh;
@@ -54,7 +54,7 @@ static BOOL WINAPI LoadNtHeaderFromProcess(HANDLE hProcess,
     if (!ReadProcessMemory(hProcess, pbModule, &idh, sizeof(idh), NULL)) {
         DETOUR_TRACE(("ReadProcessMemory(idh@%p..%p) failed: %d\n",
                       pbModule, pbModule + sizeof(idh), GetLastError()));
-        return FALSE;
+        return NULL;
     }
 
     if (idh.e_magic != IMAGE_DOS_SIGNATURE ||
@@ -62,7 +62,7 @@ static BOOL WINAPI LoadNtHeaderFromProcess(HANDLE hProcess,
         (DWORD)idh.e_lfanew < sizeof(idh)) {
 
         SetLastError(ERROR_BAD_EXE_FORMAT);
-        return FALSE;
+        return NULL;
     }
 
     if (!ReadProcessMemory(hProcess, pbModule + idh.e_lfanew,
@@ -72,21 +72,26 @@ static BOOL WINAPI LoadNtHeaderFromProcess(HANDLE hProcess,
                       pbModule + idh.e_lfanew + sizeof(*pNtHeader),
                       pbModule,
                       GetLastError()));
-        return FALSE;
+        return NULL;
     }
 
     if (pNtHeader->Signature != IMAGE_NT_SIGNATURE) {
         SetLastError(ERROR_BAD_EXE_FORMAT);
-        return FALSE;
+        return NULL;
     }
 
-    return TRUE;
+    return pbModule + idh.e_lfanew;
 }
 
-static HMODULE WINAPI EnumerateModulesInProcess(HANDLE hProcess,
-                                                HMODULE hModuleLast,
-                                                PIMAGE_NT_HEADERS32 pNtHeader)
+static HMODULE EnumerateModulesInProcess(HANDLE hProcess,
+                                         HMODULE hModuleLast,
+                                         PIMAGE_NT_HEADERS32 pNtHeader,
+                                         PVOID *pRemoteNtHeader)
 {
+    if (pRemoteNtHeader) {
+        *pRemoteNtHeader = NULL;
+    }
+
     PBYTE pbLast = (PBYTE)hModuleLast + MM_ALLOCATION_GRANULARITY;
 
     MEMORY_BASIC_INFORMATION mbi;
@@ -118,10 +123,157 @@ static HMODULE WINAPI EnumerateModulesInProcess(HANDLE hProcess,
             continue;
         }
 
-        if (LoadNtHeaderFromProcess(hProcess, (HMODULE)pbLast, pNtHeader)) {
+        PVOID remoteHeader
+            = LoadNtHeaderFromProcess(hProcess, (HMODULE)pbLast, pNtHeader);
+        if (remoteHeader) {
+            if (pRemoteNtHeader) {
+                *pRemoteNtHeader = remoteHeader;
+            }
+
             return (HMODULE)pbLast;
         }
     }
+    return NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Find payloads in target process.
+//
+
+static PVOID FindDetourSectionInRemoteModule(HANDLE hProcess,
+                                             HMODULE hModule,
+                                             PIMAGE_NT_HEADERS32 pNtHeader,
+                                             PVOID pRemoteNtHeader)
+{
+    if (pNtHeader->FileHeader.SizeOfOptionalHeader == 0) {
+        SetLastError(ERROR_EXE_MARKED_INVALID);
+        return NULL;
+    }
+
+    PIMAGE_SECTION_HEADER pRemoteSectionHeaders
+        = (PIMAGE_SECTION_HEADER)((PBYTE)pRemoteNtHeader
+                                  + sizeof(pNtHeader->Signature)
+                                  + sizeof(pNtHeader->FileHeader)
+                                  + pNtHeader->FileHeader.SizeOfOptionalHeader);
+
+    PIMAGE_SECTION_HEADER pSectionHeaders
+        = new NOTHROW IMAGE_SECTION_HEADER[pNtHeader->FileHeader.NumberOfSections];
+    if (pSectionHeaders == NULL) {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return NULL;
+    }
+
+    if (!ReadProcessMemory(hProcess, pRemoteSectionHeaders, pSectionHeaders,
+                           sizeof(*pSectionHeaders) * pNtHeader->FileHeader.NumberOfSections, NULL)) {
+        DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %d\n",
+                      pRemoteSectionHeaders,
+                      pRemoteSectionHeaders
+                          + sizeof(*pSectionHeaders) * pNtHeader->FileHeader.NumberOfSections,
+                      GetLastError()));
+        delete pSectionHeaders;
+        return NULL;
+    }
+
+    for (DWORD n = 0; n < pNtHeader->FileHeader.NumberOfSections; n++) {
+        if (strcmp((PCHAR)pSectionHeaders[n].Name, ".detour") == 0) {
+            if (pSectionHeaders[n].VirtualAddress == 0 ||
+                pSectionHeaders[n].SizeOfRawData == 0) {
+
+                break;
+            }
+
+            PBYTE pbData = (PBYTE)hModule + pSectionHeaders[n].VirtualAddress;
+
+            delete pSectionHeaders;
+            SetLastError(NO_ERROR);
+            return pbData;
+        }
+    }
+
+    delete pSectionHeaders;
+    SetLastError(ERROR_EXE_MARKED_INVALID);
+    return NULL;
+}
+
+static PVOID FindPayloadInRemoteModule(HANDLE hProcess,
+                                       REFGUID rguid,
+                                       DWORD *pcbData,
+                                       PVOID pvData)
+{
+    DETOUR_SECTION_HEADER header;
+    if (!ReadProcessMemory(hProcess, pvData, &header, sizeof(header), NULL)) {
+        DETOUR_TRACE(("ReadProcessMemory(dsh@%p..%p) failed: %d\n",
+            pvData,
+            (PBYTE)pvData + sizeof(header),
+            GetLastError()));
+        return NULL;
+    }
+
+    if (header.cbHeaderSize < sizeof(DETOUR_SECTION_HEADER) ||
+        header.nSignature != DETOUR_SECTION_HEADER_SIGNATURE) {
+        SetLastError(ERROR_EXE_MARKED_INVALID);
+        return NULL;
+    }
+
+    if (header.nDataOffset == 0) {
+        header.nDataOffset = header.cbHeaderSize;
+    }
+
+    for (PVOID pvSection = ((PBYTE)pvData) + header.nDataOffset;
+        pvSection < ((PBYTE)pvData) + header.cbDataSize;) {
+
+        DETOUR_SECTION_RECORD section;
+        if (!ReadProcessMemory(hProcess, pvSection, &section, sizeof(section), NULL)) {
+            DETOUR_TRACE(("ReadProcessMemory(dsr@%p..%p) failed: %d\n",
+                pvSection,
+                (PBYTE)pvSection + sizeof(section),
+                GetLastError()));
+            return NULL;
+        }
+
+        if (section.guid.Data1 == rguid.Data1 &&
+            section.guid.Data2 == rguid.Data2 &&
+            section.guid.Data3 == rguid.Data3 &&
+            section.guid.Data4[0] == rguid.Data4[0] &&
+            section.guid.Data4[1] == rguid.Data4[1] &&
+            section.guid.Data4[2] == rguid.Data4[2] &&
+            section.guid.Data4[3] == rguid.Data4[3] &&
+            section.guid.Data4[4] == rguid.Data4[4] &&
+            section.guid.Data4[5] == rguid.Data4[5] &&
+            section.guid.Data4[6] == rguid.Data4[6] &&
+            section.guid.Data4[7] == rguid.Data4[7]) {
+
+            if (pcbData) {
+                *pcbData = section.cbBytes - sizeof(section);
+            }
+            SetLastError(NO_ERROR);
+            return (DETOUR_SECTION_RECORD *)pvSection + 1;
+        }
+
+        pvSection = (PBYTE)pvSection + section.cbBytes;
+    }
+
+    return NULL;
+}
+
+_Success_(return != NULL)
+PVOID WINAPI DetourFindRemotePayload(_In_ HANDLE hProcess,
+                                     _In_ REFGUID rguid,
+                                     _Out_opt_ DWORD *pcbData)
+{
+    IMAGE_NT_HEADERS32 header;
+    PVOID pvRemoteHeader;
+    for (HMODULE hMod = NULL; (hMod = EnumerateModulesInProcess(hProcess, hMod, &header, &pvRemoteHeader)) != NULL;) {
+        PVOID pvData = FindDetourSectionInRemoteModule(hProcess, hMod, &header, pvRemoteHeader);
+        if (pvData != NULL) {
+            pvData = FindPayloadInRemoteModule(hProcess, rguid, pcbData, pvData);
+            if (pvData != NULL) {
+                return pvData;
+            }
+        }
+    }
+    SetLastError(ERROR_MOD_NOT_FOUND);
     return NULL;
 }
 
@@ -518,7 +670,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
     for (;;) {
         IMAGE_NT_HEADERS32 inh;
 
-        if ((hLast = EnumerateModulesInProcess(hProcess, hLast, &inh)) == NULL) {
+        if ((hLast = EnumerateModulesInProcess(hProcess, hLast, &inh, NULL)) == NULL) {
             break;
         }
 
@@ -834,7 +986,7 @@ BOOL WINAPI DetourCreateProcessWithDllW(_In_opt_ LPCWSTR lpApplicationName,
 
 BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
                                        _In_ REFGUID rguid,
-                                       _In_reads_bytes_(cbData) PCVOID pvData,
+                                       _In_reads_bytes_(cbData) LPCVOID pvData,
                                        _In_ DWORD cbData)
 {
     return DetourCopyPayloadToProcessEx(hProcess, rguid, pvData, cbData) != NULL;
@@ -843,7 +995,7 @@ BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
 _Success_(return != NULL)
 PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
                                           _In_ REFGUID rguid,
-                                          _In_reads_bytes_(cbData) PCVOID pvData,
+                                          _In_reads_bytes_(cbData) LPCVOID pvData,
                                           _In_ DWORD cbData)
 {
     DWORD cbTotal = (sizeof(IMAGE_DOS_HEADER) +
@@ -857,7 +1009,7 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
                                          MEM_COMMIT, PAGE_READWRITE);
     if (pbBase == NULL) {
         DETOUR_TRACE(("VirtualAllocEx(%d) failed: %d\n", cbTotal, GetLastError()));
-        return FALSE;
+        return NULL;
     }
 
     PBYTE pbTarget = pbBase;
@@ -874,7 +1026,7 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
     if (!WriteProcessMemory(hProcess, pbTarget, &idh, sizeof(idh), &cbWrote) ||
         cbWrote != sizeof(idh)) {
         DETOUR_TRACE(("WriteProcessMemory(idh) failed: %d\n", GetLastError()));
-        return FALSE;
+        return NULL;
     }
     pbTarget += sizeof(idh);
 
@@ -886,7 +1038,7 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
     inh.OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR_MAGIC;
     if (!WriteProcessMemory(hProcess, pbTarget, &inh, sizeof(inh), &cbWrote) ||
         cbWrote != sizeof(inh)) {
-        return FALSE;
+        return NULL;
     }
     pbTarget += sizeof(inh);
 
@@ -898,7 +1050,7 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
                          cbData);
     if (!WriteProcessMemory(hProcess, pbTarget, &ish, sizeof(ish), &cbWrote) ||
         cbWrote != sizeof(ish)) {
-        return FALSE;
+        return NULL;
     }
     pbTarget += sizeof(ish);
 
@@ -911,7 +1063,7 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
                       cbData);
     if (!WriteProcessMemory(hProcess, pbTarget, &dsh, sizeof(dsh), &cbWrote) ||
         cbWrote != sizeof(dsh)) {
-        return FALSE;
+        return NULL;
     }
     pbTarget += sizeof(dsh);
 
@@ -921,19 +1073,18 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
     dsr.guid = rguid;
     if (!WriteProcessMemory(hProcess, pbTarget, &dsr, sizeof(dsr), &cbWrote) ||
         cbWrote != sizeof(dsr)) {
-        return FALSE;
+        return NULL;
     }
     pbTarget += sizeof(dsr);
 
     if (!WriteProcessMemory(hProcess, pbTarget, pvData, cbData, &cbWrote) ||
         cbWrote != cbData) {
-        return FALSE;
+        return NULL;
     }
-    pbTarget += cbData;
 
     DETOUR_TRACE(("Copied %d byte payload into target process at %p\n",
-                  cbTotal, pbTarget - cbTotal));
-    return TRUE;
+                  cbTotal, pbTarget));
+    return pbTarget;
 }
 
 static BOOL s_fSearchedForHelper = FALSE;
