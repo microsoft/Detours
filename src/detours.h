@@ -795,12 +795,12 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
 
 BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
                                        _In_ REFGUID rguid,
-                                       _In_reads_bytes_(cbData) PVOID pvData,
+                                       _In_reads_bytes_(cbData) PCVOID pvData,
                                        _In_ DWORD cbData);
 _Success_(return != NULL)
 PVOID WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
                                         _In_ REFGUID rguid,
-                                        _In_reads_bytes_(cbData) PVOID pvData,
+                                        _In_reads_bytes_(cbData) PCVOID pvData,
                                         _In_ DWORD cbData);
 
 BOOL WINAPI DetourRestoreAfterWith(VOID);
