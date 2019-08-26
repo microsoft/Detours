@@ -837,6 +837,15 @@ BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
                                        _In_reads_bytes_(cbData) PVOID pvData,
                                        _In_ DWORD cbData)
 {
+    return DetourCopyPayloadToProcessEx(hProcess, rguid, pvData, cbData) != NULL;
+}
+
+_Success_(return != NULL)
+PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
+                                          _In_ REFGUID rguid,
+                                          _In_reads_bytes_(cbData) PVOID pvData,
+                                          _In_ DWORD cbData)
+{
     DWORD cbTotal = (sizeof(IMAGE_DOS_HEADER) +
                      sizeof(IMAGE_NT_HEADERS) +
                      sizeof(IMAGE_SECTION_HEADER) +
