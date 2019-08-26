@@ -1851,7 +1851,7 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     }
 
     // Silently (and safely) drop any attempt to suspend our own thread.
-    if (hThread == GetCurrentThread()) {
+    if (hThread == GetCurrentThread() || GetThreadId(hThread) == GetCurrentThreadId()) {
         return NO_ERROR;
     }
 
