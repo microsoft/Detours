@@ -4266,7 +4266,7 @@ PWCHAR LoadCommandLine(PCWSTR pwz, PWCHAR pwzDst, PWCHAR pwzDstEnd)
             // More arguments!
             WCHAR wzPath[MAX_PATH];
             PWCHAR pwzPath = wzPath;
-            PCWSTR pwzTmp = pwzArgBeg + 1;
+            PCWSTR pwzTmp = pwzArgBeg;
             while (pwzTmp < pwzArgEnd && pwzPath < wzPath + ARRAYSIZE(wzPath)-2) {
                 *pwzPath++ = *pwzTmp++;
             }
