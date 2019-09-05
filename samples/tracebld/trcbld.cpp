@@ -4499,7 +4499,7 @@ int WINAPI Mine_EntryPoint(VOID)
             Tblog("<t:Line>&quot;%le&quot; ", wzPath);
         }
         else {
-            Tblog("<t:Line>%le", wzPath);
+            Tblog("<t:Line>%le ", wzPath);
         }
         for(PWCHAR pwzTmp = pwzFin; pwzTmp < pwzFin + wcNew; pwzTmp += 32764) {
             Tblog("%le", pwzTmp);
