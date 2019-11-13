@@ -910,10 +910,9 @@ struct _DETOUR_TRAMPOLINE
     _DETOUR_ALIGN   rAlign[8];      // instruction alignment array.
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
-    ULONG64         rbIndTarget;
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 192);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 184);
 
 enum {
     SIZE_OF_JMP = 12
@@ -1760,8 +1759,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_ARM
 
 #ifdef DETOURS_ARM64
-            o->pTrampoline->rbIndTarget = (ULONG64)(o->pTrampoline->pbDetour);
-            PBYTE pbCode = detour_gen_jmp_indirect(o->pbTarget, &(o->pTrampoline->rbIndTarget));
+            PBYTE pbCode = detour_gen_jmp_indirect(o->pbTarget, (ULONG64*)&(o->pTrampoline->pbDetour));
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = o->pTrampoline->rbCode;
             UNREFERENCED_PARAMETER(pbCode);
