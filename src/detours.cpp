@@ -880,7 +880,8 @@ struct _DETOUR_TRAMPOLINE
 {
     // An ARM64 instruction is 4 bytes long.
     //
-    // The overwrite is always 2 instructions plus a literal, so 16 bytes, 4 instructions.
+    // The overwrite is always composed of 3 instructions (12 bytes) which perform an indirect jump
+	// using _DETOUR_TRAMPOLINE::pbDetour as the address holding the target location.
     //
     // Copied instructions can expand.
     //
