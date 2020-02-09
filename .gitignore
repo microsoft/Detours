@@ -31,3 +31,7 @@ include/
 obj.*
 *.ipdb
 *.iobj
+*.tlog
+*.log
+*.obj
+*.user
