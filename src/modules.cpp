@@ -858,6 +858,7 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
     if (pder->pclr != NULL && pder->clr.Flags != ((PDETOUR_CLR_HEADER)pder->pclr)->Flags) {
         // If we had to promote the 32/64-bit agnostic IL to 64-bit, we can't restore
         // that.
+		//现在我们已经支持上述这种情况(未知目标位的IL代码即时编译生成到64位进程的本机代码)的CLR头数据恢复了
         fUpdated32To64 = TRUE;
     }
 
@@ -869,7 +870,8 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
             CopyMemory(pder->pidh, &pder->idh, pder->cbidh);
             CopyMemory(pder->pinh, &pder->inh, pder->cbinh);
 
-            if (pder->pclr != NULL && !fUpdated32To64) {
+			//fUpdated32To64为TRUE时现在也可以恢复了，目前实际上只是恢复了clr.Flags这个字段
+            if (pder->pclr != NULL /*&& !fUpdated32To64*/) {
                 if (DetourVirtualProtectSameExecute(pder->pclr, pder->cbclr,
                                                     PAGE_EXECUTE_READWRITE, &dwPermClr)) {
                     CopyMemory(pder->pclr, &pder->clr, pder->cbclr);

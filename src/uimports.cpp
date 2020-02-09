@@ -101,6 +101,34 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
         }
     }
 
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//添加的代码
+	if (inh.IMPORT_DIRECTORY.VirtualAddress!=NULL && inh.IMPORT_DIRECTORY.Size==0)
+	{
+		//不用考虑会改变PE文件的问题,因为原PE头的负载信息已保存,会恢复的,这里改变只是为了下面的代码能正常工作
+		PIMAGE_IMPORT_DESCRIPTOR pImageImport=(PIMAGE_IMPORT_DESCRIPTOR)(pbModule+inh.IMPORT_DIRECTORY.VirtualAddress);
+		IMAGE_IMPORT_DESCRIPTOR ImageImport;
+
+		if(!ReadProcessMemory(hProcess,pImageImport,&ImageImport,sizeof(ImageImport),NULL))
+		{
+			_Analysis_assume_(FALSE);
+			goto finish;
+		}
+		while(ImageImport.Name)
+		{
+			inh.IMPORT_DIRECTORY.Size+=sizeof(IMAGE_IMPORT_DESCRIPTOR);
+			if(!ReadProcessMemory(hProcess,pImageImport,&ImageImport,sizeof(ImageImport),NULL))
+			{
+				_Analysis_assume_(FALSE);
+				goto finish;
+			}
+			++pImageImport;
+		}
+		OutputDebugString(TEXT("【这个PE文件存在导入表,但是导入表大小却标记为0,这是一个错误,")
+			TEXT("不修复将导致启动的程序无法正常工作,已为你自动修复了它的导入表大小！！！】\r\n"));
+	}
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     DETOUR_TRACE(("     Imports: %p..%p\n",
                   (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress,
                   (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress +

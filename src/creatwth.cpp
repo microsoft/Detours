@@ -408,7 +408,8 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     //
     inh64.Signature = inh32.Signature;
     inh64.FileHeader = inh32.FileHeader;
-    inh64.FileHeader.Machine = machine;
+    inh64.FileHeader.Machine = machine;//如果这里就赋值为inh32.FileHeader.Machine的话，win7及以下的PE加载器会过不了，
+	//会报错STATUS_INVALID_IMAGE_FORMAT，所以需要在dep中保存原来的PE头中的Machine的值，即inh32.FileHeader.Machine的值，
     inh64.FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER64);
 
     inh64.OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR64_MAGIC;
@@ -476,6 +477,10 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     if (!RecordExeRestore(hProcess, hModule, der)) {
         return FALSE;
     }
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//上面的RecordExeRestore调用之后，dep中保存的是64位的PE头了，所以需要恢复der中保存的PE头的Machine的值，以使得.NET的PE解析器可以正常加载该CLR文件
+	der.inh.FileHeader.Machine = inh32.FileHeader.Machine;
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Remove the import table.
     if (der.pclr != NULL && (der.clr.Flags & 1)) {
@@ -499,6 +504,50 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
 }
 #endif // DETOURS_64BIT
 
+namespace Detour
+{
+#ifndef PROCESSOR_ARCHITECTURE_ARM64
+#define PROCESSOR_ARCHITECTURE_ARM64            12
+#endif
+	BOOL Is64BitOS()
+	{
+		BOOL bRet = FALSE;
+		VOID(WINAPI * _GetNativeSystemInfo)(OUT LPSYSTEM_INFO lpSystemInfo) = (void(__stdcall *)(LPSYSTEM_INFO))GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")), "GetNativeSystemInfo");
+		if (!_GetNativeSystemInfo)
+		{
+			return bRet;
+		}
+
+		SYSTEM_INFO si;
+		_GetNativeSystemInfo(&si);
+		if (si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64 || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM64 ||
+			si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_IA64 || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ALPHA64)
+		{
+			bRet = TRUE;
+		}
+		return bRet;
+	};
+	//进程句柄hProcess需要有PROCESS_QUERY_INFORMATION或者PROCESS_QUERY_LIMITED_INFORMATION访问权限
+	BOOL Is64BitProcess(HANDLE hProcess)
+	{
+		BOOL bRet = FALSE;
+		if (hProcess)
+		{
+			if (Is64BitOS())
+			{
+				static BOOL(WINAPI * _IsWow64Process)(IN  HANDLE hProcess,
+					OUT  PBOOL Wow64Process)
+					= (BOOL(__stdcall *)(HANDLE, PBOOL))GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")), "IsWow64Process");
+				BOOL bX86ProcessRunAt64BitOS;
+				if (_IsWow64Process && _IsWow64Process(hProcess, &bX86ProcessRunAt64BitOS) && bX86ProcessRunAt64BitOS == FALSE)
+				{
+					bRet = TRUE;
+				}
+			}
+		}
+		return bRet;
+	}
+}
 //////////////////////////////////////////////////////////////////////////////
 //
 BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
@@ -548,19 +597,26 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         return FALSE;
     }
 
-    if (!bHas32BitExe) {
-        bIs32BitProcess = FALSE;
-    }
-    else if (!bHas64BitDll) {
-        bIs32BitProcess = TRUE;
-    }
-    else {
-        if (!IsWow64Process(hProcess, &bIs32BitProcess)) {
-            return FALSE;
-        }
-    }
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//被注释掉的代码
+	//下面的代码不能正确判断启动的进程是否是32位的
+    //if (!bHas32BitExe) {
+    //    bIs32BitProcess = FALSE;
+    //}
+    //else if (!bHas64BitDll) {
+    //    bIs32BitProcess = TRUE;
+    //}
+    //else {
+    //    if (!IsWow64Process(hProcess, &bIs32BitProcess)) {
+    //        return FALSE;
+    //    }
+    //}
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//添加的代码
+	bIs32BitProcess = !Detour::Is64BitProcess(hProcess);
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    DETOUR_TRACE(("    32BitExe=%d 32BitProcess\n", bHas32BitExe, bIs32BitProcess));
+    DETOUR_TRACE(("    32BitExe=%d 32BitProcess=%d\n", bHas32BitExe, bIs32BitProcess));
 
     return DetourUpdateProcessWithDllEx(hProcess,
                                         hModule,
@@ -594,7 +650,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         bIs32BitExe = TRUE;
     }
 
-    DETOUR_TRACE(("    32BitExe=%d 32BitProcess\n", bIs32BitExe, bIs32BitProcess));
+    DETOUR_TRACE(("    32BitExe=%d 32BitProcess=%d\n", bIs32BitExe, bIs32BitProcess));
 
     if (hModule == NULL) {
         SetLastError(ERROR_INVALID_OPERATION);
@@ -678,6 +734,8 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         DETOUR_CLR_HEADER clr;
         CopyMemory(&clr, &der.clr, sizeof(clr));
         clr.Flags &= 0xfffffffe;    // Clear the IL_ONLY flag.
+		//上面这句清除了IL_ONLY标志，所以我们之后启动完成进程后，恢复IAT后需要恢复这个IL_ONLY标志
+		//不清除IL_ONLY标志将导致无法启动进程，因为我们替换了原IAT为包含我们的DLL的名称项的新IAT
 
         DWORD dwProtect;
         if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {
@@ -1172,8 +1230,11 @@ BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
-    hr = StringCchPrintfA(szCommand, ARRAYSIZE(szCommand),
-                          "rundll32.exe \"%hs\",#1", &helper->rDlls[0]);
+    //hr = StringCchPrintfA(szCommand, ARRAYSIZE(szCommand),
+    //                      "rundll32.exe \"%hs\",#1", &helper->rDlls[0]);
+	//fix for chinese
+	hr = StringCchPrintfA(szCommand, ARRAYSIZE(szCommand),
+	                      "rundll32.exe \"%s\",#1", &helper->rDlls[0]);
     if (!SUCCEEDED(hr)) {
         goto Cleanup;
     }
@@ -1268,8 +1329,13 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
-    hr = StringCchPrintfW(szCommand, ARRAYSIZE(szCommand),
-                          L"rundll32.exe \"%hs\",#1", &helper->rDlls[0]);
+    //hr = StringCchPrintfW(szCommand, ARRAYSIZE(szCommand),
+    //                      L"rundll32.exe \"%hs\",#1", &helper->rDlls[0]);
+	//fix for chinese
+	WCHAR szDllName[MAX_PATH];
+	MultiByteToWideChar(CP_ACP, 0, &helper->rDlls[0], -1, szDllName, ARRAYSIZE(szDllName));
+	hr = StringCchPrintfW(szCommand, ARRAYSIZE(szCommand),
+		L"rundll32.exe \"%s\",#1", szDllName);
     if (!SUCCEEDED(hr)) {
         goto Cleanup;
     }
