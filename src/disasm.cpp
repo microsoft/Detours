@@ -144,8 +144,11 @@
 //      offsets.
 //
 
-#pragma data_seg(".detourd")
-#pragma const_seg(".detourc")
+//下面两个节应该主要是为了方便Detours官方查某个程序是否使用了Detours的，目前来看并无实际用途，
+//本源文件下面定义的的可读写及只读数据可以合并到其他数据节中去(.detourd->.data , .detourc->.rdata)
+//合并到其他节中能使生成的程序更小
+//#pragma data_seg(".detourd")
+//#pragma const_seg(".detourc")
 
 //////////////////////////////////////////////////// X86 and X64 Disassembler.
 //
