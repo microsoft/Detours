@@ -11,6 +11,7 @@
 #define DETOURS_INTERNAL
 #include "detours.h"
 #include <stddef.h>
+#include <assert.h>
 
 #if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
@@ -1040,6 +1041,18 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
         delete[] rlpDlls;
         rlpDlls = NULL;
     }
+
+	//执行完成后删除该负载以释放其所占用的内存
+	if (s_pHelper != NULL)
+	{
+		HMODULE hModule = DetourGetContainingModule(s_pHelper);
+		assert(hModule != NULL);
+		if (hModule != NULL)
+		{
+			VirtualFree(hModule, 0, MEM_RELEASE);
+			hModule = NULL;
+		}
+	}
 
     ExitProcess(Result);
 }

@@ -35,3 +35,4 @@ obj.*
 *.log
 *.obj
 *.user
+/bin.*
