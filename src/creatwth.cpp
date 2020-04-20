@@ -538,8 +538,6 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 {
     // Find the next memory region that contains a mapped PE image.
     //
-    BOOL bHas64BitDll = FALSE;
-    BOOL bHas32BitExe = FALSE;
     BOOL bIs32BitProcess;
     BOOL bIs64BitOS = FALSE;
     HMODULE hModule = NULL;
@@ -559,19 +557,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 
         if ((inh.FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
             hModule = hLast;
-            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC
-                && inh.FileHeader.Machine != 0) {
-
-                bHas32BitExe = TRUE;
-            }
             DETOUR_TRACE(("%p  Found EXE\n", hLast));
-        }
-        else {
-            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC
-                && inh.FileHeader.Machine != 0) {
-
-                bHas64BitDll = TRUE;
-            }
         }
     }
 
