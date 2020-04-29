@@ -36,3 +36,5 @@ obj.*
 *.obj
 *.user
 /bin.*
+/vc/Win32/
+/vc/x64/
