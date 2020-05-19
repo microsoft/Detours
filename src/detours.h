@@ -48,6 +48,12 @@
 #pragma warning(pop)
 #endif
 
+#ifdef __GNUC__
+#define __try
+#define __except(x) if (0)
+#include <strsafe.h>
+#endif
+
 #endif // DETOURS_INTERNAL
 
 //////////////////////////////////////////////////////////////////////////////
@@ -836,7 +842,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 
 //////////////////////////////////////////////////////////////////////////////
 //
-#if (_MSC_VER < 1299)
+#if (_MSC_VER < 1299) && !defined(__GNUC__)
 #include <imagehlp.h>
 typedef IMAGEHLP_MODULE IMAGEHLP_MODULE64;
 typedef PIMAGEHLP_MODULE PIMAGEHLP_MODULE64;
