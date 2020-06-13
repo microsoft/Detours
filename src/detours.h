@@ -16,6 +16,34 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 
+#ifdef DETOURS_INTERNAL
+
+#define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS 1
+#define _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE 1
+
+#pragma warning(disable:4068) // unknown pragma (suppress)
+
+#if _MSC_VER >= 1900
+#pragma warning(push)
+#pragma warning(disable:4091) // empty typedef
+#endif
+
+#include <windows.h>
+#if (_MSC_VER < 1310)
+#else
+#pragma warning(push)
+#if _MSC_VER > 1400
+#pragma warning(disable:6102 6103) // /analyze warnings
+#endif
+#include <strsafe.h>
+#pragma warning(pop)
+#endif
+
+#endif // DETOURS_INTERNAL
+
+//////////////////////////////////////////////////////////////////////////////
+//
+
 #undef DETOURS_X64
 #undef DETOURS_X86
 #undef DETOURS_IA64
@@ -61,7 +89,12 @@
 //#define DETOURS_OPTION_BITS 32
 #endif
 
-#define VER_DETOURS_BITS    DETOUR_STRINGIFY(DETOURS_BITS)
+/////////////////////////////////////////////////////////////// Helper Macros.
+//
+#define DETOURS_STRINGIFY_(x)    #x
+#define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
+
+#define VER_DETOURS_BITS    DETOURS_STRINGIFY(DETOURS_BITS)
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -387,7 +420,6 @@ typedef struct _DETOUR_EXE_RESTORE
 #ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC    // some environments do not have this
         BYTE                raw[sizeof(IMAGE_NT_HEADERS64) +
                                 sizeof(IMAGE_SECTION_HEADER) * 32];
-        C_ASSERT(sizeof(IMAGE_NT_HEADERS64) == 0x108);
 #else
         BYTE                raw[0x108 + sizeof(IMAGE_SECTION_HEADER) * 32];
 #endif
@@ -395,6 +427,10 @@ typedef struct _DETOUR_EXE_RESTORE
     DETOUR_CLR_HEADER   clr;
 
 } DETOUR_EXE_RESTORE, *PDETOUR_EXE_RESTORE;
+
+#ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC
+C_ASSERT(sizeof(IMAGE_NT_HEADERS64) == 0x108);
+#endif
 
 // The size can change, but assert for clarity due to the muddying #ifdefs.
 #ifdef _WIN64
@@ -430,11 +466,6 @@ typedef struct _DETOUR_EXE_HELPER
       0,\
       0,\
 }
-
-/////////////////////////////////////////////////////////////// Helper Macros.
-//
-#define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
-#define DETOURS_STRINGIFY_(x)    #x
 
 ///////////////////////////////////////////////////////////// Binary Typedefs.
 //
@@ -523,6 +554,8 @@ PVOID WINAPI DetourCopyInstruction(_In_opt_ PVOID pDst,
                                    _Out_opt_ LONG *plExtra);
 BOOL WINAPI DetourSetCodeModule(_In_ HMODULE hModule,
                                 _In_ BOOL fLimitReferencesToModule);
+PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
+                                                  _Out_ PDWORD pcbAllocatedSize);
 
 ///////////////////////////////////////////////////// Loaded Binary Functions.
 //

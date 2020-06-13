@@ -45,4 +45,4 @@ message body containing only the text UNSUBSCRIBE DETOURS-ANNOUNCE.
 
 Copyright (c) Microsoft Corporation. All rights reserved.
 
-Licensed under the [MIT](LICENSE.txt) License.
+Licensed under the [MIT](LICENSE.md) License.

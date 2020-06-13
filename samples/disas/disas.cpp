@@ -7,14 +7,10 @@
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
 
-#define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS 1
+#define DETOURS_INTERNAL
+#include <detours.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <windows.h>
-
-#define DETOURS_INTERNAL
-
-#include <detours.h>
 
 ///////////////////////////////////////////////////////////////////////// ARM.
 //

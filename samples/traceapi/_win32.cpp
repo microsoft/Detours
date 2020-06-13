@@ -12741,18 +12741,18 @@ BOOL __stdcall Mine_CreateProcessA(LPCSTR lpApplicationName,
 
     BOOL rv = 0;
     __try {
-        rv = DetourCreateProcessWithDllA(lpApplicationName,
-                                         lpCommandLine,
-                                         lpProcessAttributes,
-                                         lpThreadAttributes,
-                                         bInheritHandles,
-                                         dwCreationFlags,
-                                         lpEnvironment,
-                                         lpCurrentDirectory,
-                                         lpStartupInfo,
-                                         lpProcessInformation,
-                                         s_szDllPath,
-                                         Real_CreateProcessA);
+        rv = DetourCreateProcessWithDllExA(lpApplicationName,
+                                           lpCommandLine,
+                                           lpProcessAttributes,
+                                           lpThreadAttributes,
+                                           bInheritHandles,
+                                           dwCreationFlags,
+                                           lpEnvironment,
+                                           lpCurrentDirectory,
+                                           lpStartupInfo,
+                                           lpProcessInformation,
+                                           s_szDllPath,
+                                           Real_CreateProcessA);
     } __finally {
         _PrintExit("CreateProcessA(,,,,,,,,,) -> %x (proc:%d/%p, thrd:%d/%p\n", rv,
                    lpProcessInformation->dwProcessId,
@@ -12794,18 +12794,18 @@ BOOL __stdcall Mine_CreateProcessW(LPCWSTR lpApplicationName,
 
     BOOL rv = 0;
     __try {
-        rv = DetourCreateProcessWithDllW(lpApplicationName,
-                                         lpCommandLine,
-                                         lpProcessAttributes,
-                                         lpThreadAttributes,
-                                         bInheritHandles,
-                                         dwCreationFlags,
-                                         lpEnvironment,
-                                         lpCurrentDirectory,
-                                         lpStartupInfo,
-                                         lpProcessInformation,
-                                         s_szDllPath,
-                                         Real_CreateProcessW);
+        rv = DetourCreateProcessWithDllExW(lpApplicationName,
+                                           lpCommandLine,
+                                           lpProcessAttributes,
+                                           lpThreadAttributes,
+                                           bInheritHandles,
+                                           dwCreationFlags,
+                                           lpEnvironment,
+                                           lpCurrentDirectory,
+                                           lpStartupInfo,
+                                           lpProcessInformation,
+                                           s_szDllPath,
+                                           Real_CreateProcessW);
     } __finally {
         _PrintExit("CreateProcessW(,,,,,,,,,) -> %x (proc:%d/%p, thrd:%d/%p\n", rv,
                    lpProcessInformation->dwProcessId,
