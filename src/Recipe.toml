@@ -1,0 +1,8 @@
+Name = "Detours"
+Version = "4.0.1"
+Public = "detours.cpp"
+Source = [
+    "creatwth.cpp",
+    "disasm.cpp",
+    "modules.cpp",
+]

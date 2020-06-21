@@ -31,3 +31,6 @@ include/
 obj.*
 *.ipdb
 *.iobj
+
+# Soup Build
+out/

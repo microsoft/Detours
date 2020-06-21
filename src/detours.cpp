@@ -7,6 +7,9 @@
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
 
+#ifdef SOUP_BUILD
+module;
+#endif
 
 //#define DETOUR_DEBUG 1
 #define DETOURS_INTERNAL
@@ -17,6 +20,32 @@
 #endif
 
 #define NOTHROW
+
+
+#ifdef SOUP_BUILD
+export module Detours;
+export LONG WINAPI DetourTransactionBegin(VOID);
+export LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
+export LONG WINAPI DetourTransactionCommit(VOID);
+export LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
+                         _In_ PVOID pDetour);
+export LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
+                         _In_ PVOID pDetour);
+export BOOL WINAPI DetourIsHelperProcess(VOID);
+export BOOL WINAPI DetourRestoreAfterWith(VOID);
+export BOOL WINAPI DetourCreateProcessWithDllA(_In_opt_ LPCSTR lpApplicationName,
+                                        _Inout_opt_ LPSTR lpCommandLine,
+                                        _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
+                                        _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
+                                        _In_ BOOL bInheritHandles,
+                                        _In_ DWORD dwCreationFlags,
+                                        _In_opt_ LPVOID lpEnvironment,
+                                        _In_opt_ LPCSTR lpCurrentDirectory,
+                                        _In_ LPSTARTUPINFOA lpStartupInfo,
+                                        _Out_ LPPROCESS_INFORMATION lpProcessInformation,
+                                        _In_ LPCSTR lpDllName,
+                                        _In_opt_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 //
