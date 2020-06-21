@@ -24,6 +24,8 @@ module;
 
 #ifdef SOUP_BUILD
 export module Detours;
+export typedef struct _DETOUR_TRAMPOLINE DETOUR_TRAMPOLINE, *PDETOUR_TRAMPOLINE;
+
 export LONG WINAPI DetourTransactionBegin(VOID);
 export LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
 export LONG WINAPI DetourTransactionCommit(VOID);
@@ -31,8 +33,21 @@ export LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour);
 export LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour);
+export PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule);
 export BOOL WINAPI DetourIsHelperProcess(VOID);
 export BOOL WINAPI DetourRestoreAfterWith(VOID);
+export BOOL WINAPI DetourEnumerateImports(_In_opt_ HMODULE hModule,
+                                   _In_opt_ PVOID pContext,
+                                   _In_opt_ PF_DETOUR_IMPORT_FILE_CALLBACK pfImportFile,
+                                   _In_opt_ PF_DETOUR_IMPORT_FUNC_CALLBACK pfImportFunc);
+
+export HMODULE WINAPI DetourEnumerateModules(_In_opt_ HMODULE hModuleLast);
+export ULONG WINAPI DetourGetModuleSize(_In_opt_ HMODULE hModule);
+
+export PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
+                               _In_ REFGUID rguid,
+                               _Out_ DWORD *pcbData);
+
 export BOOL WINAPI DetourCreateProcessWithDllA(_In_opt_ LPCSTR lpApplicationName,
                                         _Inout_opt_ LPSTR lpCommandLine,
                                         _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
@@ -45,6 +60,37 @@ export BOOL WINAPI DetourCreateProcessWithDllA(_In_opt_ LPCSTR lpApplicationName
                                         _Out_ LPPROCESS_INFORMATION lpProcessInformation,
                                         _In_ LPCSTR lpDllName,
                                         _In_opt_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
+
+export BOOL WINAPI DetourCreateProcessWithDllExA(_In_opt_ LPCSTR lpApplicationName,
+                                          _Inout_opt_ LPSTR lpCommandLine,
+                                          _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
+                                          _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
+                                          _In_ BOOL bInheritHandles,
+                                          _In_ DWORD dwCreationFlags,
+                                          _In_opt_ LPVOID lpEnvironment,
+                                          _In_opt_ LPCSTR lpCurrentDirectory,
+                                          _In_ LPSTARTUPINFOA lpStartupInfo,
+                                          _Out_ LPPROCESS_INFORMATION lpProcessInformation,
+                                          _In_ LPCSTR lpDllName,
+                                          _In_opt_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
+
+export BOOL WINAPI DetourCreateProcessWithDllExW(_In_opt_ LPCWSTR lpApplicationName,
+                                          _Inout_opt_  LPWSTR lpCommandLine,
+                                          _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
+                                          _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
+                                          _In_ BOOL bInheritHandles,
+                                          _In_ DWORD dwCreationFlags,
+                                          _In_opt_ LPVOID lpEnvironment,
+                                          _In_opt_ LPCWSTR lpCurrentDirectory,
+                                          _In_ LPSTARTUPINFOW lpStartupInfo,
+                                          _Out_ LPPROCESS_INFORMATION lpProcessInformation,
+                                          _In_ LPCSTR lpDllName,
+                                          _In_opt_ PDETOUR_CREATE_PROCESS_ROUTINEW pfCreateProcessW);
+
+export BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
+                                       _In_ REFGUID rguid,
+                                       _In_reads_bytes_(cbData) PVOID pvData,
+                                       _In_ DWORD cbData);
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
