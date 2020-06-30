@@ -120,6 +120,7 @@ typedef ULONG ULONG_PTR;
 #undef _In_
 #undef _In_bytecount_
 #undef _In_count_
+#undef __in_ecount
 #undef _In_opt_
 #undef _In_opt_bytecount_
 #undef _In_opt_count_
@@ -174,6 +175,10 @@ typedef ULONG ULONG_PTR;
 
 #ifndef _In_count_
 #define _In_count_(x)
+#endif
+
+#ifndef __in_ecount
+#define __in_ecount(x)
 #endif
 
 #ifndef _In_opt_
