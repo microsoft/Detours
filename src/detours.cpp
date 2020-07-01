@@ -179,6 +179,46 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
     return pbCode;
 }
 
+//跳过所有接连的JMP指令,不同于detour_skip_jmp函数,detour_skip_jmp只是不完全的跳过
+//http://m.newsmth.net/article/DotNET/10955?au=flier
+//X86
+PBYTE detour_skip_all_sequential_jmps(PBYTE pbCode, PVOID *ppGlobals)
+{
+	if (pbCode == NULL) {
+		return NULL;
+	}
+	if (ppGlobals != NULL) {
+		*ppGlobals = NULL;
+	}
+
+	// First, skip over the import vector if there is one.
+	if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [imm32]
+		// Looks like an import alias jump, then get the code it points to.
+		PBYTE pbTarget = *(UNALIGNED PBYTE *)&pbCode[2];
+
+		PBYTE pbNew = *(UNALIGNED PBYTE *)pbTarget;
+		DETOUR_TRACE(("%p->%p: skipped over import alias style jmp.\n", pbCode, pbNew));
+
+		return detour_skip_all_sequential_jmps(pbNew, ppGlobals);
+	}
+	// Then, skip over a patch jump
+	else if (pbCode[0] == 0xeb) {   // jmp +imm8
+		PBYTE pbNew = pbCode + 2 + *(CHAR *)&pbCode[1];
+		DETOUR_TRACE(("%p->%p: skipped over short jump.\n", pbCode, pbNew));
+
+		return detour_skip_all_sequential_jmps(pbNew, ppGlobals);
+	}
+	// Finally, skip over a long jump if it is the target of the patch jump.
+	else if (pbCode[0] == 0xe9) {   // jmp +imm32
+		PBYTE pbNew = pbCode + 5 + *(UNALIGNED INT32 *)&pbCode[1];
+		DETOUR_TRACE(("%p->%p: skipped over long jump.\n", pbCode, pbNew));
+
+		return detour_skip_all_sequential_jmps(pbNew, ppGlobals);
+	}
+
+	return pbCode;
+}
+
 inline void detour_find_jmp_bounds(PBYTE pbCode,
                                    PDETOUR_TRAMPOLINE *ppLower,
                                    PDETOUR_TRAMPOLINE *ppUpper)
@@ -390,6 +430,46 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
         }
     }
     return pbCode;
+}
+
+//跳过所有接连的JMP指令,不同于detour_skip_jmp函数,detour_skip_jmp只是不完全的跳过
+//http://m.newsmth.net/article/DotNET/10955?au=flier
+//X64
+PBYTE detour_skip_all_sequential_jmps(PBYTE pbCode, PVOID *ppGlobals)
+{
+	if (pbCode == NULL) {
+		return NULL;
+	}
+	if (ppGlobals != NULL) {
+		*ppGlobals = NULL;
+	}
+
+	// First, skip over the import vector if there is one.
+	if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [+imm32]
+		// Looks like an import alias jump, then get the code it points to.
+		PBYTE pbTarget = pbCode + 6 + *(UNALIGNED INT32 *)&pbCode[2];
+		
+		PBYTE pbNew = *(UNALIGNED PBYTE *)pbTarget;
+		DETOUR_TRACE(("%p->%p: skipped over import alias style jmp.\n", pbCode, pbNew));
+
+		return detour_skip_all_sequential_jmps(pbNew, ppGlobals);
+	}
+	// Then, skip over a patch jump
+	else if (pbCode[0] == 0xeb) {   // jmp +imm8
+		PBYTE pbNew = pbCode + 2 + *(CHAR *)&pbCode[1];
+		DETOUR_TRACE(("%p->%p: skipped over short jump.\n", pbCode, pbNew));
+
+		return detour_skip_all_sequential_jmps(pbNew, ppGlobals);
+	}
+	// Finally, skip over a long jump if it is the target of the patch jump.
+	else if (pbCode[0] == 0xe9) {   // jmp +imm32
+		PBYTE pbNew = pbCode + 5 + *(UNALIGNED INT32 *)&pbCode[1];
+		DETOUR_TRACE(("%p->%p: skipped over long jump.\n", pbCode, pbNew));
+
+		return detour_skip_all_sequential_jmps(pbNew, ppGlobals);
+	}
+
+	return pbCode;
 }
 
 inline void detour_find_jmp_bounds(PBYTE pbCode,

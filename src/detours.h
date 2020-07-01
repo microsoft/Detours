@@ -546,6 +546,11 @@ BOOL WINAPI DetourSetRetainRegions(_In_ BOOL fRetain);
 PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound);
 PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
 
+///////////////////////////////////////////////////////////////////////////////
+//Ìí¼ÓµÄ´úÂë
+PBYTE detour_skip_all_sequential_jmps(PBYTE pbCode, PVOID *ppGlobals);
+///////////////////////////////////////////////////////////////////////////////
+
 ////////////////////////////////////////////////////////////// Code Functions.
 //
 PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
