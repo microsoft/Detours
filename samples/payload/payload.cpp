@@ -7,7 +7,7 @@
 
 std::wstring GetProcessFileName(HANDLE process)
 {
-	DWORD exeLocation_size = MAX_PATH;
+	DWORD exeLocation_size = MAX_PATH + 1;
 
 	std::wstring exeLocation;
 	exeLocation.resize(exeLocation_size);
