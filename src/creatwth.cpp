@@ -168,10 +168,10 @@ static PVOID FindDetourSectionInRemoteModule(HANDLE hProcess,
                            sizeof(*pSectionHeaders) * pNtHeader->FileHeader.NumberOfSections, NULL)) {
         DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %d\n",
                       pRemoteSectionHeaders,
-                      pRemoteSectionHeaders
+                      (PBYTE)pRemoteSectionHeaders
                           + sizeof(*pSectionHeaders) * pNtHeader->FileHeader.NumberOfSections,
                       GetLastError()));
-        delete pSectionHeaders;
+        delete[] pSectionHeaders;
         return NULL;
     }
 
@@ -185,13 +185,13 @@ static PVOID FindDetourSectionInRemoteModule(HANDLE hProcess,
 
             PBYTE pbData = (PBYTE)hModule + pSectionHeaders[n].VirtualAddress;
 
-            delete pSectionHeaders;
+            delete[] pSectionHeaders;
             SetLastError(NO_ERROR);
             return pbData;
         }
     }
 
-    delete pSectionHeaders;
+    delete[] pSectionHeaders;
     SetLastError(ERROR_EXE_MARKED_INVALID);
     return NULL;
 }
@@ -201,11 +201,13 @@ static PVOID FindPayloadInRemoteModule(HANDLE hProcess,
                                        DWORD *pcbData,
                                        PVOID pvData)
 {
+    PBYTE pbData = (PBYTE)pvData;
+
     DETOUR_SECTION_HEADER header;
-    if (!ReadProcessMemory(hProcess, pvData, &header, sizeof(header), NULL)) {
+    if (!ReadProcessMemory(hProcess, pbData, &header, sizeof(header), NULL)) {
         DETOUR_TRACE(("ReadProcessMemory(dsh@%p..%p) failed: %d\n",
-            pvData,
-            (PBYTE)pvData + sizeof(header),
+            pbData,
+            pbData + sizeof(header),
             GetLastError()));
         return NULL;
     }
@@ -220,9 +222,7 @@ static PVOID FindPayloadInRemoteModule(HANDLE hProcess,
         header.nDataOffset = header.cbHeaderSize;
     }
 
-    for (PVOID pvSection = ((PBYTE)pvData) + header.nDataOffset;
-        pvSection < ((PBYTE)pvData) + header.cbDataSize;) {
-
+    for (PVOID pvSection = pbData + header.nDataOffset; pvSection < pbData + header.cbDataSize;) {
         DETOUR_SECTION_RECORD section;
         if (!ReadProcessMemory(hProcess, pvSection, &section, sizeof(section), NULL)) {
             DETOUR_TRACE(("ReadProcessMemory(dsr@%p..%p) failed: %d\n",
