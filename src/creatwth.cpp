@@ -157,41 +157,29 @@ static PVOID FindDetourSectionInRemoteModule(HANDLE hProcess,
                                   + sizeof(pNtHeader->FileHeader)
                                   + pNtHeader->FileHeader.SizeOfOptionalHeader);
 
-    PIMAGE_SECTION_HEADER pSectionHeaders
-        = new NOTHROW IMAGE_SECTION_HEADER[pNtHeader->FileHeader.NumberOfSections];
-    if (pSectionHeaders == NULL) {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return NULL;
-    }
+    IMAGE_SECTION_HEADER header;
+    for (DWORD n = 0; n < pNtHeader->FileHeader.NumberOfSections; ++n) {
+        if (!ReadProcessMemory(hProcess, pRemoteSectionHeaders + n, &header, sizeof(header), NULL)) {
+            DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %d\n",
+                pRemoteSectionHeaders + n,
+                (PBYTE)(pRemoteSectionHeaders + n) + sizeof(header),
+                GetLastError()));
 
-    if (!ReadProcessMemory(hProcess, pRemoteSectionHeaders, pSectionHeaders,
-                           sizeof(*pSectionHeaders) * pNtHeader->FileHeader.NumberOfSections, NULL)) {
-        DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %d\n",
-                      pRemoteSectionHeaders,
-                      (PBYTE)pRemoteSectionHeaders
-                          + sizeof(*pSectionHeaders) * pNtHeader->FileHeader.NumberOfSections,
-                      GetLastError()));
-        delete[] pSectionHeaders;
-        return NULL;
-    }
+            return NULL;
+        }
 
-    for (DWORD n = 0; n < pNtHeader->FileHeader.NumberOfSections; n++) {
-        if (strcmp((PCHAR)pSectionHeaders[n].Name, ".detour") == 0) {
-            if (pSectionHeaders[n].VirtualAddress == 0 ||
-                pSectionHeaders[n].SizeOfRawData == 0) {
+        if (strcmp((PCHAR)header.Name, ".detour") == 0) {
+            if (header.VirtualAddress == 0 ||
+                header.SizeOfRawData == 0) {
 
                 break;
             }
 
-            PBYTE pbData = (PBYTE)hModule + pSectionHeaders[n].VirtualAddress;
-
-            delete[] pSectionHeaders;
             SetLastError(NO_ERROR);
-            return pbData;
+            return (PBYTE)hModule + header.VirtualAddress;
         }
     }
 
-    delete[] pSectionHeaders;
     SetLastError(ERROR_EXE_MARKED_INVALID);
     return NULL;
 }
