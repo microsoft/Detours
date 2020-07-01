@@ -33,6 +33,18 @@ samples, type "nmake".
 Note that you must build setdll and syslog in order to use many of the
 other sample programs.
 
+INSTALLING AND BUILDING VIA VCPKG:
+==================================
+You can download and install detours using the vcpkg(https://github.com/Microsoft/vcpkg) dependency manager:
+
+    git clone https://github.com/Microsoft/vcpkg.git
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg integrate install
+    vcpkg install detours
+    
+The detours port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please create an issue or pull request(https://github.com/Microsoft/vcpkg) on the vcpkg repository.
+
 TESTING:
 ========
 Each of the sample directories has a test, which can be invoked by typing
