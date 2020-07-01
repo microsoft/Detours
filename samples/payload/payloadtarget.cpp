@@ -3,7 +3,6 @@
 
 #include <windows.h>
 #include <detours.h>
-#include <winrt/base.h>
 
 #include "payloadguid.hpp"
 
@@ -14,21 +13,27 @@ int main()
 
 	if (payloadAddr && payloadSize == sizeof(HANDLE))
 	{
-		winrt::handle parent(*static_cast<HANDLE*>(payloadAddr));
+		HANDLE parent = *static_cast<HANDLE*>(payloadAddr);
 
 		DWORD randomPayloadSize;
-		void* randomPayload = DetourFindRemotePayload(parent.get(), RANDOM_DATA_PAYLOAD, &randomPayloadSize);
+		void* randomPayload = DetourFindRemotePayload(parent, RANDOM_DATA_PAYLOAD, &randomPayloadSize);
 		if (randomPayload && randomPayloadSize == sizeof(random_payload_t))
 		{
 			random_payload_t randomData;
-			if (!rand_s(&randomData))
+			if (rand_s(&randomData) == 0)
 			{
-				winrt::check_bool(WriteProcessMemory(parent.get(), randomPayload, &randomData, sizeof(randomData), nullptr));
+				if (WriteProcessMemory(parent, randomPayload, &randomData, sizeof(randomData), nullptr))
+				{
+					CloseHandle(parent);
 
-				parent.close();
-				// conversion to int return type is potentially undefined
-				ExitProcess(randomData);
+					// conversion to int return type is potentially undefined
+					ExitProcess(randomData);
+				}
 			}
 		}
+
+		CloseHandle(parent);
 	}
+
+	return 1;
 }
