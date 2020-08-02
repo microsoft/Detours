@@ -11,6 +11,7 @@
 //#define DETOUR_DEBUG 1
 #define DETOURS_INTERNAL
 #include "detours.h"
+#include <TlHelp32.h>
 
 #if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
@@ -1589,6 +1590,8 @@ struct DetourOperation
     ULONG               dwPerm;
 };
 
+static HANDLE				s_hHeap = NULL;
+
 static BOOL                 s_fIgnoreTooSmall       = FALSE;
 static BOOL                 s_fRetainRegions        = FALSE;
 
@@ -1596,7 +1599,49 @@ static LONG                 s_nPendingThreadId      = 0; // Thread owning pendin
 static LONG                 s_nPendingError         = NO_ERROR;
 static PVOID *              s_ppPendingError        = NULL;
 static DetourThread *       s_pPendingThreads       = NULL;
+static BOOL                 s_fNeedClosePendingThreadHandles = FALSE;
 static DetourOperation *    s_pPendingOperations    = NULL;
+
+//////////////////////////////////////////////////////////////////////////////
+//
+void WINAPI DetourDestroyHeap()
+{
+	if (s_hHeap)
+	{
+		HeapDestroy(s_hHeap);
+		s_hHeap = NULL;
+	}
+}
+
+static void DetourDestroyHeap__for__atexit()
+{
+	DetourDestroyHeap();
+}
+
+BOOL WINAPI DetourCreateHeap(BOOL fAutoDestroy)
+{
+	BOOL bResult = FALSE;
+	if (s_hHeap == NULL)
+	{
+		s_hHeap = HeapCreate(0, 0, 0);
+		assert(s_hHeap);
+		if (s_hHeap != NULL)
+		{
+			if (fAutoDestroy)
+			{
+				atexit(DetourDestroyHeap__for__atexit);
+			}
+			bResult = TRUE;
+		}
+	}
+	return bResult;
+}
+
+HANDLE WINAPI DetourGetHeap()
+{
+	assert(s_hHeap);
+	return s_hHeap;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -1636,6 +1681,13 @@ PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound)
     return pPrevious;
 }
 
+BOOL WINAPI DetourSetNeedClosePendingThreadHandles(_In_ BOOL fNeedClosePendingThreadHandles)
+{
+	BOOL fPrevious = s_fNeedClosePendingThreadHandles;
+	s_fNeedClosePendingThreadHandles = fNeedClosePendingThreadHandles;
+	return fPrevious;
+}
+
 LONG WINAPI DetourTransactionBegin()
 {
     // Only one transaction is allowed at a time.
@@ -1652,6 +1704,7 @@ _Benign_race_end_
 
     s_pPendingOperations = NULL;
     s_pPendingThreads = NULL;
+	s_fNeedClosePendingThreadHandles = FALSE;
     s_ppPendingError = NULL;
 
     // Make sure the trampoline pages are writable.
@@ -1681,7 +1734,7 @@ LONG WINAPI DetourTransactionAbort()
         }
 
         DetourOperation *n = o->pNext;
-        delete o;
+        DetourDestroyObject(o);
         o = n;
     }
     s_pPendingOperations = NULL;
@@ -1695,7 +1748,12 @@ LONG WINAPI DetourTransactionAbort()
         ResumeThread(t->hThread);
 
         DetourThread *n = t->pNext;
-        delete t;
+        if (s_fNeedClosePendingThreadHandles)
+        {
+            CloseHandle(t->hThread);
+            t->hThread = NULL;
+        }
+        DetourDestroyObject(t);
         t = n;
     }
     s_pPendingThreads = NULL;
@@ -1966,7 +2024,7 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
         }
 
         DetourOperation *n = o->pNext;
-        delete o;
+        DetourDestroyObject(o);
         o = n;
     }
     s_pPendingOperations = NULL;
@@ -1985,7 +2043,12 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
         ResumeThread(t->hThread);
 
         DetourThread *n = t->pNext;
-        delete t;
+		if (s_fNeedClosePendingThreadHandles)
+		{
+			CloseHandle(t->hThread);
+			t->hThread = NULL;
+		}
+        DetourDestroyObject(t);
         t = n;
     }
     s_pPendingThreads = NULL;
@@ -2012,12 +2075,12 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
         return NO_ERROR;
     }
 
-    DetourThread *t = new NOTHROW DetourThread;
+    DetourThread *t = DetourCreateObject<DetourThread>();
     if (t == NULL) {
         error = ERROR_NOT_ENOUGH_MEMORY;
       fail:
         if (t != NULL) {
-            delete t;
+            DetourDestroyObject(t);
             t = NULL;
         }
         s_nPendingError = error;
@@ -2037,6 +2100,62 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     s_pPendingThreads = t;
 
     return NO_ERROR;
+}
+
+LONG WINAPI DetourUpdateAllOtherThreads()
+{
+	LONG lErrorCode = NO_ERROR;
+
+	DetourSetNeedClosePendingThreadHandles(TRUE);
+
+	HANDLE hThreadSnap = INVALID_HANDLE_VALUE;
+	THREADENTRY32 te32;
+
+	// Take a snapshot of all running threads
+	hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (hThreadSnap == INVALID_HANDLE_VALUE)
+	{
+		lErrorCode = GetLastError();
+		return lErrorCode;
+	}
+
+	// Fill in the size of the structure before using it.
+	te32.dwSize = sizeof(THREADENTRY32);
+
+	// Retrieve information about the first thread,
+	// and exit if unsuccessful
+	if (!Thread32First(hThreadSnap, &te32))
+	{
+		lErrorCode = GetLastError();
+		DETOUR_TRACE("Thread32First Failed!\r\n"); // Show cause of failure
+		CloseHandle(hThreadSnap);    // Must clean up the
+		//   snapshot object!
+		return lErrorCode;
+	}
+
+	// Now walk the thread list of the system,
+	// and display information about each thread
+	// associated with the specified process
+	DWORD dwCurrentProcessId = GetCurrentProcessId();
+	DWORD dwCurrentThreadId = GetCurrentThreadId();
+	do
+	{
+		if (te32.th32OwnerProcessID == dwCurrentProcessId)
+		{
+			if (te32.th32ThreadID != dwCurrentThreadId)
+			{
+				HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION | THREAD_SET_CONTEXT, FALSE, te32.th32ThreadID);
+				if (hThread)
+				{
+					DetourUpdateThread(hThread);
+				}
+			}
+		}
+	} while (Thread32Next(hThreadSnap, &te32));
+
+	//  Don't forget to clean up the snapshot object.
+	CloseHandle(hThreadSnap);
+	return lErrorCode;
 }
 
 ///////////////////////////////////////////////////////////// Transacted APIs.
@@ -2133,7 +2252,7 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
         *ppRealDetour = pDetour;
     }
 
-    o = new NOTHROW DetourOperation;
+    o = DetourCreateObject<DetourOperation>();
     if (o == NULL) {
         error = ERROR_NOT_ENOUGH_MEMORY;
       fail:
@@ -2148,7 +2267,7 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
             }
         }
         if (o != NULL) {
-            delete o;
+            DetourDestroyObject(o);
             o = NULL;
         }
         s_ppPendingError = ppPointer;
@@ -2429,7 +2548,7 @@ LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
         return error;
     }
 
-    DetourOperation *o = new NOTHROW DetourOperation;
+    DetourOperation *o = DetourCreateObject<DetourOperation>();
     if (o == NULL) {
         error = ERROR_NOT_ENOUGH_MEMORY;
       fail:
@@ -2437,7 +2556,7 @@ LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
         DETOUR_BREAK();
       stop:
         if (o != NULL) {
-            delete o;
+            DetourDestroyObject(o);
             o = NULL;
         }
         s_ppPendingError = ppPointer;

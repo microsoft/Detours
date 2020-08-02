@@ -173,14 +173,23 @@ xcopy /I /Y /D /R /K "..\src\*.h" "..\include" </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\*.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\src\*.cpp" Exclude="..\src\uimports.cpp">
-    </ClCompile>
+    <ClCompile Include="..\src\creatwth.cpp" />
+    <ClCompile Include="..\src\detours.cpp" />
+    <ClCompile Include="..\src\disasm.cpp" />
+    <ClCompile Include="..\src\disolarm.cpp" />
+    <ClCompile Include="..\src\disolarm64.cpp" />
+    <ClCompile Include="..\src\disolia64.cpp" />
+    <ClCompile Include="..\src\disolx64.cpp" />
+    <ClCompile Include="..\src\disolx86.cpp" />
+    <ClCompile Include="..\src\image.cpp" />
+    <ClCompile Include="..\src\modules.cpp" />
     <ClCompile Include="..\src\uimports.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\detours.h" />
+    <ClInclude Include="..\src\detver.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

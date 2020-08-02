@@ -38,6 +38,8 @@
 #include <strsafe.h>
 #pragma warning(pop)
 #endif
+#include <new.h>
+#include <assert.h>
 
 #endif // DETOURS_INTERNAL
 
@@ -520,6 +522,11 @@ typedef BOOL (CALLBACK *PF_DETOUR_IMPORT_FUNC_CALLBACK_EX)(_In_opt_ PVOID pConte
 typedef VOID * PDETOUR_BINARY;
 typedef VOID * PDETOUR_LOADED_BINARY;
 
+//////////////////////////////////////////////////////////// Memory management APIs.
+BOOL WINAPI DetourCreateHeap(BOOL fAutoDestroy);
+HANDLE WINAPI DetourGetHeap();
+void WINAPI DetourDestroyHeap();
+
 //////////////////////////////////////////////////////////// Transaction APIs.
 //
 LONG WINAPI DetourTransactionBegin(VOID);
@@ -528,6 +535,7 @@ LONG WINAPI DetourTransactionCommit(VOID);
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
+LONG WINAPI DetourUpdateAllOtherThreads();
 
 LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour);
@@ -545,6 +553,8 @@ BOOL WINAPI DetourSetIgnoreTooSmall(_In_ BOOL fIgnore);
 BOOL WINAPI DetourSetRetainRegions(_In_ BOOL fRetain);
 PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound);
 PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
+
+BOOL WINAPI DetourSetNeedClosePendingThreadHandles(_In_ BOOL fNeedClosePendingThreadHandles);
 
 ///////////////////////////////////////////////////////////////////////////////
 //Ìí¼ÓµÄ´úÂë
@@ -1103,6 +1113,106 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 #ifdef __cplusplus
 }
 #endif // __cplusplus
+
+//////////////////////////////////////////////////////////// Memory management APIs.
+template<class T>
+T* DetourCreateObject()
+{
+	T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
+	assert(p);
+	if (!p)
+	{
+		return p;
+	}
+
+	::new(p) T;
+
+	return p;
+}
+template<class T, class P1>
+T* DetourCreateObject(P1 p1)
+{
+	T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
+	assert(p);
+	if (!p)
+	{
+		return p;
+	}
+
+	::new(p) T(p1);
+
+	return p;
+}
+template<class T, class P1, class P2>
+T* DetourCreateObject(P1 p1, P2 p2)
+{
+	T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
+	assert(p);
+	if (!p)
+	{
+		return p;
+	}
+
+	::new(p) T(p1, p2);
+
+	return p;
+}
+template<class T>
+void DetourDestroyObject(T* p)
+{
+	size_t MemSize = HeapSize(DetourGetHeap(), 0, p);
+	assert(MemSize == sizeof(T));
+	if (MemSize != sizeof(T))
+	{
+		return;
+	}
+
+	p->~T();
+
+	HeapFree(DetourGetHeap(), 0, p);
+	p = NULL;
+}
+template<class T>
+T* DetourCreateObjectArray(size_t _Size)
+{
+	T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T) * _Size);
+	assert(p);
+	if (!p)
+	{
+		return p;
+	}
+
+	for (size_t i = 0; i < _Size; i++)
+	{
+		::new(&p[i]) T;
+	}
+
+	return p;
+}
+template<class T>
+void DetourDestroyObjectArray(T* p)
+{
+	size_t MemSize = HeapSize(DetourGetHeap(), 0, p);
+	assert(MemSize > 0);
+	if (MemSize == 0)
+	{
+		return;
+	}
+	size_t _Size = MemSize / sizeof(T);
+	assert(_Size > 0);
+	if (_Size == 0)
+	{
+		return;
+	}
+
+	for (size_t i = 0; i < _Size; i++)
+	{
+		(&p[i])->~T();
+	}
+
+	HeapFree(DetourGetHeap(), 0, (LPVOID)p);
+	p = NULL;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 
