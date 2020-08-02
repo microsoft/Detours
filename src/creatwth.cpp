@@ -478,7 +478,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     }
 
     // Remove the import table.
-    if (der.pclr != NULL && (der.clr.Flags & 1)) {
+    if (der.pclr != NULL && (der.clr.Flags & COMIMAGE_FLAGS_ILONLY)) {
         inh64.IMPORT_DIRECTORY.VirtualAddress = 0;
         inh64.IMPORT_DIRECTORY.Size = 0;
 
@@ -644,8 +644,8 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
     // Try to convert a neutral 32-bit managed binary to a 64-bit managed binary.
     if (bIs32BitExe && !bIs32BitProcess) {
         if (!der.pclr                       // Native binary
-            || (der.clr.Flags & 1) == 0     // Or mixed-mode MSIL
-            || (der.clr.Flags & 2) != 0) {  // Or 32BIT Required MSIL
+            || (der.clr.Flags & COMIMAGE_FLAGS_ILONLY) == 0     // Or mixed-mode MSIL
+            || (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) != 0) {  // Or 32BIT Required MSIL
 
             SetLastError(ERROR_INVALID_HANDLE);
             return FALSE;
@@ -708,7 +708,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
     if (der.pclr != NULL) {
         DETOUR_CLR_HEADER clr;
         CopyMemory(&clr, &der.clr, sizeof(clr));
-        clr.Flags &= 0xfffffffe;    // Clear the IL_ONLY flag.
+        clr.Flags &= ~COMIMAGE_FLAGS_ILONLY;    // Clear the IL_ONLY flag.
 
         DWORD dwProtect;
         if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {
@@ -728,7 +728,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         DETOUR_TRACE(("CLR: %p..%p\n", der.pclr, der.pclr + der.cbclr));
 
 #if DETOURS_64BIT
-        if (der.clr.Flags & 0x2) { // Is the 32BIT Required Flag set?
+        if (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) { // Is the 32BIT Required Flag set?
             // X64 never gets here because the process appears as a WOW64 process.
             // However, on IA64, it doesn't appear to be a WOW process.
             DETOUR_TRACE(("CLR Requires 32-bit\n", der.pclr, der.pclr + der.cbclr));
