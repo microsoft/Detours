@@ -11,7 +11,6 @@
 //#define DETOUR_DEBUG 1
 #define DETOURS_INTERNAL
 #include "detours.h"
-#include <TlHelp32.h>
 
 #if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
@@ -2102,60 +2101,280 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     return NO_ERROR;
 }
 
-LONG WINAPI DetourUpdateAllOtherThreads()
+//´úÂëÐÞ¸Ä×Ôhttps://github.com/apriorit/mhook/blob/master/mhook-lib/mhook.c
+//=========================================================================
+// ntdll definitions
+
+typedef LONG NTSTATUS;
+
+typedef LONG KPRIORITY;
+
+typedef enum _SYSTEM_INFORMATION_CLASS
 {
-	LONG lErrorCode = NO_ERROR;
+	SystemBasicInformation = 0,
+	SystemPerformanceInformation = 2,
+	SystemTimeOfDayInformation = 3,
+	SystemProcessInformation = 5,
+	SystemProcessorPerformanceInformation = 8,
+	SystemHandleInformation = 16,
+	SystemInterruptInformation = 23,
+	SystemExceptionInformation = 33,
+	SystemRegistryQuotaInformation = 37,
+	SystemLookasideInformation = 45,
+	SystemProcessIdInformation = 0x58
+} SYSTEM_INFORMATION_CLASS;
+
+typedef enum _KWAIT_REASON
+{
+	Executive,
+	FreePage,
+	PageIn,
+	PoolAllocation,
+	DelayExecution,
+	Suspended,
+	UserRequest,
+	WrExecutive,
+	WrFreePage,
+	WrPageIn,
+	WrPoolAllocation,
+	WrDelayExecution,
+	WrSuspended,
+	WrUserRequest,
+	WrEventPair,
+	WrQueue,
+	WrLpcReceive,
+	WrLpcReply,
+	WrVirtualMemory,
+	WrPageOut,
+	WrRendezvous,
+	Spare2,
+	Spare3,
+	Spare4,
+	Spare5,
+	Spare6,
+	WrKernel,
+	MaximumWaitReason
+} KWAIT_REASON, *PKWAIT_REASON;
+
+typedef struct _CLIENT_ID
+{
+	HANDLE  UniqueProcess;
+	HANDLE  UniqueThread;
+} CLIENT_ID, *PCLIENT_ID;
+
+typedef struct _SYSTEM_THREAD_INFORMATION
+{
+	LARGE_INTEGER KernelTime;
+	LARGE_INTEGER UserTime;
+	LARGE_INTEGER CreateTime;
+	ULONG WaitTime;
+	PVOID StartAddress;
+	CLIENT_ID ClientId;
+	KPRIORITY Priority;
+	LONG BasePriority;
+	ULONG ContextSwitches;
+	ULONG ThreadState;
+	KWAIT_REASON WaitReason;
+} SYSTEM_THREAD_INFORMATION, *PSYSTEM_THREAD_INFORMATION;
+
+typedef struct _UNICODE_STRING
+{
+	USHORT Length;
+	USHORT MaximumLength;
+	PWSTR  Buffer;
+} UNICODE_STRING;
+
+typedef struct _SYSTEM_PROCESS_INFORMATION
+{
+	ULONG uNext;
+	ULONG uThreadCount;
+	LARGE_INTEGER WorkingSetPrivateSize; // since VISTA
+	ULONG HardFaultCount; // since WIN7
+	ULONG NumberOfThreadsHighWatermark; // since WIN7
+	ULONGLONG CycleTime; // since WIN7
+	LARGE_INTEGER CreateTime;
+	LARGE_INTEGER UserTime;
+	LARGE_INTEGER KernelTime;
+	UNICODE_STRING ImageName;
+	KPRIORITY BasePriority;
+	HANDLE uUniqueProcessId;
+	HANDLE InheritedFromUniqueProcessId;
+	ULONG HandleCount;
+	ULONG SessionId;
+	ULONG_PTR UniqueProcessKey; // since VISTA (requires SystemExtendedProcessInformation)
+	SIZE_T PeakVirtualSize;
+	SIZE_T VirtualSize;
+	ULONG PageFaultCount;
+	SIZE_T PeakWorkingSetSize;
+	SIZE_T WorkingSetSize;
+	SIZE_T QuotaPeakPagedPoolUsage;
+	SIZE_T QuotaPagedPoolUsage;
+	SIZE_T QuotaPeakNonPagedPoolUsage;
+	SIZE_T QuotaNonPagedPoolUsage;
+	SIZE_T PagefileUsage;
+	SIZE_T PeakPagefileUsage;
+	SIZE_T PrivatePageCount;
+	LARGE_INTEGER ReadOperationCount;
+	LARGE_INTEGER WriteOperationCount;
+	LARGE_INTEGER OtherOperationCount;
+	LARGE_INTEGER ReadTransferCount;
+	LARGE_INTEGER WriteTransferCount;
+	LARGE_INTEGER OtherTransferCount;
+	SYSTEM_THREAD_INFORMATION Threads[1];
+} SYSTEM_PROCESS_INFORMATION, *PSYSTEM_PROCESS_INFORMATION;
+
+//=========================================================================
+// ZwQuerySystemInformation definitions
+typedef NTSTATUS(NTAPI* PZwQuerySystemInformation)(
+	__in       SYSTEM_INFORMATION_CLASS SystemInformationClass,
+	__inout    PVOID SystemInformation,
+	__in       ULONG SystemInformationLength,
+	__out_opt  PULONG ReturnLength
+	);
+
+#define STATUS_INFO_LENGTH_MISMATCH      ((NTSTATUS)0xC0000004L)
+static PZwQuerySystemInformation fnZwQuerySystemInformation = NULL;
+//=========================================================================
+// Internal function:
+//
+// Get snapshot of the processes started in the system
+//=========================================================================
+static BOOL CreateProcessSnapshot(VOID** snapshotContext)
+{
+	ULONG   cbBuffer = 1024 * 1024;  // 1Mb - default process information buffer size (that's enough in most cases for high-loaded systems)
+	LPVOID  pBuffer = NULL;
+	NTSTATUS status = 0;
+
+	if (!fnZwQuerySystemInformation)
+	{
+		fnZwQuerySystemInformation = (PZwQuerySystemInformation)GetProcAddress(GetModuleHandle(TEXT("ntdll.dll")), "ZwQuerySystemInformation");
+		if (!fnZwQuerySystemInformation)
+		{
+			return FALSE;
+		}
+	}
+
+	do
+	{
+		pBuffer = DetourCreateObjectArray<BYTE>(cbBuffer);
+		if (pBuffer == NULL)
+		{
+			return FALSE;
+		}
+
+		status = fnZwQuerySystemInformation(SystemProcessInformation, pBuffer, cbBuffer, NULL);
+
+		if (status == STATUS_INFO_LENGTH_MISMATCH)
+		{
+			DetourDestroyObjectArray((LPBYTE)pBuffer);
+			cbBuffer *= 2;
+		}
+		else if (status < 0)
+		{
+			DetourDestroyObjectArray((LPBYTE)pBuffer);
+			return FALSE;
+		}
+	} while (status == STATUS_INFO_LENGTH_MISMATCH);
+
+	*snapshotContext = pBuffer;
+
+	return TRUE;
+}
+
+//=========================================================================
+// Internal function:
+//
+// Find and return process information from snapshot
+//=========================================================================
+static PSYSTEM_PROCESS_INFORMATION FindProcess(VOID* snapshotContext, SIZE_T processId)
+{
+	PSYSTEM_PROCESS_INFORMATION currentProcess = (PSYSTEM_PROCESS_INFORMATION)snapshotContext;
+
+	while (currentProcess != NULL)
+	{
+		if (currentProcess->uUniqueProcessId == (HANDLE)processId)
+		{
+			break;
+		}
+
+		if (currentProcess->uNext == 0)
+		{
+			currentProcess = NULL;
+		}
+		else
+		{
+			currentProcess = (PSYSTEM_PROCESS_INFORMATION)(((LPBYTE)currentProcess) + currentProcess->uNext);
+		}
+	}
+
+	return currentProcess;
+}
+
+//=========================================================================
+// Internal function:
+//
+// Get current process snapshot and process info
+//
+//=========================================================================
+static BOOL GetCurrentProcessSnapshot(PVOID* snapshot, PSYSTEM_PROCESS_INFORMATION* procInfo)
+{
+	// get a view of the threads in the system
+
+	if (!CreateProcessSnapshot(snapshot))
+	{
+		DETOUR_TRACE(("detours: can't get process snapshot!"));
+		return FALSE;
+	}
+
+	DWORD pid = GetCurrentProcessId();
+
+	*procInfo = FindProcess(*snapshot, pid);
+	return TRUE;
+}
+
+//=========================================================================
+// Internal function:
+//
+// Free memory allocated for processes snapshot
+//=========================================================================
+static VOID CloseProcessSnapshot(VOID* snapshotContext)
+{
+	DetourDestroyObjectArray((LPBYTE)snapshotContext);
+}
+
+BOOL WINAPI DetourUpdateAllOtherThreads()
+{
+	LONG bResult = FALSE;
 
 	DetourSetNeedClosePendingThreadHandles(TRUE);
 
-	HANDLE hThreadSnap = INVALID_HANDLE_VALUE;
-	THREADENTRY32 te32;
+	VOID* procEnumerationCtx = NULL;
+	PSYSTEM_PROCESS_INFORMATION procInfo = NULL;
 
-	// Take a snapshot of all running threads
-	hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-	if (hThreadSnap == INVALID_HANDLE_VALUE)
+	if (GetCurrentProcessSnapshot(&procEnumerationCtx, &procInfo))
 	{
-		lErrorCode = GetLastError();
-		return lErrorCode;
-	}
-
-	// Fill in the size of the structure before using it.
-	te32.dwSize = sizeof(THREADENTRY32);
-
-	// Retrieve information about the first thread,
-	// and exit if unsuccessful
-	if (!Thread32First(hThreadSnap, &te32))
-	{
-		lErrorCode = GetLastError();
-		DETOUR_TRACE("Thread32First Failed!\r\n"); // Show cause of failure
-		CloseHandle(hThreadSnap);    // Must clean up the
-		//   snapshot object!
-		return lErrorCode;
-	}
-
-	// Now walk the thread list of the system,
-	// and display information about each thread
-	// associated with the specified process
-	DWORD dwCurrentProcessId = GetCurrentProcessId();
-	DWORD dwCurrentThreadId = GetCurrentThreadId();
-	do
-	{
-		if (te32.th32OwnerProcessID == dwCurrentProcessId)
+		DWORD tid = GetCurrentThreadId();
+		// go through every thread
+		for (ULONG threadIdx = 0; threadIdx < procInfo->uThreadCount; threadIdx++)
 		{
-			if (te32.th32ThreadID != dwCurrentThreadId)
+			DWORD threadId = (DWORD)(DWORD_PTR)procInfo->Threads[threadIdx].ClientId.UniqueThread;
+
+			if (threadId != tid)
 			{
-				HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION | THREAD_SET_CONTEXT, FALSE, te32.th32ThreadID);
+				HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION | THREAD_SET_CONTEXT, FALSE, threadId);
 				if (hThread)
 				{
 					DetourUpdateThread(hThread);
 				}
 			}
 		}
-	} while (Thread32Next(hThreadSnap, &te32));
 
-	//  Don't forget to clean up the snapshot object.
-	CloseHandle(hThreadSnap);
-	return lErrorCode;
+		CloseProcessSnapshot(procEnumerationCtx);
+
+		bResult = TRUE;
+	}
+
+	return bResult;
 }
 
 ///////////////////////////////////////////////////////////// Transacted APIs.
