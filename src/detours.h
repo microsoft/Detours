@@ -534,7 +534,8 @@ LONG WINAPI DetourTransactionAbort(VOID);
 LONG WINAPI DetourTransactionCommit(VOID);
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
-LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
+//DetourUpdateThread不再推荐被用户调用了，请使用DetourUpdateAllOtherThreads以进行更安全的HOOK
+LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject);
 BOOL WINAPI DetourUpdateAllOtherThreads();
 
 LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
@@ -553,8 +554,6 @@ BOOL WINAPI DetourSetIgnoreTooSmall(_In_ BOOL fIgnore);
 BOOL WINAPI DetourSetRetainRegions(_In_ BOOL fRetain);
 PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound);
 PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
-
-BOOL WINAPI DetourSetNeedClosePendingThreadHandles(_In_ BOOL fNeedClosePendingThreadHandles);
 
 ///////////////////////////////////////////////////////////////////////////////
 //添加的代码

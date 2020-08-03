@@ -1577,6 +1577,25 @@ struct DetourThread
 {
     DetourThread *      pNext;
     HANDLE              hThread;
+	BOOL				fCloseThreadHandleOnDestroyDetourThreadObject;
+public:
+	DetourThread()
+	{
+		pNext = NULL;
+		hThread = NULL;
+		fCloseThreadHandleOnDestroyDetourThreadObject = FALSE;
+	}
+	~DetourThread()
+	{
+		if (fCloseThreadHandleOnDestroyDetourThreadObject)
+		{
+			if (hThread)
+			{
+				CloseHandle(hThread);
+				hThread = NULL;
+			}
+		}
+	}
 };
 
 struct DetourOperation
@@ -1598,7 +1617,6 @@ static LONG                 s_nPendingThreadId      = 0; // Thread owning pendin
 static LONG                 s_nPendingError         = NO_ERROR;
 static PVOID *              s_ppPendingError        = NULL;
 static DetourThread *       s_pPendingThreads       = NULL;
-static BOOL                 s_fNeedClosePendingThreadHandles = FALSE;
 static DetourOperation *    s_pPendingOperations    = NULL;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1680,13 +1698,6 @@ PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound)
     return pPrevious;
 }
 
-BOOL WINAPI DetourSetNeedClosePendingThreadHandles(_In_ BOOL fNeedClosePendingThreadHandles)
-{
-	BOOL fPrevious = s_fNeedClosePendingThreadHandles;
-	s_fNeedClosePendingThreadHandles = fNeedClosePendingThreadHandles;
-	return fPrevious;
-}
-
 LONG WINAPI DetourTransactionBegin()
 {
     // Only one transaction is allowed at a time.
@@ -1703,7 +1714,6 @@ _Benign_race_end_
 
     s_pPendingOperations = NULL;
     s_pPendingThreads = NULL;
-	s_fNeedClosePendingThreadHandles = FALSE;
     s_ppPendingError = NULL;
 
     // Make sure the trampoline pages are writable.
@@ -1747,11 +1757,6 @@ LONG WINAPI DetourTransactionAbort()
         ResumeThread(t->hThread);
 
         DetourThread *n = t->pNext;
-        if (s_fNeedClosePendingThreadHandles)
-        {
-            CloseHandle(t->hThread);
-            t->hThread = NULL;
-        }
         DetourDestroyObject(t);
         t = n;
     }
@@ -2042,11 +2047,6 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
         ResumeThread(t->hThread);
 
         DetourThread *n = t->pNext;
-		if (s_fNeedClosePendingThreadHandles)
-		{
-			CloseHandle(t->hThread);
-			t->hThread = NULL;
-		}
         DetourDestroyObject(t);
         t = n;
     }
@@ -2060,7 +2060,7 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
     return s_nPendingError;
 }
 
-LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
+LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject)
 {
     LONG error;
 
@@ -2095,6 +2095,7 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     }
 
     t->hThread = hThread;
+	t->fCloseThreadHandleOnDestroyDetourThreadObject = fCloseThreadHandleOnDestroyDetourThreadObject;
     t->pNext = s_pPendingThreads;
     s_pPendingThreads = t;
 
@@ -2346,8 +2347,6 @@ BOOL WINAPI DetourUpdateAllOtherThreads()
 {
 	LONG bResult = FALSE;
 
-	DetourSetNeedClosePendingThreadHandles(TRUE);
-
 	VOID* procEnumerationCtx = NULL;
 	PSYSTEM_PROCESS_INFORMATION procInfo = NULL;
 
@@ -2364,7 +2363,17 @@ BOOL WINAPI DetourUpdateAllOtherThreads()
 				HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION | THREAD_SET_CONTEXT, FALSE, threadId);
 				if (hThread)
 				{
-					DetourUpdateThread(hThread);
+					LONG error = DetourUpdateThread(hThread, TRUE);
+					assert(error == NO_ERROR);
+					if (error)
+					{
+						DETOUR_TRACE(("DetourUpdateThread failed, error=%d\n", error));
+						//重置s_nPendingError以让后面的线程可以继续尝试调用DetourUpdateThread函数
+						assert(error == s_nPendingError);
+						//结束控制台程序时，可能在DetourUpdateThread内部的SuspendThread调用时造成s_nPendingError == ERROR_ACCESS_DENIED
+						assert(s_nPendingError == ERROR_ACCESS_DENIED);
+						s_nPendingError = NO_ERROR;
+					}
 				}
 			}
 		}
