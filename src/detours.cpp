@@ -1698,17 +1698,26 @@ PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound)
     return pPrevious;
 }
 
-LONG WINAPI DetourTransactionBegin()
+LONG WINAPI DetourTransactionBegin(BOOL fWait)
 {
     // Only one transaction is allowed at a time.
 _Benign_race_begin_
+	Check__s_nPendingThreadId:
     if (s_nPendingThreadId != 0) {
+		if (fWait) {
+			Sleep(10);
+			goto Check__s_nPendingThreadId;
+		}
         return ERROR_INVALID_OPERATION;
     }
 _Benign_race_end_
 
     // Make sure only one thread can start a transaction.
     if (InterlockedCompareExchange(&s_nPendingThreadId, (LONG)GetCurrentThreadId(), 0) != 0) {
+		if (fWait) {
+			Sleep(10);
+			goto Check__s_nPendingThreadId;
+		}
         return ERROR_INVALID_OPERATION;
     }
 

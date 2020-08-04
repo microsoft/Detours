@@ -529,13 +529,13 @@ void WINAPI DetourDestroyHeap();
 
 //////////////////////////////////////////////////////////// Transaction APIs.
 //
-LONG WINAPI DetourTransactionBegin(VOID);
+LONG WINAPI DetourTransactionBegin(BOOL fWait /*= TRUE*/);
 LONG WINAPI DetourTransactionAbort(VOID);
 LONG WINAPI DetourTransactionCommit(VOID);
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
 //DetourUpdateThread不再推荐被用户调用了，请使用DetourUpdateAllOtherThreads以进行更安全的HOOK
-LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject);
+LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject /*= TRUE*/);
 BOOL WINAPI DetourUpdateAllOtherThreads();
 
 LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
