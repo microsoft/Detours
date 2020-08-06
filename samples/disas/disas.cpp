@@ -404,6 +404,25 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     (void)lpszCmdLine;
     (void)nCmdShow;
 
+    // Bug report, but it works here.
+    // 07ff8`4b783054 49ba 70b3d93a d40fb998 mov r10,98B90FD43AD9B370h
+    //
+    {
+        static const UCHAR mov_r10_imm64[] = {0x49, 0xba, 1, 2, 3, 4, 5, 6, 7, 8 };
+
+        PVOID const after = DetourCopyInstructionX64(0, 0, const_cast<PUCHAR>(mov_r10_imm64), 0, 0);
+
+        if (after != &mov_r10_imm64 + 1)
+        {
+            printf("mov_r10_imm64 failed, expected:%p vs. got:%p\n", &mov_r10_imm64 + 1, after);
+            __debugbreak();
+            if (IsDebuggerPresent())
+            {
+                DetourCopyInstructionX64(0, 0, const_cast<PUCHAR>(mov_r10_imm64), 0, 0);
+            }
+        }
+    }
+
 #ifdef DETOURS_IA64
     // First we check the pre-canned TestCodes from disasm.asm
     //
