@@ -106,20 +106,44 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                   (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress +
                   inh.IMPORT_DIRECTORY.Size));
 
+    // Calculate new import directory size.  Note that since inh is from another
+    // process, inh could have been corrupted. We need to protect against
+    // integer overflow in allocation calculations.
     DWORD nOldDlls = inh.IMPORT_DIRECTORY.Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
-    DWORD obRem = sizeof(IMAGE_IMPORT_DESCRIPTOR) * nDlls;
-    DWORD obOld = obRem + sizeof(IMAGE_IMPORT_DESCRIPTOR) * nOldDlls;
+    DWORD obRem;
+    if (DWordMult(sizeof(IMAGE_IMPORT_DESCRIPTOR), nDlls, &obRem) != S_OK) {
+        DETOUR_TRACE("too many new DLLs.\n");
+        goto finish;
+    }
+    DWORD obOld;
+    if (DWordAdd(obRem, sizeof(IMAGE_IMPORT_DESCRIPTOR) * nOldDlls, &obOld) != S_OK) {
+        DETOUR_TRACE("DLL entries overflow.\n");
+        goto finish;
+    }
     DWORD obTab = PadToDwordPtr(obOld);
-    DWORD obDll = obTab + sizeof(DWORD_XX) * 4 * nDlls;
+    // Check for integer overflow.
+    if (obTab < obOld) {
+        DETOUR_TRACE("DLL entries padding overflow.\n");
+        goto finish;
+    }
+    DWORD stSize;
+    if (DWordMult(sizeof(DWORD_XX) * 4, nDlls, &stSize) != S_OK) {
+        DETOUR_TRACE("String table overflow.\n");
+        goto finish;
+    }
+    DWORD obDll;
+    if (DWordAdd(obTab, stSize, &obDll) != S_OK) {
+        DETOUR_TRACE("Import table size overflow\n");
+        goto finish;
+    }
     DWORD obStr = obDll;
     cbNew = obStr;
     for (n = 0; n < nDlls; n++) {
-        cbNew += PadToDword((DWORD)strlen(plpDlls[n]) + 1);
+        if (DWordAdd(cbNew, PadToDword((DWORD)strlen(plpDlls[n]) + 1), &cbNew) != S_OK) {
+            DETOUR_TRACE("Overflow adding string table entry\n");
+            goto finish;
+        }
     }
-
-    _Analysis_assume_(cbNew >
-                      sizeof(IMAGE_IMPORT_DESCRIPTOR) * (nDlls + nOldDlls)
-                      + sizeof(DWORD_XX) * 4 * nDlls);
     pbNew = new BYTE [cbNew];
     if (pbNew == NULL) {
         DETOUR_TRACE(("new BYTE [cbNew] failed.\n"));

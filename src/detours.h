@@ -36,6 +36,7 @@
 #pragma warning(disable:6102 6103) // /analyze warnings
 #endif
 #include <strsafe.h>
+#include <intsafe.h>
 #pragma warning(pop)
 #endif
 
