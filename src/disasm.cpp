@@ -198,60 +198,60 @@ class CDetourDis
   protected:
 // These macros define common uses of nFixedSize, nFixedSize16, nModOffset, nRelOffset, nFlagBits, pfCopy.
 #define ENTRY_DataIgnored           0, 0, 0, 0, 0,
-#define ENTRY_CopyBytes1            1, 1, 0, 0, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes1            { 1, 1, 0, 0, 0, &CDetourDis::CopyBytes }
 #ifdef DETOURS_X64
-#define ENTRY_CopyBytes1Address     9, 5, 0, 0, ADDRESS, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes1Address     { 9, 5, 0, 0, ADDRESS, &CDetourDis::CopyBytes }
 #else
-#define ENTRY_CopyBytes1Address     5, 3, 0, 0, ADDRESS, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes1Address     { 5, 3, 0, 0, ADDRESS, &CDetourDis::CopyBytes }
 #endif
-#define ENTRY_CopyBytes1Dynamic     1, 1, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2            2, 2, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2Jump        ENTRY_DataIgnored &CDetourDis::CopyBytesJump
-#define ENTRY_CopyBytes2CantJump    2, 2, 0, 1, NOENLARGE, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2Dynamic     2, 2, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3            3, 3, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Dynamic     3, 3, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Or5         5, 3, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Or5Dynamic  5, 3, 0, 0, DYNAMIC, &CDetourDis::CopyBytes // x86 only
+#define ENTRY_CopyBytes1Dynamic     { 1, 1, 0, 0, DYNAMIC, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes2            { 2, 2, 0, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes2Jump        { ENTRY_DataIgnored &CDetourDis::CopyBytesJump }
+#define ENTRY_CopyBytes2CantJump    { 2, 2, 0, 1, NOENLARGE, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes2Dynamic     { 2, 2, 0, 0, DYNAMIC, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes3            { 3, 3, 0, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes3Dynamic     { 3, 3, 0, 0, DYNAMIC, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes3Or5         { 5, 3, 0, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes3Or5Dynamic  { 5, 3, 0, 0, DYNAMIC, &CDetourDis::CopyBytes }// x86 only
 #ifdef DETOURS_X64
-#define ENTRY_CopyBytes3Or5Rax      5, 3, 0, 0, RAX, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Or5Target   5, 5, 0, 1, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Or5Rax      { 5, 3, 0, 0, RAX, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes3Or5Target   { 5, 5, 0, 1, 0, &CDetourDis::CopyBytes }
 #else
-#define ENTRY_CopyBytes3Or5Rax      5, 3, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Or5Target   5, 3, 0, 1, 0, &CDetourDis::CopyBytes
+#define ENTRY_CopyBytes3Or5Rax      { 5, 3, 0, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes3Or5Target   { 5, 3, 0, 1, 0, &CDetourDis::CopyBytes }
 #endif
-#define ENTRY_CopyBytes4            4, 4, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes5            5, 5, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes5Or7Dynamic  7, 5, 0, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes7            7, 7, 0, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2Mod         2, 2, 1, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2ModDynamic  2, 2, 1, 0, DYNAMIC, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2Mod1        3, 3, 1, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes2ModOperand  6, 4, 1, 0, 0, &CDetourDis::CopyBytes
-#define ENTRY_CopyBytes3Mod         3, 3, 2, 0, 0, &CDetourDis::CopyBytes // SSE3 0F 38 opcode modrm
-#define ENTRY_CopyBytes3Mod1        4, 4, 2, 0, 0, &CDetourDis::CopyBytes // SSE3 0F 3A opcode modrm .. imm8
-#define ENTRY_CopyBytesPrefix       ENTRY_DataIgnored &CDetourDis::CopyBytesPrefix
-#define ENTRY_CopyBytesSegment      ENTRY_DataIgnored &CDetourDis::CopyBytesSegment
-#define ENTRY_CopyBytesRax          ENTRY_DataIgnored &CDetourDis::CopyBytesRax
-#define ENTRY_CopyF2                ENTRY_DataIgnored &CDetourDis::CopyF2
-#define ENTRY_CopyF3                ENTRY_DataIgnored &CDetourDis::CopyF3   // 32bit x86 only
-#define ENTRY_Copy0F                ENTRY_DataIgnored &CDetourDis::Copy0F
-#define ENTRY_Copy0F78              ENTRY_DataIgnored &CDetourDis::Copy0F78
-#define ENTRY_Copy0F00              ENTRY_DataIgnored &CDetourDis::Copy0F00 // 32bit x86 only
-#define ENTRY_Copy0FB8              ENTRY_DataIgnored &CDetourDis::Copy0FB8 // 32bit x86 only
-#define ENTRY_Copy66                ENTRY_DataIgnored &CDetourDis::Copy66
-#define ENTRY_Copy67                ENTRY_DataIgnored &CDetourDis::Copy67
-#define ENTRY_CopyF6                ENTRY_DataIgnored &CDetourDis::CopyF6
-#define ENTRY_CopyF7                ENTRY_DataIgnored &CDetourDis::CopyF7
-#define ENTRY_CopyFF                ENTRY_DataIgnored &CDetourDis::CopyFF
-#define ENTRY_CopyVex2              ENTRY_DataIgnored &CDetourDis::CopyVex2
-#define ENTRY_CopyVex3              ENTRY_DataIgnored &CDetourDis::CopyVex3
-#define ENTRY_CopyEvex              ENTRY_DataIgnored &CDetourDis::CopyEvex // 62, 3 byte payload, then normal with implied prefixes like vex
-#define ENTRY_CopyXop               ENTRY_DataIgnored &CDetourDis::CopyXop   // 0x8F ... POP /0 or AMD XOP
-#define ENTRY_CopyBytesXop          5, 5, 4, 0, 0, &CDetourDis::CopyBytes // 0x8F xop1 xop2 opcode modrm
-#define ENTRY_CopyBytesXop1         6, 6, 4, 0, 0, &CDetourDis::CopyBytes // 0x8F xop1 xop2 opcode modrm ... imm8
-#define ENTRY_CopyBytesXop4         9, 9, 4, 0, 0, &CDetourDis::CopyBytes // 0x8F xop1 xop2 opcode modrm ... imm32
-#define ENTRY_Invalid               ENTRY_DataIgnored &CDetourDis::Invalid
+#define ENTRY_CopyBytes4            { 4, 4, 0, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes5            { 5, 5, 0, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes5Or7Dynamic  { 7, 5, 0, 0, DYNAMIC, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes7            { 7, 7, 0, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes2Mod         { 2, 2, 1, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes2ModDynamic  { 2, 2, 1, 0, DYNAMIC, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes2Mod1        { 3, 3, 1, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes2ModOperand  { 6, 4, 1, 0, 0, &CDetourDis::CopyBytes }
+#define ENTRY_CopyBytes3Mod         { 3, 3, 2, 0, 0, &CDetourDis::CopyBytes } // SSE3 0F 38 opcode modrm
+#define ENTRY_CopyBytes3Mod1        { 4, 4, 2, 0, 0, &CDetourDis::CopyBytes } // SSE3 0F 3A opcode modrm .. imm8
+#define ENTRY_CopyBytesPrefix       { ENTRY_DataIgnored &CDetourDis::CopyBytesPrefix }
+#define ENTRY_CopyBytesSegment      { ENTRY_DataIgnored &CDetourDis::CopyBytesSegment }
+#define ENTRY_CopyBytesRax          { ENTRY_DataIgnored &CDetourDis::CopyBytesRax }
+#define ENTRY_CopyF2                { ENTRY_DataIgnored &CDetourDis::CopyF2 }
+#define ENTRY_CopyF3                { ENTRY_DataIgnored &CDetourDis::CopyF3 } // 32bit x86 only
+#define ENTRY_Copy0F                { ENTRY_DataIgnored &CDetourDis::Copy0F }
+#define ENTRY_Copy0F78              { ENTRY_DataIgnored &CDetourDis::Copy0F78 }
+#define ENTRY_Copy0F00              { ENTRY_DataIgnored &CDetourDis::Copy0F00 } // 32bit x86 only
+#define ENTRY_Copy0FB8              { ENTRY_DataIgnored &CDetourDis::Copy0FB8 } // 32bit x86 only
+#define ENTRY_Copy66                { ENTRY_DataIgnored &CDetourDis::Copy66 }
+#define ENTRY_Copy67                { ENTRY_DataIgnored &CDetourDis::Copy67 }
+#define ENTRY_CopyF6                { ENTRY_DataIgnored &CDetourDis::CopyF6 }
+#define ENTRY_CopyF7                { ENTRY_DataIgnored &CDetourDis::CopyF7 }
+#define ENTRY_CopyFF                { ENTRY_DataIgnored &CDetourDis::CopyFF }
+#define ENTRY_CopyVex2              { ENTRY_DataIgnored &CDetourDis::CopyVex2 }
+#define ENTRY_CopyVex3              { ENTRY_DataIgnored &CDetourDis::CopyVex3 }
+#define ENTRY_CopyEvex              { ENTRY_DataIgnored &CDetourDis::CopyEvex } // 62, 3 byte payload, then normal with implied prefixes like vex
+#define ENTRY_CopyXop               { ENTRY_DataIgnored &CDetourDis::CopyXop }   // 0x8F ... POP /0 or AMD XOP
+#define ENTRY_CopyBytesXop          { 5, 5, 4, 0, 0, &CDetourDis::CopyBytes } // 0x8F xop1 xop2 opcode modrm
+#define ENTRY_CopyBytesXop1         { 6, 6, 4, 0, 0, &CDetourDis::CopyBytes } // 0x8F xop1 xop2 opcode modrm ... imm8
+#define ENTRY_CopyBytesXop4         { 9, 9, 4, 0, 0, &CDetourDis::CopyBytes } // 0x8F xop1 xop2 opcode modrm ... imm32
+#define ENTRY_Invalid               { ENTRY_DataIgnored &CDetourDis::Invalid }
 
     PBYTE CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyBytesPrefix(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
@@ -851,13 +851,13 @@ PBYTE CDetourDis::CopyEvex(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
     BYTE const p0 = pbSrc[1];
 
 #ifdef DETOURS_X86
-    const static COPYENTRY ceBound = { 0x62, ENTRY_CopyBytes2Mod };
+    const static COPYENTRY ceBound = /* 62 */ ENTRY_CopyBytes2Mod;
     if ((p0 & 0xC0) != 0xC0) {
         return CopyBytes(&ceBound, pbDst, pbSrc);
     }
 #endif
 
-    static const COPYENTRY ceInvalid = { 0x62, ENTRY_Invalid };
+    static const COPYENTRY ceInvalid = /* 62 */ ENTRY_Invalid;
 
     if ((p0 & 0x0C) != 0)
         return Invalid(&ceInvalid, pbDst, pbSrc);
@@ -890,10 +890,10 @@ mmmmm only otherwise defined for 8, 9, A.
 pp is like VEX but only instructions with 0 are defined
 */
 {
-    const static COPYENTRY cePop = { 0x8F, ENTRY_CopyBytes2Mod };
-    const static COPYENTRY ceXop = { 0x8F, ENTRY_CopyBytesXop };
-    const static COPYENTRY ceXop1 = { 0x8F, ENTRY_CopyBytesXop1 };
-    const static COPYENTRY ceXop4 = { 0x8F, ENTRY_CopyBytesXop4 };
+    const static COPYENTRY cePop = /* 8F */ ENTRY_CopyBytes2Mod;
+    const static COPYENTRY ceXop = /* 8F */ ENTRY_CopyBytesXop;
+    const static COPYENTRY ceXop1 = /* 8F */ ENTRY_CopyBytesXop1;
+    const static COPYENTRY ceXop4 = /* 8F */ ENTRY_CopyBytesXop4;
 
     BYTE const m = (BYTE)(pbSrc[1] & 0x1F);
     ASSERT(m <= 10);
@@ -1112,7 +1112,7 @@ const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[] =
 #else
     /* 60 */ ENTRY_CopyBytes1,                         // PUSHAD
     /* 61 */ ENTRY_CopyBytes1,                         // POPAD
-    /* 62 */ ENTRY_CopyEvex,                           // EVEX / AVX512
+    /* 62 */ ENTRY_CopyEvex,                           // BOUND /r and EVEX / AVX512
 #endif
     /* 63 */ ENTRY_CopyBytes2Mod,                      // 32bit ARPL /r, 64bit MOVSXD
     /* 64 */ ENTRY_CopyBytesSegment,                   // FS prefix
