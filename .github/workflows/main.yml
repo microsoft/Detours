@@ -1,0 +1,33 @@
+name: CI-Build
+
+env:
+  # Turn on msvc analysis during build.
+  DETOURS_ANALYZE: true
+  # Compile in parallel where possible.
+  CL: /MP
+
+# Triggers the workflow on push or pull request events for the master branch.
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        # ARM/ARM64 don't build/link, omit [amd64_arm, amd64_arm64] for now..
+        arch: [x64, x86]
+
+    steps:
+    - uses: actions/checkout@v2
+
+      # Setup build environment variables using vcvarsall.bat.
+    - uses: ilammy/msvc-dev-cmd@v1.3.0
+      with:
+        arch: ${{ matrix.arch }}
+
+    - name: Build ${{ matrix.arch }}
+      run: nmake
