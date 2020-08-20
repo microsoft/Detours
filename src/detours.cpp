@@ -18,6 +18,8 @@
 
 #define NOTHROW
 
+#define ERROR_DYNAMIC_CODE_BLOCKED       1655L // see winerror.h, as this error isn't found in some SDKs
+
 //////////////////////////////////////////////////////////////////////////////
 //
 struct _DETOUR_ALIGN
@@ -1252,6 +1254,9 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
             if (pv != NULL) {
                 return pv;
             }
+            else if (GetLastError() == ERROR_DYNAMIC_CODE_BLOCKED) {
+                return NULL;
+            }
             pbTry += DETOUR_REGION_SIZE;
         }
         else {
@@ -1298,6 +1303,9 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
                                     PAGE_EXECUTE_READWRITE);
             if (pv != NULL) {
                 return pv;
+            }
+            else if (GetLastError() == ERROR_DYNAMIC_CODE_BLOCKED) {
+                return NULL;
             }
             pbTry -= DETOUR_REGION_SIZE;
         }
