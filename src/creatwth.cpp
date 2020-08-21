@@ -31,9 +31,9 @@ const GUID DETOUR_EXE_HELPER_GUID = { /* ea0251b9-5cde-41b5-98d0-2af4a26b0fee */
 //
 // Enumerate through modules in the target process.
 //
-static PVOID LoadNtHeaderFromProcess(HANDLE hProcess,
-                                     HMODULE hModule,
-                                     PIMAGE_NT_HEADERS32 pNtHeader)
+static PVOID LoadNtHeaderFromProcess(_In_ HANDLE hProcess,
+                                     _In_ HMODULE hModule,
+                                     _Out_ PIMAGE_NT_HEADERS32 pNtHeader)
 {
     PBYTE pbModule = (PBYTE)hModule;
 
@@ -50,7 +50,6 @@ static PVOID LoadNtHeaderFromProcess(HANDLE hProcess,
     }
 
     IMAGE_DOS_HEADER idh;
-
     if (!ReadProcessMemory(hProcess, pbModule, &idh, sizeof(idh), NULL)) {
         DETOUR_TRACE(("ReadProcessMemory(idh@%p..%p) failed: %d\n",
                       pbModule, pbModule + sizeof(idh), GetLastError()));
@@ -83,10 +82,10 @@ static PVOID LoadNtHeaderFromProcess(HANDLE hProcess,
     return pbModule + idh.e_lfanew;
 }
 
-static HMODULE EnumerateModulesInProcess(HANDLE hProcess,
-                                         HMODULE hModuleLast,
-                                         PIMAGE_NT_HEADERS32 pNtHeader,
-                                         PVOID *pRemoteNtHeader)
+static HMODULE EnumerateModulesInProcess(_In_ HANDLE hProcess,
+                                         _In_ HMODULE hModuleLast,
+                                         _Out_ PIMAGE_NT_HEADERS32 pNtHeader,
+                                         _Out_opt_ PVOID *pRemoteNtHeader)
 {
     if (pRemoteNtHeader) {
         *pRemoteNtHeader = NULL;
@@ -141,10 +140,10 @@ static HMODULE EnumerateModulesInProcess(HANDLE hProcess,
 // Find payloads in target process.
 //
 
-static PVOID FindDetourSectionInRemoteModule(HANDLE hProcess,
-                                             HMODULE hModule,
-                                             PIMAGE_NT_HEADERS32 pNtHeader,
-                                             PVOID pRemoteNtHeader)
+static PVOID FindDetourSectionInRemoteModule(_In_ HANDLE hProcess,
+                                             _In_ HMODULE hModule,
+                                             _In_ const IMAGE_NT_HEADERS32 *pNtHeader,
+                                             _In_ PVOID pRemoteNtHeader)
 {
     if (pNtHeader->FileHeader.SizeOfOptionalHeader == 0) {
         SetLastError(ERROR_EXE_MARKED_INVALID);
@@ -184,12 +183,12 @@ static PVOID FindDetourSectionInRemoteModule(HANDLE hProcess,
     return NULL;
 }
 
-static PVOID FindPayloadInRemoteModule(HANDLE hProcess,
-                                       REFGUID rguid,
-                                       DWORD *pcbData,
-                                       PVOID pvData)
+static PVOID FindPayloadInRemoteDetoursSection(_In_ HANDLE hProcess,
+                                               _In_ REFGUID rguid,
+                                               _Out_opt_ DWORD *pcbData,
+                                               _In_ PVOID pvRemoteDetoursSection)
 {
-    PBYTE pbData = (PBYTE)pvData;
+    PBYTE pbData = (PBYTE)pvRemoteDetoursSection;
 
     DETOUR_SECTION_HEADER header;
     if (!ReadProcessMemory(hProcess, pbData, &header, sizeof(header), NULL)) {
@@ -255,12 +254,13 @@ PVOID WINAPI DetourFindRemotePayload(_In_ HANDLE hProcess,
     for (HMODULE hMod = NULL; (hMod = EnumerateModulesInProcess(hProcess, hMod, &header, &pvRemoteHeader)) != NULL;) {
         PVOID pvData = FindDetourSectionInRemoteModule(hProcess, hMod, &header, pvRemoteHeader);
         if (pvData != NULL) {
-            pvData = FindPayloadInRemoteModule(hProcess, rguid, pcbData, pvData);
+            pvData = FindPayloadInRemoteDetoursSection(hProcess, rguid, pcbData, pvData);
             if (pvData != NULL) {
                 return pvData;
             }
         }
     }
+
     SetLastError(ERROR_MOD_NOT_FOUND);
     return NULL;
 }
@@ -1071,7 +1071,7 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
     }
 
     DETOUR_TRACE(("Copied %d byte payload into target process at %p\n",
-                  cbTotal, pbTarget));
+                  cbData, pbTarget));
     return pbTarget;
 }
 
