@@ -18,8 +18,6 @@
 
 #define NOTHROW
 
-#define ERROR_DYNAMIC_CODE_BLOCKED       1655L // see winerror.h, as this error isn't found in some SDKs
-
 //////////////////////////////////////////////////////////////////////////////
 //
 struct _DETOUR_ALIGN
