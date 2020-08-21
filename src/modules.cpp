@@ -139,8 +139,8 @@ PDETOUR_SYM_INFO DetourLoadImageHlp(VOID)
     return pSymInfo;
 }
 
-PVOID WINAPI DetourFindFunction(_In_ PCSTR pszModule,
-                                _In_ PCSTR pszFunction)
+PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
+                                _In_ LPCSTR pszFunction)
 {
     /////////////////////////////////////////////// First, try GetProcAddress.
     //

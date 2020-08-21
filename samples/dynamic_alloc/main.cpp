@@ -27,13 +27,13 @@ extern "C" {
   void *CodeTemplate_End();
 }
 
-void Log(LPCTSTR format, ...) {
-  TCHAR linebuf[1024];
+void Log(PCSTR format, ...) {
+  char linebuf[1024];
   va_list v;
   va_start(v, format);
-  wvsprintf(linebuf, format, v);
+  wvsprintfA(linebuf, format, v);
   va_end(v);
-  OutputDebugString(linebuf);
+  OutputDebugStringA(linebuf);
 }
 
 // This is a target function to be detoured.  When detoured, it's expected to

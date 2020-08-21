@@ -28,6 +28,15 @@
 #pragma warning(disable:4091) // empty typedef
 #endif
 
+// Suppress declspec(dllimport) for the sake of Detours
+// users that provide kernel32 functionality themselves.
+// This is ok in the mainstream case, it will just cost
+// an extra instruction calling some functions, which
+// LTCG optimizes away.
+//
+#define _KERNEL32_ 1
+#define _USER32_ 1
+
 #include <windows.h>
 #if (_MSC_VER < 1310)
 #else
@@ -89,7 +98,12 @@
 //#define DETOURS_OPTION_BITS 32
 #endif
 
-#define VER_DETOURS_BITS    DETOUR_STRINGIFY(DETOURS_BITS)
+/////////////////////////////////////////////////////////////// Helper Macros.
+//
+#define DETOURS_STRINGIFY_(x)    #x
+#define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
+
+#define VER_DETOURS_BITS    DETOURS_STRINGIFY(DETOURS_BITS)
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -115,6 +129,7 @@ typedef ULONG ULONG_PTR;
 #undef _In_
 #undef _In_bytecount_
 #undef _In_count_
+#undef __in_ecount
 #undef _In_opt_
 #undef _In_opt_bytecount_
 #undef _In_opt_count_
@@ -169,6 +184,10 @@ typedef ULONG ULONG_PTR;
 
 #ifndef _In_count_
 #define _In_count_(x)
+#endif
+
+#ifndef __in_ecount
+#define __in_ecount(x)
 #endif
 
 #ifndef _In_opt_
@@ -461,11 +480,6 @@ typedef struct _DETOUR_EXE_HELPER
       0,\
       0,\
 }
-
-/////////////////////////////////////////////////////////////// Helper Macros.
-//
-#define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
-#define DETOURS_STRINGIFY_(x)    #x
 
 ///////////////////////////////////////////////////////////// Binary Typedefs.
 //
