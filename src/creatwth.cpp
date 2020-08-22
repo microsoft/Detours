@@ -505,6 +505,9 @@ static BOOL IsWow64ProcessHelper(HANDLE hProcess,
                                  PBOOL Wow64Process)
 {
 #ifdef _X86_
+    UNREFERENCED_PARAMETER(hProcess);
+    UNREFERENCED_PARAMETER(Wow64Process);
+    
     return FALSE;
 #else
     if (Wow64Process == NULL) {
