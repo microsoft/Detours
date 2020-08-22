@@ -504,6 +504,9 @@ typedef BOOL(WINAPI *LPFN_ISWOW64PROCESS)(HANDLE, PBOOL);
 static BOOL IsWow64ProcessHelper(HANDLE hProcess,
                                  PBOOL Wow64Process)
 {
+#ifdef _X86_
+    return FALSE;
+#else
     if (Wow64Process == NULL) {
         return FALSE;
     }
@@ -526,6 +529,7 @@ static BOOL IsWow64ProcessHelper(HANDLE hProcess,
         return FALSE;
     }
     return pfnIsWow64Process(hProcess, Wow64Process);
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
