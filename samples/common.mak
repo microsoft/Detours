@@ -80,7 +80,7 @@ LIBS = $(DEPS)
 !endif
 
 .rc{$(OBJD)}.res:
-    rc /nologo /DDETOURS_BITS=$(DETOURS_BITS) /fo$(@) /i$(INCD) $(*B).rc
+    rc /DDETOURS_BITS=$(DETOURS_BITS) /fo$(@) /i$(INCD) $(*B).rc
 
 ##
 ################################################################# End of File.
