@@ -499,6 +499,37 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
 }
 #endif // DETOURS_64BIT
 
+typedef BOOL(WINAPI *LPFN_ISWOW64PROCESS)(HANDLE, PBOOL);
+
+static BOOL IsWow64ProcessHelper(HANDLE hProcess,
+                                 PBOOL Wow64Process)
+{
+#ifdef _X86_
+    if (Wow64Process == NULL) {
+        return FALSE;
+    }
+
+    // IsWow64Process is not available on all supported versions of Windows.
+    //
+    HMODULE hKernel32 = LoadLibraryW(L"KERNEL32.DLL");
+    if (hKernel32 == NULL) {
+        DETOUR_TRACE(("LoadLibraryW failed: %d\n", GetLastError()));
+        return FALSE;
+    }
+
+    LPFN_ISWOW64PROCESS pfnIsWow64Process = (LPFN_ISWOW64PROCESS)GetProcAddress(
+        hKernel32, "IsWow64Process");
+
+    if (pfnIsWow64Process == NULL) {
+        DETOUR_TRACE(("GetProcAddress failed: %d\n", GetLastError()));
+        return FALSE;
+    }
+    return pfnIsWow64Process(hProcess, Wow64Process);
+#else
+    return IsWow64Process(hProcess, Wow64Process);
+#endif
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //
 BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
@@ -555,7 +586,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         bIs32BitProcess = TRUE;
     }
     else {
-        if (!IsWow64Process(hProcess, &bIs32BitProcess)) {
+        if (!IsWow64ProcessHelper(hProcess, &bIs32BitProcess)) {
             return FALSE;
         }
     }
