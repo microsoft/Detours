@@ -409,8 +409,10 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     //
     inh64.Signature = inh32.Signature;
     inh64.FileHeader = inh32.FileHeader;
-    inh64.FileHeader.Machine = machine;//Èç¹ûÕâÀï¾Í¸³ÖµÎªinh32.FileHeader.MachineµÄ»°£¬win7¼°ÒÔÏÂµÄPE¼ÓÔØÆ÷»á¹ı²»ÁË£¬
-	//»á±¨´íSTATUS_INVALID_IMAGE_FORMAT£¬ËùÒÔĞèÒªÔÚdepÖĞ±£´æÔ­À´µÄPEÍ·ÖĞµÄMachineµÄÖµ£¬¼´inh32.FileHeader.MachineµÄÖµ£¬
+    inh64.FileHeader.Machine = machine;//å¦‚æœè¿™é‡Œå°±èµ‹å€¼ä¸ºinh32.FileHeader.Machineçš„è¯ï¼Œwin7åŠä»¥ä¸‹çš„PEåŠ è½½å™¨ä¼šè¿‡ä¸äº†ï¼Œ
+	//ä¼šæŠ¥é”™STATUS_INVALID_IMAGE_FORMATï¼Œæ‰€ä»¥éœ€è¦åœ¨depä¸­ä¿å­˜åŸæ¥çš„PEå¤´ä¸­çš„Machineçš„å€¼ï¼Œå³inh32.FileHeader.Machineçš„å€¼ï¼Œ
+	//If inh32.FileHeader.Machine is assigned here, the PE loader of win7 and below will not be able to pass,
+	//It will report an error STATUS_INVALID_IMAGE_FORMAT, so you need to save the value of Machine in the original PE header in dep, that is, the value of inh32.FileHeader.Machine,
     inh64.FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER64);
 
     inh64.OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR64_MAGIC;
@@ -479,7 +481,8 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
         return FALSE;
     }
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//ÉÏÃæµÄRecordExeRestoreµ÷ÓÃÖ®ºó£¬depÖĞ±£´æµÄÊÇ64Î»µÄPEÍ·ÁË£¬ËùÒÔĞèÒª»Ö¸´derÖĞ±£´æµÄPEÍ·µÄMachineµÄÖµ£¬ÒÔÊ¹µÃ.NETµÄPE½âÎöÆ÷¿ÉÒÔÕı³£¼ÓÔØ¸ÃCLRÎÄ¼ş
+	//ä¸Šé¢çš„RecordExeRestoreè°ƒç”¨ä¹‹åï¼Œdepä¸­ä¿å­˜çš„æ˜¯64ä½çš„PEå¤´äº†ï¼Œæ‰€ä»¥éœ€è¦æ¢å¤derä¸­ä¿å­˜çš„PEå¤´çš„Machineçš„å€¼ï¼Œä»¥ä½¿å¾—.NETçš„PEè§£æå™¨å¯ä»¥æ­£å¸¸åŠ è½½è¯¥CLRæ–‡ä»¶
+	//After the above RecordExeRestore call, the 64-bit PE header is saved in dep, so it is necessary to restore the Machine value of the PE header saved in der, so that the PE parser of .NET can load the CLR file normally
 	der.inh.FileHeader.Machine = inh32.FileHeader.Machine;
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -528,7 +531,8 @@ namespace Detour
 		}
 		return bRet;
 	};
-	//½ø³Ì¾ä±úhProcessĞèÒªÓĞPROCESS_QUERY_INFORMATION»òÕßPROCESS_QUERY_LIMITED_INFORMATION·ÃÎÊÈ¨ÏŞ
+	//è¿›ç¨‹å¥æŸ„hProcesséœ€è¦æœ‰PROCESS_QUERY_INFORMATIONæˆ–è€…PROCESS_QUERY_LIMITED_INFORMATIONè®¿é—®æƒé™
+	//The process handle hProcess needs to have PROCESS_QUERY_INFORMATION or PROCESS_QUERY_LIMITED_INFORMATION access rights
 	BOOL Is64BitProcess(HANDLE hProcess)
 	{
 		BOOL bRet = FALSE;
@@ -599,8 +603,10 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
     }
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//±»×¢ÊÍµôµÄ´úÂë
-	//ÏÂÃæµÄ´úÂë²»ÄÜÕıÈ·ÅĞ¶ÏÆô¶¯µÄ½ø³ÌÊÇ·ñÊÇ32Î»µÄ
+	//è¢«æ³¨é‡Šæ‰çš„ä»£ç 
+	//ä¸‹é¢çš„ä»£ç ä¸èƒ½æ­£ç¡®åˆ¤æ–­å¯åŠ¨çš„è¿›ç¨‹æ˜¯å¦æ˜¯32ä½çš„
+	//Commented out code
+	//The following code cannot correctly determine whether the started process is 32-bit
     //if (!bHas32BitExe) {
     //    bIs32BitProcess = FALSE;
     //}
@@ -613,7 +619,8 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
     //    }
     //}
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//Ìí¼ÓµÄ´úÂë
+	//æ·»åŠ çš„ä»£ç 
+	//Added code
 	bIs32BitProcess = !Detour::Is64BitProcess(hProcess);
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -735,8 +742,10 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         DETOUR_CLR_HEADER clr;
         CopyMemory(&clr, &der.clr, sizeof(clr));
         clr.Flags &= 0xfffffffe;    // Clear the IL_ONLY flag.
-		//ÉÏÃæÕâ¾äÇå³ıÁËIL_ONLY±êÖ¾£¬ËùÒÔÎÒÃÇÖ®ºóÆô¶¯Íê³É½ø³Ìºó£¬»Ö¸´IATºóĞèÒª»Ö¸´Õâ¸öIL_ONLY±êÖ¾
-		//²»Çå³ıIL_ONLY±êÖ¾½«µ¼ÖÂÎŞ·¨Æô¶¯½ø³Ì£¬ÒòÎªÎÒÃÇÌæ»»ÁËÔ­IATÎª°üº¬ÎÒÃÇµÄDLLµÄÃû³ÆÏîµÄĞÂIAT
+		//ä¸Šé¢è¿™å¥æ¸…é™¤äº†IL_ONLYæ ‡å¿—ï¼Œæ‰€ä»¥æˆ‘ä»¬ä¹‹åå¯åŠ¨å®Œæˆè¿›ç¨‹åï¼Œæ¢å¤IATåéœ€è¦æ¢å¤è¿™ä¸ªIL_ONLYæ ‡å¿—
+		//ä¸æ¸…é™¤IL_ONLYæ ‡å¿—å°†å¯¼è‡´æ— æ³•å¯åŠ¨è¿›ç¨‹ï¼Œå› ä¸ºæˆ‘ä»¬æ›¿æ¢äº†åŸIATä¸ºåŒ…å«æˆ‘ä»¬çš„DLLçš„åç§°é¡¹çš„æ–°IAT
+		//The above sentence clears the IL_ONLY flag, so we need to restore the IL_ONLY flag after the IAT is restored after starting the process completion 
+		//Not clearing the IL_ONLY flag will result in the inability to start the process, because we replaced the original IAT with the new IAT containing the name of our DLL
 
         DWORD dwProtect;
         if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {
@@ -1042,7 +1051,8 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
         rlpDlls = NULL;
     }
 
-	//Ö´ĞĞÍê³ÉºóÉ¾³ı¸Ã¸ºÔØÒÔÊÍ·ÅÆäËùÕ¼ÓÃµÄÄÚ´æ
+	//æ‰§è¡Œå®Œæˆååˆ é™¤è¯¥è´Ÿè½½ä»¥é‡Šæ”¾å…¶æ‰€å ç”¨çš„å†…å­˜
+	//Delete the payload after execution to release the memory occupied by it
 	if (s_pHelper != NULL)
 	{
 		HMODULE hModule = DetourGetContainingModule(s_pHelper);

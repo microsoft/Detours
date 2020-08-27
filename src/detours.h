@@ -556,7 +556,8 @@ LONG WINAPI DetourTransactionAbort(VOID);
 LONG WINAPI DetourTransactionCommit(VOID);
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
-//DetourUpdateThread²»ÔÙÍÆ¼ö±»ÓÃ»§µ÷ÓÃÁË£¬ÇëÊ¹ÓÃDetourUpdateAllOtherThreadsÒÔ½øĞĞ¸ü°²È«µÄHOOK
+//DetourUpdateThreadä¸å†æ¨èè¢«ç”¨æˆ·è°ƒç”¨äº†ï¼Œè¯·ä½¿ç”¨DetourUpdateAllOtherThreadsä»¥è¿›è¡Œæ›´å®‰å…¨çš„HOOK
+//DetourUpdateThread is no longer recommended to be called by users, please use DetourUpdateAllOtherThreads for safer HOOK
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject /*= TRUE*/);
 BOOL WINAPI DetourUpdateAllOtherThreads();
 
@@ -578,7 +579,8 @@ PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound)
 PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
 
 ///////////////////////////////////////////////////////////////////////////////
-//Ìí¼ÓµÄ´úÂë
+//æ·»åŠ çš„ä»£ç 
+//Added code
 PBYTE detour_skip_all_sequential_jmps(PBYTE pbCode, PVOID *ppGlobals);
 ///////////////////////////////////////////////////////////////////////////////
 

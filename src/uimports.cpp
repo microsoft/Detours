@@ -102,10 +102,12 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     }
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//Ìí¼ÓµÄ´úÂë
+	//æ·»åŠ çš„ä»£ç 
+	//Added code
 	if (inh.IMPORT_DIRECTORY.VirtualAddress!=NULL && inh.IMPORT_DIRECTORY.Size==0)
 	{
-		//²»ÓÃ¿¼ÂÇ»á¸Ä±äPEÎÄ¼şµÄÎÊÌâ,ÒòÎªÔ­PEÍ·µÄ¸ºÔØĞÅÏ¢ÒÑ±£´æ,»á»Ö¸´µÄ,ÕâÀï¸Ä±äÖ»ÊÇÎªÁËÏÂÃæµÄ´úÂëÄÜÕı³£¹¤×÷
+		//ä¸ç”¨è€ƒè™‘ä¼šæ”¹å˜PEæ–‡ä»¶çš„é—®é¢˜,å› ä¸ºåŸPEå¤´çš„è´Ÿè½½ä¿¡æ¯å·²ä¿å­˜,ä¼šæ¢å¤çš„,è¿™é‡Œæ”¹å˜åªæ˜¯ä¸ºäº†ä¸‹é¢çš„ä»£ç èƒ½æ­£å¸¸å·¥ä½œ
+		//Don't worry about changing the PE file, because the load information of the original PE header has been saved and will be restored. The change here is just for the following code to work normally
 		PIMAGE_IMPORT_DESCRIPTOR pImageImport=(PIMAGE_IMPORT_DESCRIPTOR)(pbModule+inh.IMPORT_DIRECTORY.VirtualAddress);
 		IMAGE_IMPORT_DESCRIPTOR ImageImport;
 
@@ -124,8 +126,10 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 			}
 			++pImageImport;
 		}
-		OutputDebugString(TEXT("¡¾Õâ¸öPEÎÄ¼ş´æÔÚµ¼Èë±í,µ«ÊÇµ¼Èë±í´óĞ¡È´±ê¼ÇÎª0,ÕâÊÇÒ»¸ö´íÎó,")
-			TEXT("²»ĞŞ¸´½«µ¼ÖÂÆô¶¯µÄ³ÌĞòÎŞ·¨Õı³£¹¤×÷,ÒÑÎªÄã×Ô¶¯ĞŞ¸´ÁËËüµÄµ¼Èë±í´óĞ¡£¡£¡£¡¡¿\r\n"));
+		//OutputDebugString(TEXT("ã€è¿™ä¸ªPEæ–‡ä»¶å­˜åœ¨å¯¼å…¥è¡¨,ä½†æ˜¯å¯¼å…¥è¡¨å¤§å°å´æ ‡è®°ä¸º0,è¿™æ˜¯ä¸€ä¸ªé”™è¯¯,")
+		//	TEXT("ä¸ä¿®å¤å°†å¯¼è‡´å¯åŠ¨çš„ç¨‹åºæ— æ³•æ­£å¸¸å·¥ä½œ,å·²ä¸ºä½ è‡ªåŠ¨ä¿®å¤äº†å®ƒçš„å¯¼å…¥è¡¨å¤§å°ï¼ï¼ï¼ã€‘\r\n"));
+		OutputDebugString(TEXT("[This PE file has an import table, but the import table size is marked as 0. This is an error.")
+			TEXT("Not repair will cause the launched program to not work normally, and its import table size has been automatically repaired for you! ! !ã€‘\r\n"));
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

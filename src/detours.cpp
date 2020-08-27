@@ -179,7 +179,8 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
     return pbCode;
 }
 
-//Ìø¹ýËùÓÐ½ÓÁ¬µÄJMPÖ¸Áî,²»Í¬ÓÚdetour_skip_jmpº¯Êý,detour_skip_jmpÖ»ÊÇ²»ÍêÈ«µÄÌø¹ý
+//è·³è¿‡æ‰€æœ‰æŽ¥è¿žçš„JMPæŒ‡ä»¤,ä¸åŒäºŽdetour_skip_jmpå‡½æ•°,detour_skip_jmpåªæ˜¯ä¸å®Œå…¨çš„è·³è¿‡
+//Skip all consecutive JMP instructions, unlike the detour_skip_jmp function, detour_skip_jmp is just an incomplete skip
 //http://m.newsmth.net/article/DotNET/10955?au=flier
 //X86
 PBYTE detour_skip_all_sequential_jmps(PBYTE pbCode, PVOID *ppGlobals)
@@ -432,7 +433,8 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
     return pbCode;
 }
 
-//Ìø¹ýËùÓÐ½ÓÁ¬µÄJMPÖ¸Áî,²»Í¬ÓÚdetour_skip_jmpº¯Êý,detour_skip_jmpÖ»ÊÇ²»ÍêÈ«µÄÌø¹ý
+//è·³è¿‡æ‰€æœ‰æŽ¥è¿žçš„JMPæŒ‡ä»¤,ä¸åŒäºŽdetour_skip_jmpå‡½æ•°,detour_skip_jmpåªæ˜¯ä¸å®Œå…¨çš„è·³è¿‡
+//Skip all consecutive JMP instructions, unlike the detour_skip_jmp function, detour_skip_jmp is just an incomplete skip
 //http://m.newsmth.net/article/DotNET/10955?au=flier
 //X64
 PBYTE detour_skip_all_sequential_jmps(PBYTE pbCode, PVOID *ppGlobals)
@@ -2117,7 +2119,8 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandle
     return NO_ERROR;
 }
 
-//´úÂëÐÞ¸Ä×Ôhttps://github.com/apriorit/mhook/blob/master/mhook-lib/mhook.c
+//ä»£ç ä¿®æ”¹è‡ªhttps://github.com/apriorit/mhook/blob/master/mhook-lib/mhook.c
+//Code modified from https://github.com/apriorit/mhook/blob/master/mhook-lib/mhook.c
 //=========================================================================
 // ntdll definitions
 
@@ -2383,9 +2386,11 @@ BOOL WINAPI DetourUpdateAllOtherThreads()
 					if (error)
 					{
 						DETOUR_TRACE(("DetourUpdateThread failed, error=%d\n", error));
-						//ÖØÖÃs_nPendingErrorÒÔÈÃºóÃæµÄÏß³Ì¿ÉÒÔ¼ÌÐø³¢ÊÔµ÷ÓÃDetourUpdateThreadº¯Êý
+						//é‡ç½®s_nPendingErrorä»¥è®©åŽé¢çš„çº¿ç¨‹å¯ä»¥ç»§ç»­å°è¯•è°ƒç”¨DetourUpdateThreadå‡½æ•°
+						//Reset s_nPendingError so that subsequent threads can continue to try to call the DetourUpdateThread function
 						assert(error == s_nPendingError);
-						//½áÊø¿ØÖÆÌ¨³ÌÐòÊ±£¬¿ÉÄÜÔÚDetourUpdateThreadÄÚ²¿µÄSuspendThreadµ÷ÓÃÊ±Ôì³És_nPendingError == ERROR_ACCESS_DENIED
+						//ç»“æŸæŽ§åˆ¶å°ç¨‹åºæ—¶ï¼Œå¯èƒ½åœ¨DetourUpdateThreadå†…éƒ¨çš„SuspendThreadè°ƒç”¨æ—¶é€ æˆs_nPendingError == ERROR_ACCESS_DENIED
+						//When the console program is terminated, s_nPendingError == ERROR_ACCESS_DENIED may be caused when the SuspendThread inside DetourUpdateThread is called
 						assert(s_nPendingError == ERROR_ACCESS_DENIED);
 						s_nPendingError = NO_ERROR;
 					}

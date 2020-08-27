@@ -859,7 +859,8 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
     if (pder->pclr != NULL && pder->clr.Flags != ((PDETOUR_CLR_HEADER)pder->pclr)->Flags) {
         // If we had to promote the 32/64-bit agnostic IL to 64-bit, we can't restore
         // that.
-		//ÏÖÔÚÎÒÃÇÒÑ¾­Ö§³ÖÉÏÊöÕâÖÖÇé¿ö(Î´ÖªÄ¿±êÎ»µÄIL´úÂë¼´Ê±±àÒëÉú³Éµ½64Î»½ø³ÌµÄ±¾»ú´úÂë)µÄCLRÍ·Êı¾İ»Ö¸´ÁË
+		//ç°åœ¨æˆ‘ä»¬å·²ç»æ”¯æŒä¸Šè¿°è¿™ç§æƒ…å†µ(æœªçŸ¥ç›®æ ‡ä½çš„ILä»£ç å³æ—¶ç¼–è¯‘ç”Ÿæˆåˆ°64ä½è¿›ç¨‹çš„æœ¬æœºä»£ç )çš„CLRå¤´æ•°æ®æ¢å¤äº†
+		//Now we have supported the recovery of CLR header data in the above situation (IL code of unknown target bit is compiled into native code of 64-bit process by instant compilation)
         fUpdated32To64 = TRUE;
     }
 
@@ -871,7 +872,8 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
             CopyMemory(pder->pidh, &pder->idh, pder->cbidh);
             CopyMemory(pder->pinh, &pder->inh, pder->cbinh);
 
-			//fUpdated32To64ÎªTRUEÊ±ÏÖÔÚÒ²¿ÉÒÔ»Ö¸´ÁË£¬Ä¿Ç°Êµ¼ÊÉÏÖ»ÊÇ»Ö¸´ÁËclr.FlagsÕâ¸ö×Ö¶Î
+			//fUpdated32To64ä¸ºTRUEæ—¶ç°åœ¨ä¹Ÿå¯ä»¥æ¢å¤äº†ï¼Œç›®å‰å®é™…ä¸Šåªæ˜¯æ¢å¤äº†clr.Flagsè¿™ä¸ªå­—æ®µ
+			//It can be restored now when fUpdated32To64 is TRUE. At present, only the clr.Flags field is restored.
             if (pder->pclr != NULL /*&& !fUpdated32To64*/) {
                 if (DetourVirtualProtectSameExecute(pder->pclr, pder->cbclr,
                                                     PAGE_EXECUTE_READWRITE, &dwPermClr)) {
@@ -888,7 +890,8 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
         VirtualProtect(pder->pidh, pder->cbidh, dwPermIdh, &dwIgnore);
     }
 
-	//»Ö¸´³É¹¦ºóÉ¾³ı¸Ã¸ºÔØÒÔ·ÀÖ¹±»ÖØ¸´Ö´ĞĞ»Ö¸´
+	//æ¢å¤æˆåŠŸååˆ é™¤è¯¥è´Ÿè½½ä»¥é˜²æ­¢è¢«é‡å¤æ‰§è¡Œæ¢å¤
+	//Delete the payload after successful recovery to prevent repeated recovery
 	if (fSucceeded)
 	{
 		HMODULE hModule = DetourGetContainingModule(pder);

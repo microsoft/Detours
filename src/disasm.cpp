@@ -144,9 +144,12 @@
 //      offsets.
 //
 
-//下面两个节应该主要是为了方便Detours官方查某个程序是否使用了Detours的，目前来看并无实际用途，
-//本源文件下面定义的的可读写及只读数据可以合并到其他数据节中去(.detourd->.data , .detourc->.rdata)
-//合并到其他节中能使生成的程序更小
+//涓嬮潰涓や釜鑺傚簲璇ヤ富瑕佹槸涓轰簡鏂逛究Detours瀹樻柟鏌ユ煇涓▼搴忔槸鍚︿娇鐢ㄤ簡Detours鐨勶紝鐩墠鏉ョ湅骞舵棤瀹為檯鐢ㄩ�旓紝
+//鏈簮鏂囦欢涓嬮潰瀹氫箟鐨勭殑鍙鍐欏強鍙鏁版嵁鍙互鍚堝苟鍒板叾浠栨暟鎹妭涓幓(.detourd->.data , .detourc->.rdata)
+//鍚堝苟鍒板叾浠栬妭涓兘浣跨敓鎴愮殑绋嬪簭鏇村皬
+//The following two sections should be mainly for the convenience of Detours official check whether a certain program uses Detours, currently there is no practical use,
+//The read-write and read-only data defined below this source file can be merged into other data sections (.detourd->.data, .detourc->.rdata)
+//Merge into other sections to make the generated program smaller
 //#pragma data_seg(".detourd")
 //#pragma const_seg(".detourc")
 
