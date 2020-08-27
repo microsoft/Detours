@@ -292,8 +292,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         TrueEntryPoint = (int (WINAPI *)(VOID))DetourGetEntryPoint(NULL);
         RawEntryPoint = TrueEntryPoint;
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourAttach(&(PVOID&)TrueEntryPoint, TestEntryPoint);
         DetourAttach(&(PVOID&)Real_CreateProcessA, Mine_CreateProcessA);
         DetourAttach(&(PVOID&)Real_CreateProcessW, Mine_CreateProcessW);
@@ -315,8 +315,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourDetach(&(PVOID&)TrueEntryPoint, TestEntryPoint);
         DetourDetach(&(PVOID&)Real_CreateProcessA, Mine_CreateProcessA);
         DetourDetach(&(PVOID&)Real_CreateProcessW, Mine_CreateProcessW);

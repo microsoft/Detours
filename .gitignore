@@ -35,6 +35,6 @@ obj.*
 *.log
 *.obj
 *.user
+*.recipe
 /bin.*
-/vc/Win32/
-/vc/x64/
+*.vcxproj.FileListAbsolute.txt

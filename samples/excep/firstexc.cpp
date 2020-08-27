@@ -176,8 +176,8 @@ DetourFirstChanceExceptionFilter(LPTOP_LEVEL_EXCEPTION_FILTER pNewFirstChanceFil
             (VOID (NTAPI *)(IN PEXCEPTION_RECORD, IN PCONTEXT))
             DetourFindFunction("ntdll.dll", "KiUserExceptionDispatcher");
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourAttach(&(PVOID&)Real_KiUserExceptionDispatcher,
                        Detour_KiUserExceptionDispatcher);
         DetourTransactionCommit();

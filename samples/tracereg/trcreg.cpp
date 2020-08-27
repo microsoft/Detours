@@ -1175,8 +1175,8 @@ VOID DetDetach(PVOID *ppbReal, PVOID pbMine, PCHAR psz)
 
 LONG AttachDetours(VOID)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     ATTACH(CloseHandle);
     ATTACH(CopyFileExA);
@@ -1228,8 +1228,8 @@ LONG AttachDetours(VOID)
 
 LONG DetachDetours(VOID)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     DETACH(CloseHandle);
     DETACH(CopyFileExA);

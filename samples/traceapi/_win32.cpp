@@ -33705,8 +33705,8 @@ VOID DetDetach(PVOID *ppvReal, PVOID pvMine, PCHAR psz)
 
 LONG AttachDetours(VOID)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     // For this many APIs, we'll ignore one or two can't be detoured.
     DetourSetIgnoreTooSmall(TRUE);
@@ -35386,8 +35386,8 @@ LONG AttachDetours(VOID)
 
 LONG DetachDetours(VOID)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     // For this many APIs, we'll ignore one or two can't be detoured.
     DetourSetIgnoreTooSmall(TRUE);

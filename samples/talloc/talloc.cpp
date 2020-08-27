@@ -409,8 +409,8 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     Reserve(Dll5 - 0x7ff00000, 0x7ff00000);
     Reserve(Dll9 + DllSize, 0x7fe00000);
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll1Function, MineDll1Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
@@ -419,64 +419,64 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
         exit(1);
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll2Function, MineDll2Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
         goto failed;
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll3Function, MineDll3Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
         goto failed;
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll4Function, MineDll4Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
         goto failed;
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll5Function, MineDll5Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
         goto failed;
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll6Function, MineDll6Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
         goto failed;
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll7Function, MineDll7Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
         goto failed;
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll8Function, MineDll8Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
         goto failed;
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueDll9Function, MineDll9Function);
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
@@ -514,8 +514,8 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     Dll8Function(10);
     Dll9Function(10);
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourDetach(&(PVOID&)TrueDll1Function, MineDll1Function);
     DetourDetach(&(PVOID&)TrueDll2Function, MineDll2Function);
     DetourDetach(&(PVOID&)TrueDll3Function, MineDll3Function);

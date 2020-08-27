@@ -51,8 +51,8 @@ static int WINAPI ExtendEntryPoint()
     TrueTarget =
         (DWORD (WINAPI *)(DWORD))
         DetourFindFunction("target.dll", "Target");
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueTarget, Extend);
     error = DetourTransactionCommit();
 
@@ -72,8 +72,8 @@ static int WINAPI ExtendEntryPoint()
         printf("extend.dll: TrueHidden = %p (error = %d)\n", TrueHidden, error);
     }
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueHidden, Intern);
     error = DetourTransactionCommit();
 
@@ -111,8 +111,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
 
         TrueEntryPoint = (int (WINAPI *)())DetourGetEntryPoint(NULL);
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourAttach(&(PVOID&)TrueEntryPoint, ExtendEntryPoint);
         error = DetourTransactionCommit();
 
@@ -124,8 +124,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
 
         // Detach functions found from the export table.
         if (TrueTarget != NULL) {

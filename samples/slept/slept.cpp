@@ -100,8 +100,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         printf("\n");
         fflush(stdout);
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourAttach(&(PVOID&)TrueSleepEx, TimedSleepEx);
         error = DetourTransactionCommit();
 
@@ -115,8 +115,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourDetach(&(PVOID&)TrueSleepEx, TimedSleepEx);
         error = DetourTransactionCommit();
         printf("slept" DETOURS_STRINGIFY(DETOURS_BITS) ".dll: "

@@ -723,8 +723,8 @@ LONG RerouteEntryPoints(VOID)
                                ULONG))
            DetourFindFunction("ntdll.dll", "NtDeviceIoControlFile"));
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     DetourAttach(&(PVOID&)Real_NtWaitForSingleObject,
                  Catch_NtWaitForSingleObject);

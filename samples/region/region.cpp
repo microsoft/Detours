@@ -33,8 +33,8 @@ PVOID AttachAndDetach(DWORD dwMilliseconds)
     LONG error;
     PVOID trampoline;
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueSleepEx, LoudSleepEx);
     error = DetourTransactionCommit();
 
@@ -47,8 +47,8 @@ PVOID AttachAndDetach(DWORD dwMilliseconds)
     Sleep(dwMilliseconds);
     printf("\n");
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourDetach(&(PVOID&)TrueSleepEx, LoudSleepEx);
     error = DetourTransactionCommit();
 

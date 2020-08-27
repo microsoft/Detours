@@ -82,8 +82,8 @@ int WINAPI TimedEntryPoint(VOID)
     CreateStreamOnHGlobal(NULL, TRUE, &pStream);
 
     // Apply the detour to the vtable.
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     if (pStream != NULL) {
         RealIStreamWrite = pStream->lpVtbl->Write;
         DetourAttach(&(PVOID&)RealIStreamWrite, MineIStreamWrite);
@@ -132,8 +132,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         TrueEntryPoint = (int (WINAPI *)(VOID))DetourGetEntryPoint(NULL);
         RawEntryPoint = TrueEntryPoint;
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourAttach(&(PVOID&)TrueEntryPoint, TimedEntryPoint);
         error = DetourTransactionCommit();
 
@@ -147,8 +147,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         if (RealIStreamWrite != NULL) {
             DetourDetach(&(PVOID&)RealIStreamWrite, (PVOID)MineIStreamWrite);
         }

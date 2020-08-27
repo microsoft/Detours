@@ -3739,8 +3739,8 @@ DWORD CDECL Mine_wdupenv_s(PWCHAR *ppBuffer, DWORD *pcBuffer, PCWSTR varname)
 //
 LONG AttachDetours(VOID)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     DetourAttach(&(PVOID&)Real_EntryPoint, Mine_EntryPoint);
     DetourAttach(&(PVOID&)Real_ExitProcess, Mine_ExitProcess);
@@ -3789,8 +3789,8 @@ LONG AttachDetours(VOID)
 
 LONG DetachDetours(VOID)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     DetourDetach(&(PVOID&)Real_EntryPoint, Mine_EntryPoint);
     DetourAttach(&(PVOID&)Real_ExitProcess, Mine_ExitProcess);
@@ -4515,8 +4515,8 @@ int WINAPI Mine_EntryPoint(VOID)
         FindProc(&(PVOID&)Real_dupenv_s, "_dupenv_s");
         FindProc(&(PVOID&)Real_wdupenv_s, "_wdupenv_s");
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
 
         DetourAttachIf(&(PVOID&)Real_getenv, Mine_getenv);
         DetourAttachIf(&(PVOID&)Real_getenv_s, Mine_getenv_s);

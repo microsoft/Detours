@@ -777,8 +777,8 @@ VOID DetDetach(PVOID *ppbReal, PVOID pbMine, PCHAR psz)
 
 LONG AttachDetours(VOID)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     ATTACH(BuildCommDCBA);
     ATTACH(BuildCommDCBAndTimeoutsA);
@@ -816,8 +816,8 @@ LONG AttachDetours(VOID)
 
 LONG DetachDetours(VOID)
 {
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     DETACH(BuildCommDCBA);
     DETACH(BuildCommDCBAndTimeoutsA);

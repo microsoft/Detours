@@ -84,8 +84,8 @@ int main(int argc, char **argv)
     li.QuadPart = 0;
     hr = pStream->lpVtbl->Write(pStream, &ul, sizeof(ul), NULL);
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)RealIStreamWrite, MineIStreamWrite);
     DetourTransactionCommit();
 
@@ -94,8 +94,8 @@ int main(int argc, char **argv)
     li.QuadPart = 1;
     hr = pStream->lpVtbl->Write(pStream, &li, sizeof(li), NULL);
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourDetach(&(PVOID&)RealIStreamWrite, MineIStreamWrite);
     DetourTransactionCommit();
 

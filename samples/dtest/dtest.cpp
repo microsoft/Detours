@@ -505,16 +505,16 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     printf("Calling LocalTarget1 w/o detour\n");
     LocalTarget1(1);
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)Trampoline_LocalTarget1, MyLocalTarget1);
     DetourTransactionCommit();
 
     printf("Calling LocalTarget1 w/ detour\n");
     LocalTarget1(2);
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)Trampoline_Target0, MyTarget0);
     DetourTransactionCommit();
 
@@ -523,8 +523,8 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     //dprintf("- Target0           :: %p\n", Target0);
     Target0();
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)Trampoline_Target1, MyTarget1);
     DetourAttach(&(PVOID&)Trampoline_Target2, MyTarget2);
     DetourAttach(&(PVOID&)Trampoline_Target3, MyTarget3);
@@ -595,8 +595,8 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     printf("Calling Target0 again with 1 detour.\n");
     Target0();
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)Trampoline_Target0_1, MyTarget0_1);
     DetourTransactionCommit();
 
@@ -605,8 +605,8 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     printf("Calling Target0 again with 2 detours.\n");
     Target0();
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)Trampoline_Target0_2, MyTarget0_2);
     DetourTransactionCommit();
 
@@ -616,8 +616,8 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     Target0();
 
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)Trampoline_Target0_3, MyTarget0_3);
     DetourTransactionCommit();
 
@@ -626,8 +626,8 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     printf("Calling Target0 again with 4 detours.\n");
     Target0();
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourDetach(&(PVOID&)Trampoline_Target0, MyTarget0);
     DetourDetach(&(PVOID&)Trampoline_Target1, MyTarget1);
     DetourDetach(&(PVOID&)Trampoline_Target2, MyTarget2);

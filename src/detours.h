@@ -545,6 +545,9 @@ typedef VOID * PDETOUR_LOADED_BINARY;
 BOOL WINAPI DetourCreateHeap(BOOL fAutoDestroy);
 HANDLE WINAPI DetourGetHeap();
 void WINAPI DetourDestroyHeap();
+#ifdef __AUTO_CREATE_DETOUR_HEAP__
+static BOOL s_fAlreadyCreatedDetourHeap = DetourCreateHeap(TRUE);
+#endif
 
 //////////////////////////////////////////////////////////// Transaction APIs.
 //

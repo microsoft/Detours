@@ -57,8 +57,8 @@ int __cdecl main(void)
     printf("\n");
     fflush(stdout);
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueSleepEx, TimedSleepEx);
     error = DetourTransactionCommit();
 
@@ -88,8 +88,8 @@ int __cdecl main(void)
     UntimedSleepEx(1000, false);
     printf("sleepbed.exe: Done sleeping.\n\n");
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourDetach(&(PVOID&)TrueSleepEx, TimedSleepEx);
     error = DetourTransactionCommit();
     printf("sleepbed.exe: Removed SleepEx() detour (%d), slept %d ticks.\n",

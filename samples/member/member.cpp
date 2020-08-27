@@ -86,8 +86,8 @@ int main(int argc, char **argv)
 
     printf("\n");
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
 
     DetourAttach(&(PVOID&)CDetour::Real_Target,
                  *(PBYTE*)&pfMine);

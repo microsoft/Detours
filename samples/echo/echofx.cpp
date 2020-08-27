@@ -32,8 +32,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
                " Starting.\n");
         fflush(stdout);
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourAttach(&(PVOID&)Real_Echo, Mine_Echo);
         error = DetourTransactionCommit();
 
@@ -47,8 +47,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourDetach(&(PVOID&)Real_Echo, Mine_Echo);
         error = DetourTransactionCommit();
 

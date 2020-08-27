@@ -53,8 +53,8 @@ int WINAPI TimedEntryPoint(VOID)
     TrueSleepEx = (DWORD (WINAPI *)(DWORD, BOOL))
         DetourFindFunction("kernel32.dll", "SleepEx");
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
+    DetourTransactionBegin(TRUE);
+    DetourUpdateAllOtherThreads();
     DetourAttach(&(PVOID&)TrueSleepEx, TimedSleepEx);
     error = DetourTransactionCommit();
 
@@ -104,8 +104,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
 
         Verify("EntryPoint", RawEntryPoint);
 
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         DetourAttach(&(PVOID&)TrueEntryPoint, TimedEntryPoint);
         error = DetourTransactionCommit();
 
@@ -122,8 +122,8 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
-        DetourTransactionBegin();
-        DetourUpdateThread(GetCurrentThread());
+        DetourTransactionBegin(TRUE);
+        DetourUpdateAllOtherThreads();
         if (TrueSleepEx != NULL) {
             DetourDetach(&(PVOID&)TrueSleepEx, (PVOID)TimedSleepEx);
         }
