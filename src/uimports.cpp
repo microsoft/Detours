@@ -129,7 +129,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 		//OutputDebugString(TEXT("【这个PE文件存在导入表,但是导入表大小却标记为0,这是一个错误,")
 		//	TEXT("不修复将导致启动的程序无法正常工作,已为你自动修复了它的导入表大小！！！】\r\n"));
 		OutputDebugString(TEXT("[This PE file has an import table, but the import table size is marked as 0. This is an error.")
-			TEXT("Not repair will cause the launched program to not work normally, and its import table size has been automatically repaired for you! ! !】\r\n"));
+			TEXT("Not repair will cause the launched program to not work normally, and its import table size has been automatically repaired for you! ! !]\r\n"));
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
