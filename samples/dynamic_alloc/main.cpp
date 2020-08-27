@@ -22,6 +22,12 @@
 #include <windows.h>
 #include <detours.h>
 
+#if _MSC_VER <= 1600
+#define nullptr NULL
+typedef unsigned int       uint32_t;
+typedef unsigned char      uint8_t;
+#endif
+
 extern "C" {
   void *CodeTemplate();
   void *CodeTemplate_End();
@@ -45,14 +51,17 @@ void *target_function() {
 
 // Helper function to sandwich a given function between `DetourTransactionBegin`
 // and `DetourTransactionCommit`/`DetourTransactionAbort`.
-bool DetourTransaction(std::function<bool()> callback) {
-  LONG status = DetourTransactionBegin();
+typedef bool (*callback_type)(PVOID* pdetour_target, PVOID detour_destination);
+bool DetourTransaction(callback_type callback, PVOID* pdetour_target, PVOID detour_destination) {
+  DetourCreateHeap(TRUE);
+  LONG status = DetourTransactionBegin(TRUE);
   if (status != NO_ERROR) {
     Log("DetourTransactionBegin failed with %08x\n", status);
-    return status;
+    return status == NO_ERROR;
   }
+  DetourUpdateAllOtherThreads();
 
-  if (callback()) {
+  if (callback(pdetour_target, detour_destination)) {
     status = DetourTransactionCommit();
     if (status != NO_ERROR) {
       Log("DetourTransactionCommit failed with %08x\n", status);
@@ -73,7 +82,7 @@ bool DetourTransaction(std::function<bool()> callback) {
 // This class manages one dynamically-allocated region that is allocated by
 // the Detours API `DetourAllocateRegionWithinJumpBounds`, to which we can
 // push binary data sequentially to use it as a detour function.
-class CodeRegionFactory final {
+class CodeRegionFactory /*final*/ {
   template <typename T>
   static const T *at(const void *base, uint32_t offset) {
     return
@@ -88,14 +97,24 @@ class CodeRegionFactory final {
         reinterpret_cast<uint8_t*>(base) + offset);
   }
 
-  void *region_ = nullptr;
-  uint8_t *current_ = nullptr,
-          *current_end_ = nullptr;
+  void *region_;
+  uint8_t *current_,*current_end_;
 
 public:
+    void Init()
+    {
+		region_ = nullptr;
+        current_ = nullptr;
+		current_end_ = nullptr;
+    }
+    CodeRegionFactory()
+    {
+        Init();
+    }
   CodeRegionFactory(const void *source) {
+    Init();
     DWORD new_region_size = 0;
-    auto new_region_address =
+    PVOID new_region_address =
       DetourAllocateRegionWithinJumpBounds(source, &new_region_size);
     if (new_region_address) {
       region_ = current_ = at<uint8_t>(new_region_address, 0);
@@ -117,55 +136,67 @@ public:
   // the start address of a copy in the region if succeeded.
   void *PushTemplate(const void *start,
                      const void *end) {
-    auto diff = at<uint8_t>(end, 0) - at<uint8_t>(start, 0);
+    INT_PTR diff = at<uint8_t>(end, 0) - at<uint8_t>(start, 0);
     if (diff < 0 || current_ + diff > current_end_)
       return nullptr;
-    auto start_pos = current_;
+    uint8_t* start_pos = current_;
     memcpy(start_pos, start, diff);
     current_ += diff;
     return start_pos;
   }
 };
 
+static bool is_detoured = false;
+bool callback_attach(PVOID* pdetour_target, PVOID detour_destination) {
+	PDETOUR_TRAMPOLINE trampoline = nullptr;
+	void* target = nullptr,
+		* detour = nullptr;
+	LONG status = DetourAttachEx(pdetour_target,
+		detour_destination,
+		&trampoline,
+		&target,
+		&detour);
+	if (status != NO_ERROR) {
+		Log("DetourAttachEx failed - %08x\n", status);
+		return false;
+	}
+	is_detoured = true;
+	std::cout
+		<< "detour: " << target << " --> " << detour
+		<< " (trampoline: " << trampoline << " )"
+		<< std::endl;
+	return true;
+}
+
+bool callback_detach(PVOID* pdetour_target, PVOID detour_destination) {
+	LONG status = DetourDetach(pdetour_target, detour_destination);
+	if (status != NO_ERROR) {
+		Log("DetourDetach failed - %08x\n", status);
+		return false;
+	}
+	return true;
+}
+
 int main(int, char**) {
   std::cout << "1. target_function() without Detour" << std::endl;
-  auto ret = target_function();
+  void* ret = target_function();
   std::cout << ret << std::endl;
   assert(!ret);
 
   CodeRegionFactory factory(target_function);
 
-  void *detour_destination,
+  void *detour_destination = nullptr,
        *detour_target = reinterpret_cast<void*>(target_function);
 
   // Fill the allocated page with as many instances as possible of the code
   // template, and pick the last instance
-  while (auto p = factory.PushTemplate(CodeTemplate,
+  while (void* p = factory.PushTemplate(CodeTemplate,
                                        CodeTemplate_End)) {
     detour_destination = p;
   }
 
-  bool is_detoured = false;
-  DetourTransaction([&]() {
-    PDETOUR_TRAMPOLINE trampoline = nullptr;
-    void *target = nullptr,
-         *detour = nullptr;
-    auto status = DetourAttachEx(&detour_target,
-                                 detour_destination,
-                                 &trampoline,
-                                 &target,
-                                 &detour);
-    if (status != NO_ERROR) {
-      Log("DetourAttachEx failed - %08x\n", status);
-      return false;
-    }
-    is_detoured = true;
-    std::cout
-      << "detour: " << target << " --> " << detour
-      << " (trampoline: " << trampoline << " )"
-      << std::endl;
-    return true;
-  });
+  DetourCreateHeap(TRUE);
+  DetourTransaction(callback_attach, &detour_target, detour_destination);
 
   // Attach failed for some reason.  Bail out.
   if (!is_detoured)
@@ -176,14 +207,7 @@ int main(int, char**) {
   std::cout << ret << std::endl;
   assert(ret); // The return value is cracked by the detour function
 
-  DetourTransaction([&]() {
-    auto status = DetourDetach(&detour_target, detour_destination);
-    if (status != NO_ERROR) {
-      Log("DetourDetach failed - %08x\n", status);
-      return false;
-    }
-    return true;
-  });
+  DetourTransaction(callback_detach, &detour_target, detour_destination);
 
   std::cout << "3. target_function() without Detour" << std::endl;
   ret = target_function();
