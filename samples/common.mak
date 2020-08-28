@@ -23,7 +23,7 @@ CLIB=/MT
 !ENDIF
 
 AFLAGS=/nologo /Zi /c /Fl
-CFLAGS=/nologo /Zi $(CLIB) /Gm- /W4 /WX /Od
+CFLAGS=/nologo /Zi $(CLIB) /Gm- /W4 /WX /we4777 /Od
 
 !IF $(DETOURS_SOURCE_BROWSING)==1
 CFLAGS=$(CFLAGS) /FR

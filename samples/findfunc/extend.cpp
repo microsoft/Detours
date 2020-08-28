@@ -24,9 +24,9 @@ static DWORD WINAPI Extend(DWORD dwCount)
 {
     InterlockedIncrement(&nExtends);
 
-    printf("extend.dll: Extend    (%d) -> %d.\n", dwCount, dwCount + 1000);
+    printf("extend.dll: Extend    (%ld) -> %ld.\n", dwCount, dwCount + 1000);
     dwCount = TrueTarget(dwCount + 1000);
-    printf("extend.dll: Extend    (.....) -> %d.\n", dwCount);
+    printf("extend.dll: Extend    (.....) -> %ld.\n", dwCount);
     return dwCount;
 }
 
@@ -35,9 +35,9 @@ static DWORD WINAPI Intern(DWORD dwCount)
 {
     InterlockedIncrement(&nInterns);
 
-    printf("extend.dll:    Intern (%d) -> %d.\n", dwCount, dwCount + 10);
+    printf("extend.dll:    Intern (%ld) -> %ld.\n", dwCount, dwCount + 10);
     dwCount = TrueHidden(dwCount + 10);
-    printf("extend.dll:    Intern (.....) -> %d.\n", dwCount);
+    printf("extend.dll:    Intern (.....) -> %ld.\n", dwCount);
     return dwCount;
 }
 
@@ -60,7 +60,7 @@ static int WINAPI ExtendEntryPoint()
         printf("extend.dll: Detoured Target().\n");
     }
     else {
-        printf("extend.dll: Error detouring Target(): %d\n", error);
+        printf("extend.dll: Error detouring Target(): %ld\n", error);
     }
 
     // Now try to detour the functions requiring debug symbols.
@@ -69,7 +69,7 @@ static int WINAPI ExtendEntryPoint()
         DetourFindFunction("target.dll", "Hidden");
     if (TrueHidden == NULL) {
         error = GetLastError();
-        printf("extend.dll: TrueHidden = %p (error = %d)\n", TrueHidden, error);
+        printf("extend.dll: TrueHidden = %p (error = %ld)\n", TrueHidden, error);
     }
 
     DetourTransactionBegin();
@@ -81,7 +81,7 @@ static int WINAPI ExtendEntryPoint()
         printf("extend.dll: Detoured Hidden().\n");
     }
     else {
-        printf("extend.dll: Error detouring Hidden(): %d\n", error);
+        printf("extend.dll: Error detouring Hidden(): %ld\n", error);
     }
 
     // Now let the application start executing.
@@ -120,7 +120,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
             printf("extend.dll: Detoured EntryPoint().\n");
         }
         else {
-            printf("extend.dll: Error detouring EntryPoint(): %d\n", error);
+            printf("extend.dll: Error detouring EntryPoint(): %ld\n", error);
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
@@ -141,7 +141,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         DetourDetach(&(PVOID&)TrueEntryPoint, ExtendEntryPoint);
         error = DetourTransactionCommit();
 
-        printf("extend.dll: Removed Target() detours (%d), %d/%d calls.\n",
+        printf("extend.dll: Removed Target() detours (%ld), %ld/%ld calls.\n",
                error, nExtends, nInterns);
 
         fflush(stdout);

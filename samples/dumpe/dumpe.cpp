@@ -39,7 +39,7 @@ do { if (!(x)) { DetourAssertMessage(#x, __FILE__, __LINE__); PCHAR p=(PCHAR)(x)
 //
 VOID DetourAssertMessage(CONST PCHAR szMsg, CONST PCHAR szFile, DWORD nLine)
 {
-    printf("ASSERT(%s) failed in %s, line %d.", szMsg, szFile, nLine);
+    printf("ASSERT(%s) failed in %s, line %ld.", szMsg, szFile, nLine);
 }
 
 
@@ -51,7 +51,7 @@ static BOOL CALLBACK ExportCallback(PVOID pContext,
 {
     (void)pContext;
 
-    printf("    %7d      %p %-30s\n",
+    printf("    %7ld      %p %-30s\n",
            (ULONG)nOrdinal,
            pbTarget,
            pszSymbol ? pszSymbol : "[NONAME]");
@@ -62,7 +62,7 @@ BOOL DumpFile(PCHAR pszPath)
 {
     HINSTANCE hInst = LoadLibraryA(pszPath);
     if (hInst == NULL) {
-        printf("Unable to load %s: Error %d\n", pszPath, GetLastError());
+        printf("Unable to load %s: Error %ld\n", pszPath, GetLastError());
         return FALSE;
     }
 

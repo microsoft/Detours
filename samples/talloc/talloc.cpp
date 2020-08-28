@@ -227,7 +227,7 @@ BOOL DumpProcess(UINT64 lo64, UINT64 hi64)
             }
         }
 
-        printf("%c %12Ix %12Ix: %3s %3s %4s %3s : %s\n",
+        printf("%c %12zx %12zx: %3s %3s %4s %3s : %s\n",
                " *"[base == (size_t)mbi.AllocationBase],
                base,
                size,
@@ -415,7 +415,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     error = DetourTransactionCommit();
     if (error != NO_ERROR) {
       failed:
-        printf("talloc.exe: Error detouring functions: %d\n", error);
+        printf("talloc.exe: Error detouring functions: %ld\n", error);
         exit(1);
     }
 
@@ -487,17 +487,17 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     printf("\n");
 
     DumpProcessHeaders();
-    printf("%-47s %17Ix\n", "Exe:", (size_t)GetModuleHandleW(NULL));
+    printf("%-47s %17zx\n", "Exe:", (size_t)GetModuleHandleW(NULL));
     DumpProcess(0x100000000, 0x200000000);
-    printf("%-47s %17Ix\n", "Dll1:", Dll1);
+    printf("%-47s %17zx\n", "Dll1:", Dll1);
     DumpProcess(0x200000000, 0x300000000);
-    printf("%-47s %17Ix\n", "Dll2:", Dll2);
+    printf("%-47s %17zx\n", "Dll2:", Dll2);
     DumpProcess(0x300000000, 0x400000000);
-    printf("%-47s %17Ix\n", "Dll3:", Dll3);
+    printf("%-47s %17zx\n", "Dll3:", Dll3);
     DumpProcess(0x400000000, 0x500000000);
-    printf("%-47s %17Ix\n", "Dll4:", Dll4);
+    printf("%-47s %17zx\n", "Dll4:", Dll4);
     DumpProcess(0x500000000, 0x600000000);
-    printf("%-47s %17Ix\n", "Dll5:", Dll5);
+    printf("%-47s %17zx\n", "Dll5:", Dll5);
     DumpProcess(0x600000000, 0x700000000);
     fflush(stdout);
 
@@ -531,7 +531,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     }
 
     printf("\n");
-    printf("talloc.exe: %d calls to Dll1Function\n", dwCountDll1);
+    printf("talloc.exe: %ld calls to Dll1Function\n", dwCountDll1);
     fflush(stdout);
 
     return 0;
