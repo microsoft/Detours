@@ -91,10 +91,12 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 
         DETOUR_TRACE(("ish[%d] : va=%08x sr=%d\n", i, ish.VirtualAddress, ish.SizeOfRawData));
         
-        // If the linker didn't suggest and IAT in the data directories, the loader will look for the
-        // section of the import directory to be used for this instead. Since we put out new IMPORT_DIRECTORY
-        // outside any section boundary, the loader will not find it. So we give one explicitly to avoid
-        // the search.
+        // If the linker didn't suggest and IAT in the data directories, the
+        // loader will look for the section of the import directory to be used
+        // for this instead. Since we put out new IMPORT_DIRECTORY outside any
+        // section boundary, the loader will not find it. So we provide one
+        // explicitly to avoid the search.
+        //
         if (inh.IAT_DIRECTORY.VirtualAddress == 0 &&
             inh.IMPORT_DIRECTORY.VirtualAddress >= ish.VirtualAddress &&
             inh.IMPORT_DIRECTORY.VirtualAddress < ish.VirtualAddress + ish.SizeOfRawData) {
