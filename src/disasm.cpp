@@ -325,16 +325,15 @@ PVOID WINAPI DetourCopyInstruction(_In_opt_ PVOID pDst,
 
 /////////////////////////////////////////////////////////// Disassembler Code.
 //
-CDetourDis::CDetourDis(_Out_opt_ PBYTE *ppbTarget, _Out_opt_ LONG *plExtra)
+CDetourDis::CDetourDis(_Out_opt_ PBYTE *ppbTarget, _Out_opt_ LONG *plExtra) :
+    m_bOperandOverride(FALSE),
+    m_bAddressOverride(FALSE),
+    m_bRaxOverride(FALSE),
+    m_bF2(FALSE),
+    m_bF3(FALSE),
+    m_bVex(FALSE),
+    m_bEvex(FALSE)
 {
-    m_bOperandOverride = FALSE;
-    m_bAddressOverride = FALSE;
-    m_bRaxOverride = FALSE;
-    m_bF2 = FALSE;
-    m_bF3 = FALSE;
-    m_bVex = FALSE;
-    m_bEvex = FALSE;
-
     m_ppbTarget = ppbTarget ? ppbTarget : &m_pbScratchTarget;
     m_plExtra = plExtra ? plExtra : &m_lScratchExtra;
 
@@ -3557,11 +3556,11 @@ BYTE CDetourDis::BeginCopy32(BYTE* pSource, BYTE* pDest)
 
 /////////////////////////////////////////////////////////// Disassembler Code.
 //
-CDetourDis::CDetourDis()
+CDetourDis::CDetourDis() :
+    m_pbTarget((PBYTE)DETOUR_INSTRUCTION_TARGET_NONE),
+    m_pbPool(NULL),
+    m_lExtra(0)
 {
-    m_pbTarget = (PBYTE)DETOUR_INSTRUCTION_TARGET_NONE;
-    m_pbPool = NULL;
-    m_lExtra = 0;
 }
 
 PBYTE CDetourDis::CopyInstruction(PBYTE pDst,
@@ -3962,9 +3961,9 @@ BYTE CDetourDis::PureCopy32(BYTE* pSource, BYTE* pDest)
 
 /////////////////////////////////////////////////////////// Disassembler Code.
 //
-CDetourDis::CDetourDis()
+CDetourDis::CDetourDis() :
+    m_pbTarget((PBYTE)DETOUR_INSTRUCTION_TARGET_NONE)
 {
-    m_pbTarget = (PBYTE)DETOUR_INSTRUCTION_TARGET_NONE;
 }
 
 PBYTE CDetourDis::CopyInstruction(PBYTE pDst,
