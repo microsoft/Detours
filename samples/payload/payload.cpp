@@ -1,9 +1,31 @@
+#include <cstdio>
 #include <string>
 #include <windows.h>
 #include <detours.h>
-#include <winrt/base.h>
 
 #include "payloadguid.hpp"
+
+HANDLE hChildProcess = NULL;
+HANDLE hChildThread = NULL;
+
+__declspec(noreturn) void HandleApiFailure(const char* api)
+{
+	printf("payload.exe: %s failed (%u)", api, GetLastError());
+	fflush(stdout);
+
+	if (hChildThread != NULL)
+	{
+		CloseHandle(hChildThread);
+	}
+
+	if (hChildProcess != NULL)
+	{
+		TerminateProcess(hChildProcess, 1);
+		CloseHandle(hChildProcess);
+	}
+
+	ExitProcess(1);
+}
 
 std::wstring GetProcessFileName(HANDLE process)
 {
@@ -12,22 +34,16 @@ std::wstring GetProcessFileName(HANDLE process)
 	std::wstring exeLocation;
 	exeLocation.resize(exeLocation_size);
 
-	winrt::check_bool(QueryFullProcessImageNameW(process, 0, exeLocation.data(), &exeLocation_size));
+	if (!QueryFullProcessImageNameW(process, 0, &exeLocation[0], &exeLocation_size))
+	{
+		HandleApiFailure("QueryFullProcessImageNameW");
+	}
 
 	exeLocation.resize(exeLocation_size);
 	return exeLocation;
 }
 
-template<typename T>
-volatile T* InjectPayload(HANDLE hProcess, T payload, REFGUID guid)
-{
-	auto newPayload = static_cast<volatile T*>(DetourCopyPayloadToProcessEx(hProcess, guid, &payload, sizeof(payload)));
-	winrt::check_bool(newPayload);
-
-	return newPayload;
-}
-
-int main()
+void StartChild()
 {
 	std::wstring target = GetProcessFileName(GetCurrentProcess());
 	target.erase(target.rfind(L'\\') + 1);
@@ -35,32 +51,81 @@ int main()
 
 	STARTUPINFOW si = { sizeof(si) };
 	PROCESS_INFORMATION pi;
-	winrt::check_bool(CreateProcessW(target.c_str(), nullptr, nullptr, nullptr, false, CREATE_SUSPENDED, nullptr, nullptr, &si, &pi));
-	winrt::handle hProcess(pi.hProcess);
-	winrt::handle hThread(pi.hThread);
+	if (!CreateProcessW(target.c_str(), NULL, NULL, NULL, false,
+		CREATE_SUSPENDED, NULL, NULL, &si, &pi))
+	{
+		HandleApiFailure("CreateProcessW");
+	}
+
+	hChildProcess = pi.hProcess;
+	hChildThread = pi.hThread;
+}
+
+template<typename T>
+volatile T* InjectPayload(HANDLE hProcess, T payload, REFGUID guid)
+{
+	return static_cast<volatile T*>(
+		DetourCopyPayloadToProcessEx(hProcess,guid, &payload, sizeof(payload)));
+}
+
+int main()
+{
+	StartChild();
 
 	// give the child a handle to ourself
 	HANDLE targetHandleToParent;
-	winrt::check_bool(DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), hProcess.get(), &targetHandleToParent, 0, false, DUPLICATE_SAME_ACCESS));
-	InjectPayload(hProcess.get(), targetHandleToParent, PARENT_HANDLE_PAYLOAD);
+	if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(),
+		hChildProcess, &targetHandleToParent, 0, false, DUPLICATE_SAME_ACCESS))
+	{
+		HandleApiFailure("DuplicateHandle");
+	}
+
+	if (!InjectPayload(hChildProcess, targetHandleToParent, PARENT_HANDLE_PAYLOAD))
+	{
+		HandleApiFailure("DetourCopyPayloadToProcessEx");
+	}
 
 	// inject a payload in ourself containing zero data
 	// the goal is for the child process to find this payload
 	// and fill it with random data, to test DetourFindRemotePayload
-	auto payloadAddr = InjectPayload<random_payload_t>(GetCurrentProcess(), 0, RANDOM_DATA_PAYLOAD);
-
-	winrt::check_bool(ResumeThread(hThread.get()));
-	if (WaitForSingleObject(hProcess.get(), INFINITE) == WAIT_FAILED)
+	volatile random_payload_t* payloadAddr =
+		InjectPayload<random_payload_t>(GetCurrentProcess(), 0, RANDOM_DATA_PAYLOAD);
+	if (!payloadAddr)
 	{
-		winrt::throw_last_error();
+		HandleApiFailure("DetourCopyPayloadToProcessEx");
+	}
+
+	if (!ResumeThread(hChildThread))
+	{
+		HandleApiFailure("ResumeThread");
+	}
+
+	CloseHandle(hChildThread);
+	hChildThread = NULL;
+
+	if (WaitForSingleObject(hChildProcess, INFINITE) == WAIT_FAILED)
+	{
+		HandleApiFailure("WaitForSingleObject");
 	}
 
 	DWORD exitCode;
-	winrt::check_bool(GetExitCodeProcess(hProcess.get(), &exitCode));
+	if (!GetExitCodeProcess(hChildProcess, &exitCode))
+	{
+		HandleApiFailure("GetExitCodeProcess");
+	}
 
 	// the exit code should match the random data the child process gave us
-	if (exitCode != *payloadAddr)
+	random_payload_t payload = *payloadAddr;
+	if (exitCode == payload)
 	{
+		printf("Success, exit code (0x%X) matches payload content (0x%X)", exitCode, payload);
+		fflush(stdout);
+		return 0;
+	}
+	else
+	{
+		printf("Error, exit code (0x%X) does not matches payload content (0x%X)", exitCode, payload);
+		fflush(stdout);
 		return 1;
 	}
 }

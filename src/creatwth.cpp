@@ -183,7 +183,7 @@ static PVOID FindDetourSectionInRemoteModule(_In_ HANDLE hProcess,
     return NULL;
 }
 
-static PVOID FindPayloadInRemoteDetoursSection(_In_ HANDLE hProcess,
+static PVOID FindPayloadInRemoteDetourSection(_In_ HANDLE hProcess,
                                                _In_ REFGUID rguid,
                                                _Out_opt_ DWORD *pcbData,
                                                _In_ PVOID pvRemoteDetoursSection)
@@ -219,18 +219,7 @@ static PVOID FindPayloadInRemoteDetoursSection(_In_ HANDLE hProcess,
             return NULL;
         }
 
-        if (section.guid.Data1 == rguid.Data1 &&
-            section.guid.Data2 == rguid.Data2 &&
-            section.guid.Data3 == rguid.Data3 &&
-            section.guid.Data4[0] == rguid.Data4[0] &&
-            section.guid.Data4[1] == rguid.Data4[1] &&
-            section.guid.Data4[2] == rguid.Data4[2] &&
-            section.guid.Data4[3] == rguid.Data4[3] &&
-            section.guid.Data4[4] == rguid.Data4[4] &&
-            section.guid.Data4[5] == rguid.Data4[5] &&
-            section.guid.Data4[6] == rguid.Data4[6] &&
-            section.guid.Data4[7] == rguid.Data4[7]) {
-
+        if (DetourAreSameGuid(section.guid, rguid)) {
             if (pcbData) {
                 *pcbData = section.cbBytes - sizeof(section);
             }
@@ -254,7 +243,7 @@ PVOID WINAPI DetourFindRemotePayload(_In_ HANDLE hProcess,
     for (HMODULE hMod = NULL; (hMod = EnumerateModulesInProcess(hProcess, hMod, &header, &pvRemoteHeader)) != NULL;) {
         PVOID pvData = FindDetourSectionInRemoteModule(hProcess, hMod, &header, pvRemoteHeader);
         if (pvData != NULL) {
-            pvData = FindPayloadInRemoteDetoursSection(hProcess, rguid, pcbData, pvData);
+            pvData = FindPayloadInRemoteDetourSection(hProcess, rguid, pcbData, pvData);
             if (pvData != NULL) {
                 return pvData;
             }

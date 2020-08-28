@@ -9,8 +9,7 @@
 
 !include ..\common.mak
 
-CFLAGS=$(CFLAGS) /std:c++17 /EHsc
-LIBS=$(LIBS) kernel32.lib runtimeobject.lib oleaut32.lib
+LIBS=$(LIBS) kernel32.lib
 
 all: dirs \
     $(BIND)\payload.exe \

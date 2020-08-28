@@ -1115,6 +1115,8 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
                                             _In_  SIZE_T nSize,
                                             _In_  DWORD dwNewProtect,
                                             _Out_ PDWORD pdwOldProtect);
+
+BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right);
 #ifdef __cplusplus
 }
 #endif // __cplusplus

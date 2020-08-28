@@ -789,18 +789,7 @@ PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
         for (pbData = pbBeg; pbData < pbEnd;) {
             DETOUR_SECTION_RECORD *pSection = (DETOUR_SECTION_RECORD *)pbData;
 
-            if (pSection->guid.Data1 == rguid.Data1 &&
-                pSection->guid.Data2 == rguid.Data2 &&
-                pSection->guid.Data3 == rguid.Data3 &&
-                pSection->guid.Data4[0] == rguid.Data4[0] &&
-                pSection->guid.Data4[1] == rguid.Data4[1] &&
-                pSection->guid.Data4[2] == rguid.Data4[2] &&
-                pSection->guid.Data4[3] == rguid.Data4[3] &&
-                pSection->guid.Data4[4] == rguid.Data4[4] &&
-                pSection->guid.Data4[5] == rguid.Data4[5] &&
-                pSection->guid.Data4[6] == rguid.Data4[6] &&
-                pSection->guid.Data4[7] == rguid.Data4[7]) {
-
+            if (DetourAreSameGuid(pSection->guid, rguid)) {
                 if (pcbData) {
                     *pcbData = pSection->cbBytes - sizeof(*pSection);
                 }
