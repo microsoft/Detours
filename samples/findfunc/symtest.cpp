@@ -248,7 +248,7 @@ int __cdecl main(void)
 
     /////////////////////////////////////////////// First, try GetProcAddress.
     //
-    PCHAR pszFile = "target.dll";
+    PCHAR pszFile = "target" DETOURS_STRINGIFY(DETOURS_BITS) ".dll";
     HMODULE hModule = LoadLibraryA(pszFile);
     if (hModule == NULL) {
         printf("LoadLibraryA(%s) failed: %ld\n", pszFile, GetLastError());

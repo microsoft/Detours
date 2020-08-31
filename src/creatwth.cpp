@@ -1324,8 +1324,6 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
         }
 
         ResumeThread(pi.hThread);
-
-        ResumeThread(pi.hThread);
         WaitForSingleObject(pi.hProcess, INFINITE);
 
         DWORD dwResult = 500;
