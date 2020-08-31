@@ -415,11 +415,12 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
         if (after != &mov_r10_imm64 + 1)
         {
             printf("mov_r10_imm64 failed, expected:%p vs. got:%p\n", &mov_r10_imm64 + 1, after);
-            __debugbreak();
             if (IsDebuggerPresent())
             {
+                __debugbreak();
                 DetourCopyInstructionX64(0, 0, const_cast<PUCHAR>(mov_r10_imm64), 0, 0);
             }
+            return 1;
         }
     }
 
