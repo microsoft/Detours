@@ -130,7 +130,7 @@ VOID PingAssertMessage(CONST PCHAR szMsg, CONST PCHAR szFile, ULONG nLine)
 {
     PingMessage("%08lx ASSERT(%s) failed in %s, line %d.\n",
                 GetCurrentThreadId(), szMsg, szFile, nLine);
-    printf("ASSERT(%s) failed in %s, line %d.\n", szMsg, szFile, nLine);
+    printf("ASSERT(%s) failed in %s, line %ld.\n", szMsg, szFile, nLine);
 }
 
 BOOLEAN CheckResult(HRESULT hr, PCSTR pszMsg, ...)
@@ -341,7 +341,7 @@ VOID ZeroCycles(VOID)
 VOID DumpCycles(LONG nRoute)
 {
     if (s_rllCycles[nRoute] != 0 || s_rllTotals[nRoute] != 0) {
-        printf(";;   %-21.21s %10I64d %8.3fms %10I64d %8.3fms :%6d\n",
+        printf(";;   %-21.21s %10I64d %8.3fms %10I64d %8.3fms :%6ld\n",
                s_rszRouteNames[nRoute],
                s_rllCycles[nRoute], (double)s_rllCycles[nRoute] * g_dMsPerCycle,
                s_rllTotals[nRoute], (double)s_rllTotals[nRoute] * g_dMsPerCycle,
@@ -1456,7 +1456,7 @@ HRESULT CSampleRecord::Write()
     FileTimeToLocalFileTime(&m_nWhen, &ft);
     FileTimeToSystemTime(&ft, &st);
 
-    printf("%02d/%02d %2d:%02d:%02d %6d %d %6.3f [ %6.3f %6.3f %6.3f %6.3f ]\n",
+    printf("%02d/%02d %2d:%02d:%02d %6ld %ld %6.3f [ %6.3f %6.3f %6.3f %6.3f ]\n",
            st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
            m_cbToClient, m_cbToServer, m_dTime,
            m_dDcom, m_dRpc, m_dUdp, m_dNet);
@@ -1479,10 +1479,10 @@ double NetTest(HKEY hNetwork, IPing *pIPing,
     ULONG nMin = 999;
 
     if (fToClient) {
-        printf(">Client %6d %6d ", cbPacket, nCount);
+        printf(">Client %6ld %6ld ", cbPacket, nCount);
     }
     else {
-        printf(">Server %6d %6d ", cbPacket, nCount);
+        printf(">Server %6ld %6ld ", cbPacket, nCount);
     }
 
     for (LONG n = 0; n < nCount; n++) {
@@ -1545,7 +1545,7 @@ double NetTest(HKEY hNetwork, IPing *pIPing,
         RegSetValueW(hNetwork, wzKey, REG_SZ, wzLatency, (DWORD)wcssize(wzLatency));
     }
 
-    printf("%8.3f %8.3f %8.3f %9.4f %8.3f %9.4f%3d\n",
+    printf("%8.3f %8.3f %8.3f %9.4f %8.3f %9.4f%3ld\n",
            msMin,
            msAvg,
            msMax,
@@ -1602,7 +1602,7 @@ void Sample_Fixed(IPing *pIPing)
     }
 
     dAvg /= 512;
-    printf("size: %d, min: %.3f, max: %.3f avg: %.3f [ %8.3f %8.3f %8.3f %8.3f ]\n",
+    printf("size: %ld, min: %.3f, max: %.3f avg: %.3f [ %8.3f %8.3f %8.3f %8.3f ]\n",
            g_nFixedToClient, dMin, dMax, dAvg, dMinDcom, dMinRpc, dMinUdp, dMinNet);
     for (int n = 0; n < nRecords; n++) {
         csrRecords[n].Write();

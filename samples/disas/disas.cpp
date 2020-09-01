@@ -510,7 +510,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     printf("%p:\n", pbBegin);
     for (PBYTE pbTest = pbBegin;;) {
         if (pbTest[0] != 0xcc) {    // int 3
-            printf("%08x  ", (ULONG)(pbTest - pbBegin));
+            printf("%08lx  ", (ULONG)(pbTest - pbBegin));
             DumpMemoryFragment(pbTest, 8, 8);
             printf("\n");
             printf("failed on last.\n");
@@ -530,7 +530,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
 
         LONG cbTest = (LONG)(pbNext - pbTest);
 
-        printf("%08x  ", (ULONG)(pbTest - pbBegin));
+        printf("%08lx  ", (ULONG)(pbTest - pbBegin));
         DumpMemoryFragment(pbTest, cbTest, 12);
         printf("[%16p] ", pbTarget);
         DumpMemoryFragment(rbDst, cbTest + lExtra, 11);

@@ -92,11 +92,11 @@ int __cdecl main(void)
     DetourUpdateThread(GetCurrentThread());
     DetourDetach(&(PVOID&)TrueSleepEx, TimedSleepEx);
     error = DetourTransactionCommit();
-    printf("sleepbed.exe: Removed SleepEx() detour (%d), slept %d ticks.\n",
+    printf("sleepbed.exe: Removed SleepEx() detour (%d), slept %ld ticks.\n",
            error, dwSlept);
     fflush(stdout);
 
-    printf("sleepbed.exe: GetSleptTicks() = %d\n\n", GetSleptTicks());
+    printf("sleepbed.exe: GetSleptTicks() = %ld\n\n", GetSleptTicks());
     return error;
 }
 //
