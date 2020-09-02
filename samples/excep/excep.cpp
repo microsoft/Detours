@@ -22,7 +22,7 @@ static DWORD    s_dwDataPerm = 0;
 
 static LONG ExceptCatch(LONG nTry, DWORD dwException, LPEXCEPTION_POINTERS pinfo)
 {
-    printf("      ExceptCatch(%d, %08x, %08x)\n", nTry, dwException, (ULONG)pinfo);
+    printf("      ExceptCatch(%ld, %08lx, %08lx)\n", nTry, dwException, (ULONG)pinfo);
 #ifdef INCLUDE_THIS
     if (nTry == 0) {
         return EXCEPTION_CONTINUE_EXECUTION;
@@ -34,11 +34,11 @@ static LONG ExceptCatch(LONG nTry, DWORD dwException, LPEXCEPTION_POINTERS pinfo
 static int BadCode(int nTry)
 {
     printf("    BadCode(Try:%d)\n", nTry);
-    printf("      BadCode -> %d\n", *(PULONG)s_pvData);
+    printf("      BadCode -> %ld\n", *(PULONG)s_pvData);
     ((PULONG)s_pvData)[0] = 0;
-    printf("      BadCode -> %d\n", *(PULONG)s_pvData);
+    printf("      BadCode -> %ld\n", *(PULONG)s_pvData);
     ((PULONG)s_pvData)[-1] = 0;
-    printf("      BadCode -> %d\n", *(PULONG)s_pvData);
+    printf("      BadCode -> %ld\n", *(PULONG)s_pvData);
 
     return 0;
 }
@@ -54,7 +54,7 @@ void safe(int nTry)
                            GetExceptionInformation())) {
         DWORD dwExcept = GetExceptionCode();
 
-        printf("  handler(%d) : %08x\n", nTry, dwExcept);
+        printf("  handler(%d) : %08lx\n", nTry, dwExcept);
     }
 }
 
@@ -90,7 +90,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
 
     s_pvData = VirtualAlloc(NULL, sizeof(ULONG), MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     if (s_pvData == NULL) {
-        printf("VirtualAlloc failed: %d\n", GetLastError());
+        printf("VirtualAlloc failed: %ld\n", GetLastError());
         return 0;
     }
     *(PULONG)s_pvData = 1;

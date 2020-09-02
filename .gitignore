@@ -260,3 +260,23 @@ compile_commands.json
 CTestTestfile.cmake
 build/
 build.*/
+
+# C extensions
+*.so
+
+# Unit test / coverage reports
+.coverage
+.tox
+nosetests.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# vim
+*~
+*.swp

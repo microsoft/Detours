@@ -87,6 +87,8 @@ all:
 !ENDIF
     cd "$(MAKEDIR)\impmunge"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
+    cd "$(MAKEDIR)\dynamic_alloc"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)"
 
 clean:
@@ -147,6 +149,8 @@ clean:
     cd "$(MAKEDIR)\tryman"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\impmunge"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
+    cd "$(MAKEDIR)\dynamic_alloc"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)"
     -rmdir lib32 2>nul
@@ -211,6 +215,8 @@ realclean:
     cd "$(MAKEDIR)\tryman"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\impmunge"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
+    cd "$(MAKEDIR)\dynamic_alloc"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)"
     -rmdir lib32 2>nul
@@ -292,6 +298,8 @@ test:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
 !ENDIF
     cd "$(MAKEDIR)\impmunge"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
+    cd "$(MAKEDIR)\dynamic_alloc"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
     cd "$(MAKEDIR)"
 

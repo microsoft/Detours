@@ -23,7 +23,7 @@ CLIB=/MT
 !ENDIF
 
 AFLAGS=/nologo /Zi /c /Fl
-CFLAGS=/nologo /Zi $(CLIB) /Gm- /W4 /WX /Od
+CFLAGS=/nologo /Zi $(CLIB) /Gm- /W4 /WX /we4777 /we4800 /Od
 
 !IF $(DETOURS_SOURCE_BROWSING)==1
 CFLAGS=$(CFLAGS) /FR
@@ -80,7 +80,7 @@ LIBS = $(DEPS)
 !endif
 
 .rc{$(OBJD)}.res:
-    rc /DDETOURS_BITS=$(DETOURS_BITS) /fo$(@) /i$(INCD) $(*B).rc
+    rc /nologo /DDETOURS_BITS=$(DETOURS_BITS) /fo$(@) /i$(INCD) $(*B).rc
 
 ##
 ################################################################# End of File.

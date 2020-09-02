@@ -7,32 +7,13 @@
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
 
-#if _MSC_VER >= 1900
-#pragma warning(push)
-#pragma warning(disable:4091) // empty typedef
-#endif
-#define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS 1
-#define _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE 1
-#include <windows.h>
-#include <stddef.h>
-#pragma warning(push)
-#if _MSC_VER > 1400
-#pragma warning(disable:6102 6103) // /analyze warnings
-#endif
-#include <strsafe.h>
-#pragma warning(pop)
-
 // #define DETOUR_DEBUG 1
 #define DETOURS_INTERNAL
-
 #include "detours.h"
+#include <stddef.h>
 
 #if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
-#endif
-
-#if _MSC_VER >= 1900
-#pragma warning(pop)
 #endif
 
 #define IMPORT_DIRECTORY OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT]
@@ -497,7 +478,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     }
 
     // Remove the import table.
-    if (der.pclr != NULL && (der.clr.Flags & 1)) {
+    if (der.pclr != NULL && (der.clr.Flags & COMIMAGE_FLAGS_ILONLY)) {
         inh64.IMPORT_DIRECTORY.VirtualAddress = 0;
         inh64.IMPORT_DIRECTORY.Size = 0;
 
@@ -517,6 +498,37 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     return TRUE;
 }
 #endif // DETOURS_64BIT
+
+typedef BOOL(WINAPI *LPFN_ISWOW64PROCESS)(HANDLE, PBOOL);
+
+static BOOL IsWow64ProcessHelper(HANDLE hProcess,
+                                 PBOOL Wow64Process)
+{
+#ifdef _X86_
+    if (Wow64Process == NULL) {
+        return FALSE;
+    }
+
+    // IsWow64Process is not available on all supported versions of Windows.
+    //
+    HMODULE hKernel32 = LoadLibraryW(L"KERNEL32.DLL");
+    if (hKernel32 == NULL) {
+        DETOUR_TRACE(("LoadLibraryW failed: %d\n", GetLastError()));
+        return FALSE;
+    }
+
+    LPFN_ISWOW64PROCESS pfnIsWow64Process = (LPFN_ISWOW64PROCESS)GetProcAddress(
+        hKernel32, "IsWow64Process");
+
+    if (pfnIsWow64Process == NULL) {
+        DETOUR_TRACE(("GetProcAddress failed: %d\n", GetLastError()));
+        return FALSE;
+    }
+    return pfnIsWow64Process(hProcess, Wow64Process);
+#else
+    return IsWow64Process(hProcess, Wow64Process);
+#endif
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -574,7 +586,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         bIs32BitProcess = TRUE;
     }
     else {
-        if (!IsWow64Process(hProcess, &bIs32BitProcess)) {
+        if (!IsWow64ProcessHelper(hProcess, &bIs32BitProcess)) {
             return FALSE;
         }
     }
@@ -632,8 +644,8 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
     // Try to convert a neutral 32-bit managed binary to a 64-bit managed binary.
     if (bIs32BitExe && !bIs32BitProcess) {
         if (!der.pclr                       // Native binary
-            || (der.clr.Flags & 1) == 0     // Or mixed-mode MSIL
-            || (der.clr.Flags & 2) != 0) {  // Or 32BIT Required MSIL
+            || (der.clr.Flags & COMIMAGE_FLAGS_ILONLY) == 0     // Or mixed-mode MSIL
+            || (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) != 0) {  // Or 32BIT Required MSIL
 
             SetLastError(ERROR_INVALID_HANDLE);
             return FALSE;
@@ -696,7 +708,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
     if (der.pclr != NULL) {
         DETOUR_CLR_HEADER clr;
         CopyMemory(&clr, &der.clr, sizeof(clr));
-        clr.Flags &= 0xfffffffe;    // Clear the IL_ONLY flag.
+        clr.Flags &= ~COMIMAGE_FLAGS_ILONLY;    // Clear the IL_ONLY flag.
 
         DWORD dwProtect;
         if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {
@@ -716,7 +728,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         DETOUR_TRACE(("CLR: %p..%p\n", der.pclr, der.pclr + der.cbclr));
 
 #if DETOURS_64BIT
-        if (der.clr.Flags & 0x2) { // Is the 32BIT Required Flag set?
+        if (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) { // Is the 32BIT Required Flag set?
             // X64 never gets here because the process appears as a WOW64 process.
             // However, on IA64, it doesn't appear to be a WOW process.
             DETOUR_TRACE(("CLR Requires 32-bit\n", der.pclr, der.pclr + der.cbclr));
@@ -1310,8 +1322,6 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
             CloseHandle(pi.hThread);
             goto Cleanup;
         }
-
-        ResumeThread(pi.hThread);
 
         ResumeThread(pi.hThread);
         WaitForSingleObject(pi.hProcess, INFINITE);
