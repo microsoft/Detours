@@ -26,7 +26,7 @@ int __cdecl main(void)
 
     DWORD dwCount = 10000;
     for (int i = 0; i < 3; i++) {
-        printf("findfunc.exe: Calling (%d).\n", dwCount);
+        printf("findfunc.exe: Calling (%ld).\n", dwCount);
         dwCount = Target(dwCount) + 10000;
     }
     return 0;

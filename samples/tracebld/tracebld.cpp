@@ -81,7 +81,7 @@ VOID MyErrExit(PCSTR pszMsg)
 {
     DWORD error = GetLastError();
 
-    fprintf(stderr, "TRACEBLD: Error %d in %s.\n", error, pszMsg);
+    fprintf(stderr, "TRACEBLD: Error %ld in %s.\n", error, pszMsg);
     fflush(stderr);
     exit(1);
 }
@@ -207,7 +207,7 @@ PCLIENT CreatePipeConnection(HANDLE hCompletionPort, LONG nClient)
                                  FILE_FLAG_SEQUENTIAL_SCAN,
                                  NULL);
     if (pClient->hFile == INVALID_HANDLE_VALUE) {
-        fprintf(stderr, "TRACEBLD: Error opening output file: %s: %d\n\n",
+        fprintf(stderr, "TRACEBLD: Error opening output file: %s: %ld\n\n",
                 szLogFile, GetLastError());
         fflush(stderr);
         MyErrExit("CreateFile");
@@ -527,7 +527,7 @@ DWORD main(int argc, char **argv)
     if (!DetourCreateProcessWithDllExA(szFullExe[0] ? szFullExe : NULL, szCommand,
                                        NULL, NULL, TRUE, dwFlags, NULL, NULL,
                                        &si, &pi, szDllPath, NULL)) {
-        printf("TRACEBLD: DetourCreateProcessWithDllEx failed: %d\n", GetLastError());
+        printf("TRACEBLD: DetourCreateProcessWithDllEx failed: %ld\n", GetLastError());
         ExitProcess(9007);
     }
 
@@ -547,7 +547,7 @@ DWORD main(int argc, char **argv)
 
     if (!DetourCopyPayloadToProcess(pi.hProcess, s_guidTrace,
                                     &s_Payload, sizeof(s_Payload))) {
-        printf("TRACEBLD: DetourCopyPayloadToProcess failed: %d\n", GetLastError());
+        printf("TRACEBLD: DetourCopyPayloadToProcess failed: %ld\n", GetLastError());
         ExitProcess(9008);
     }
 
@@ -557,11 +557,11 @@ DWORD main(int argc, char **argv)
 
     DWORD dwResult = 0;
     if (!GetExitCodeProcess(pi.hProcess, &dwResult)) {
-        printf("TRACEBLD: GetExitCodeProcess failed: %d\n", GetLastError());
+        printf("TRACEBLD: GetExitCodeProcess failed: %ld\n", GetLastError());
         return 9008;
     }
 
-    printf("TRACEBLD: %d processes.\n", s_nTotalClients);
+    printf("TRACEBLD: %ld processes.\n", s_nTotalClients);
 
     return dwResult;
 }

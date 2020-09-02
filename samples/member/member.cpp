@@ -93,7 +93,7 @@ int main(int argc, char **argv)
                  *(PBYTE*)&pfMine);
 
     LONG l = DetourTransactionCommit();
-    printf("DetourTransactionCommit = %d\n", l);
+    printf("DetourTransactionCommit = %ld\n", l);
     printf("\n");
 
     Verify("CMember::Target      ", *(PBYTE*)&pfTarget);

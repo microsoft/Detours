@@ -43,7 +43,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
         else {
             printf("echofx" DETOURS_STRINGIFY(DETOURS_BITS) ".dll:"
-                   " Error detouring Echo(): %d\n", error);
+                   " Error detouring Echo(): %ld\n", error);
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
@@ -53,7 +53,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         error = DetourTransactionCommit();
 
         printf("echofx" DETOURS_STRINGIFY(DETOURS_BITS) ".dll:"
-               " Removed Echo() (result=%d)\n", error);
+               " Removed Echo() (result=%ld)\n", error);
         fflush(stdout);
     }
     return TRUE;

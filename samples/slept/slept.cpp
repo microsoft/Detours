@@ -111,7 +111,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
         else {
             printf("slept" DETOURS_STRINGIFY(DETOURS_BITS) ".dll: "
-                   " Error detouring SleepEx(): %d\n", error);
+                   " Error detouring SleepEx(): %ld\n", error);
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
@@ -120,7 +120,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         DetourDetach(&(PVOID&)TrueSleepEx, TimedSleepEx);
         error = DetourTransactionCommit();
         printf("slept" DETOURS_STRINGIFY(DETOURS_BITS) ".dll: "
-               " Removed SleepEx() detour (%d), slept %d ticks.\n", error, dwSlept);
+               " Removed SleepEx() detour (%ld), slept %ld ticks.\n", error, dwSlept);
         fflush(stdout);
     }
     return TRUE;

@@ -35377,7 +35377,7 @@ LONG AttachDetours(VOID)
     PVOID *ppbFailedPointer = NULL;
     LONG error = DetourTransactionCommitEx(&ppbFailedPointer);
     if (error != 0) {
-        printf("traceapi.dll: Attach transaction failed to commit. Error %d (%p/%p)",
+        printf("traceapi.dll: Attach transaction failed to commit. Error %ld (%p/%p)",
                error, ppbFailedPointer, *ppbFailedPointer);
         return error;
     }
@@ -37059,7 +37059,7 @@ LONG DetachDetours(VOID)
         PVOID *ppbFailedPointer = NULL;
         LONG error = DetourTransactionCommitEx(&ppbFailedPointer);
 
-        printf("traceapi.dll: Detach transaction failed to commit. Error %d (%p/%p)",
+        printf("traceapi.dll: Detach transaction failed to commit. Error %ld (%p/%p)",
                error, ppbFailedPointer, *ppbFailedPointer);
         return error;
     }

@@ -101,7 +101,7 @@ int WINAPI TimedEntryPoint(VOID)
     }
     else {
         printf("wrotei" DETOURS_STRINGIFY(DETOURS_BITS) ".dll:"
-               " Error detouring IStram::Wrote(): %d\n", error);
+               " Error detouring IStram::Wrote(): %ld\n", error);
     }
 
     printf("wrotei" DETOURS_STRINGIFY(DETOURS_BITS) ".dll:"
@@ -143,7 +143,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
         else {
             printf("wrotei" DETOURS_STRINGIFY(DETOURS_BITS) ".dll:"
-                   " Error detouring EntryPoint(): %d\n", error);
+                   " Error detouring EntryPoint(): %ld\n", error);
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
@@ -156,7 +156,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         error = DetourTransactionCommit();
 
         printf("wrotei" DETOURS_STRINGIFY(DETOURS_BITS) ".dll:"
-               " Removed IStream::Wrote() detours (%d), wrote %d bytes.\n",
+               " Removed IStream::Wrote() detours (%ld), wrote %ld bytes.\n",
                error, dwWrote);
 
         fflush(stdout);
