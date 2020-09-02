@@ -516,7 +516,12 @@ namespace Detour
 	BOOL Is64BitOS()
 	{
 		BOOL bRet = FALSE;
-		VOID(WINAPI * _GetNativeSystemInfo)(OUT LPSYSTEM_INFO lpSystemInfo) = (void(__stdcall *)(LPSYSTEM_INFO))GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")), "GetNativeSystemInfo");
+        HMODULE hModule = GetModuleHandle(TEXT("kernel32.dll"));
+        if (!hModule)
+        {
+            return bRet;
+        }
+		VOID(WINAPI * _GetNativeSystemInfo)(OUT LPSYSTEM_INFO lpSystemInfo) = (void(__stdcall *)(LPSYSTEM_INFO))GetProcAddress(hModule, "GetNativeSystemInfo");
 		if (!_GetNativeSystemInfo)
 		{
 			return bRet;
@@ -540,14 +545,18 @@ namespace Detour
 		{
 			if (Is64BitOS())
 			{
-				static BOOL(WINAPI * _IsWow64Process)(IN  HANDLE hProcess,
-					OUT  PBOOL Wow64Process)
-					= (BOOL(__stdcall *)(HANDLE, PBOOL))GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")), "IsWow64Process");
-				BOOL bX86ProcessRunAt64BitOS;
-				if (_IsWow64Process && _IsWow64Process(hProcess, &bX86ProcessRunAt64BitOS) && bX86ProcessRunAt64BitOS == FALSE)
-				{
-					bRet = TRUE;
-				}
+                HMODULE hModule = GetModuleHandle(TEXT("kernel32.dll"));
+                if (hModule)
+                {
+					BOOL(WINAPI * _IsWow64Process)(IN  HANDLE hProcess,
+						OUT  PBOOL Wow64Process)
+						= (BOOL(__stdcall*)(HANDLE, PBOOL))GetProcAddress(hModule, "IsWow64Process");
+					BOOL bX86ProcessRunAt64BitOS;
+					if (_IsWow64Process && _IsWow64Process(hProcess, &bX86ProcessRunAt64BitOS) && bX86ProcessRunAt64BitOS == FALSE)
+					{
+						bRet = TRUE;
+					}
+                }
 			}
 		}
 		return bRet;
