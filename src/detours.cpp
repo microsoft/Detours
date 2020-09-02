@@ -2260,13 +2260,19 @@ static PZwQuerySystemInformation fnZwQuerySystemInformation = NULL;
 //=========================================================================
 static BOOL CreateProcessSnapshot(VOID** snapshotContext)
 {
+    HMODULE hModule = NULL;
 	ULONG   cbBuffer = 1024 * 1024;  // 1Mb - default process information buffer size (that's enough in most cases for high-loaded systems)
 	LPVOID  pBuffer = NULL;
 	NTSTATUS status = 0;
 
 	if (!fnZwQuerySystemInformation)
 	{
-		fnZwQuerySystemInformation = (PZwQuerySystemInformation)GetProcAddress(GetModuleHandle(TEXT("ntdll.dll")), "ZwQuerySystemInformation");
+        hModule = GetModuleHandle(TEXT("ntdll.dll"));
+		if (!hModule)
+		{
+			return FALSE;
+		}
+		fnZwQuerySystemInformation = (PZwQuerySystemInformation)GetProcAddress(hModule, "ZwQuerySystemInformation");
 		if (!fnZwQuerySystemInformation)
 		{
 			return FALSE;
