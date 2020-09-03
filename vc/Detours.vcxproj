@@ -43,49 +43,49 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|Win32'" Label="Configuration">
-    <ConfigurationType>Utility</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|Win32'" Label="Configuration">
-    <ConfigurationType>Utility</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|x64'" Label="Configuration">
-    <ConfigurationType>Utility</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|ARM'" Label="Configuration">
-    <ConfigurationType>Utility</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|ARM64'" Label="Configuration">
-    <ConfigurationType>Utility</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|x64'" Label="Configuration">
-    <ConfigurationType>Utility</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|ARM'" Label="Configuration">
-    <ConfigurationType>Utility</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|ARM64'" Label="Configuration">
-    <ConfigurationType>Utility</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -119,13 +119,102 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|ARM64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|x64'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|ARM'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|ARM64'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|x64'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|ARM'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|Win32'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|Win32'" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|x64'">
+    <NMakeBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean
+nmake</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean</NMakeCleanCommandLine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|ARM'">
+    <NMakeBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean
+nmake</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean</NMakeCleanCommandLine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|ARM64'">
+    <NMakeBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean
+nmake</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean</NMakeCleanCommandLine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|x64'">
+    <NMakeBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean
+nmake</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean</NMakeCleanCommandLine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|ARM'">
+    <NMakeBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean
+nmake</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean</NMakeCleanCommandLine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|Win32'">
+    <NMakeBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean
+nmake</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean</NMakeCleanCommandLine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|Win32'">
+    <NMakeBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean
+nmake</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean</NMakeCleanCommandLine>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseMD|ARM64'">
+    <NMakeBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean
+nmake</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
+cd ..
+nmake clean</NMakeCleanCommandLine>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugMDd|Win32'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
@@ -142,7 +231,7 @@
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
-      <Command>SET DETOURS_TARGET_PROCESSOR=X86
+      <Command>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
 cd ..
 nmake</Command>
     </PreBuildEvent>
@@ -166,7 +255,7 @@ nmake</Command>
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
-      <Command>SET DETOURS_TARGET_PROCESSOR=X64
+      <Command>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
 cd ..
 nmake</Command>
     </PreBuildEvent>
@@ -192,7 +281,7 @@ nmake</Command>
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
-      <Command>SET DETOURS_TARGET_PROCESSOR=ARM
+      <Command>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
 cd ..
 nmake</Command>
     </PreBuildEvent>
@@ -218,7 +307,7 @@ nmake</Command>
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
-      <Command>SET DETOURS_TARGET_PROCESSOR=ARM64
+      <Command>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
 cd ..
 nmake</Command>
     </PreBuildEvent>
@@ -242,7 +331,7 @@ nmake</Command>
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
-      <Command>SET DETOURS_TARGET_PROCESSOR=X86
+      <Command>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
 cd ..
 nmake</Command>
     </PreBuildEvent>
@@ -268,7 +357,7 @@ nmake</Command>
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
-      <Command>SET DETOURS_TARGET_PROCESSOR=X64
+      <Command>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
 cd ..
 nmake</Command>
     </PreBuildEvent>
@@ -296,7 +385,7 @@ nmake</Command>
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
-      <Command>SET DETOURS_TARGET_PROCESSOR=ARM
+      <Command>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
 cd ..
 nmake</Command>
     </PreBuildEvent>
@@ -324,7 +413,7 @@ nmake</Command>
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
-      <Command>SET DETOURS_TARGET_PROCESSOR=ARM64
+      <Command>SET DETOURS_TARGET_PROCESSOR=$(PlatformTarget)
 cd ..
 nmake</Command>
     </PreBuildEvent>
