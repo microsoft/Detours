@@ -538,9 +538,8 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 {
     // Find the next memory region that contains a mapped PE image.
     //
-    BOOL bHas64BitDll = FALSE;
-    BOOL bHas32BitExe = FALSE;
     BOOL bIs32BitProcess;
+    BOOL bIs64BitOS = FALSE;
     HMODULE hModule = NULL;
     HMODULE hLast = NULL;
 
@@ -558,19 +557,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 
         if ((inh.FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
             hModule = hLast;
-            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC
-                && inh.FileHeader.Machine != 0) {
-
-                bHas32BitExe = TRUE;
-            }
             DETOUR_TRACE(("%p  Found EXE\n", hLast));
-        }
-        else {
-            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC
-                && inh.FileHeader.Machine != 0) {
-
-                bHas64BitDll = TRUE;
-            }
         }
     }
 
@@ -579,16 +566,34 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         return FALSE;
     }
 
-    if (!bHas32BitExe) {
-        bIs32BitProcess = FALSE;
+    // Determine if the target process is 32bit or 64bit. This is a two-stop process:
+    //
+    // 1. First, determine if we're running on a 64bit operating system.
+    //   - If we're running 64bit code (i.e. _WIN64 is defined), this is trivially true.
+    //   - If we're running 32bit code (i.e. _WIN64 is not defined), test if
+    //   we're running under Wow64. If so, it implies that the operating system
+    //   is 64bit.
+    //
+#ifdef _WIN64
+    bIs64BitOS = TRUE;
+#else
+    if (!IsWow64ProcessHelper(GetCurrentProcess(), &bIs64BitOS)) {
+        return FALSE;
     }
-    else if (!bHas64BitDll) {
-        bIs32BitProcess = TRUE;
-    }
-    else {
+#endif
+
+    // 2. With the operating system bitness known, we can now consider the target process:
+    //   - If we're running on a 64bit OS, the target process is 32bit in case
+    //   it is running under Wow64. Otherwise, it's 64bit, running natively
+    //   (without Wow64).
+    //   - If we're running on a 32bit OS, the target process must be 32bit, too.
+    //
+    if (bIs64BitOS) {
         if (!IsWow64ProcessHelper(hProcess, &bIs32BitProcess)) {
             return FALSE;
         }
+    } else {
+        bIs32BitProcess = TRUE;
     }
 
     DETOUR_TRACE(("    32BitExe=%d 32BitProcess\n", bHas32BitExe, bIs32BitProcess));
