@@ -12,6 +12,7 @@
 // #define DETOUR_DEBUG 1
 #define DETOURS_INTERNAL
 #include "detours.h"
+#include <assert.h>
 
 #if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
@@ -23,8 +24,8 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 const GUID DETOUR_EXE_RESTORE_GUID = {
-    0x2ed7a3ff, 0x3339, 0x4a8d,
-    { 0x80, 0x5c, 0xd4, 0x98, 0x15, 0x3f, 0xc2, 0x8f }};
+	0xbda26f34, 0xbc82, 0x4829,
+	{ 0x9e, 0x64, 0x74, 0x2c, 0x4, 0xc8, 0x4f, 0xa0 } };
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -884,6 +885,17 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
         }
         VirtualProtect(pder->pidh, pder->cbidh, dwPermIdh, &dwIgnore);
     }
+	//Delete the payload after successful recovery to prevent repeated recovery
+	if (fSucceeded)
+	{
+		HMODULE hModule = DetourGetContainingModule(pder);
+		assert(hModule != NULL);
+		if (hModule != NULL)
+		{
+			VirtualFree(hModule, 0, MEM_RELEASE);
+			hModule = NULL;
+		}
+	}
     return fSucceeded;
 }
 

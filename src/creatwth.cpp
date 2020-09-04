@@ -11,6 +11,7 @@
 #define DETOURS_INTERNAL
 #include "detours.h"
 #include <stddef.h>
+#include <assert.h>
 
 #if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
@@ -1018,6 +1019,18 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
         delete[] rlpDlls;
         rlpDlls = NULL;
     }
+
+	//Delete the payload after execution to release the memory occupied by it
+	if (s_pHelper != NULL)
+	{
+		HMODULE hModule = DetourGetContainingModule(s_pHelper);
+		assert(hModule != NULL);
+		if (hModule != NULL)
+		{
+			VirtualFree(hModule, 0, MEM_RELEASE);
+			hModule = NULL;
+		}
+	}
 
     ExitProcess(Result);
 }
