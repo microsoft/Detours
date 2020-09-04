@@ -1503,6 +1503,25 @@ struct DetourThread
 {
     DetourThread *      pNext;
     HANDLE              hThread;
+	BOOL				fCloseThreadHandleOnDestroyDetourThreadObject;
+public:
+	DetourThread()
+	{
+		pNext = NULL;
+		hThread = NULL;
+		fCloseThreadHandleOnDestroyDetourThreadObject = FALSE;
+	}
+	~DetourThread()
+	{
+		if (fCloseThreadHandleOnDestroyDetourThreadObject)
+		{
+			if (hThread)
+			{
+				CloseHandle(hThread);
+				hThread = NULL;
+			}
+		}
+	}
 };
 
 struct DetourOperation
@@ -1515,6 +1534,8 @@ struct DetourOperation
     ULONG               dwPerm;
 };
 
+static HANDLE				s_hHeap = NULL;
+
 static BOOL                 s_fIgnoreTooSmall       = FALSE;
 static BOOL                 s_fRetainRegions        = FALSE;
 
@@ -1523,6 +1544,47 @@ static LONG                 s_nPendingError         = NO_ERROR;
 static PVOID *              s_ppPendingError        = NULL;
 static DetourThread *       s_pPendingThreads       = NULL;
 static DetourOperation *    s_pPendingOperations    = NULL;
+
+//////////////////////////////////////////////////////////////////////////////
+//
+void WINAPI DetourDestroyHeap()
+{
+	if (s_hHeap)
+	{
+		HeapDestroy(s_hHeap);
+		s_hHeap = NULL;
+	}
+}
+
+static void DetourDestroyHeap__for__atexit()
+{
+	DetourDestroyHeap();
+}
+
+BOOL WINAPI DetourCreateHeap(BOOL fAutoDestroy)
+{
+	BOOL bResult = FALSE;
+	if (s_hHeap == NULL)
+	{
+		s_hHeap = HeapCreate(0, 0, 0);
+		assert(s_hHeap);
+		if (s_hHeap != NULL)
+		{
+			if (fAutoDestroy)
+			{
+				atexit(DetourDestroyHeap__for__atexit);
+			}
+			bResult = TRUE;
+		}
+	}
+	return bResult;
+}
+
+HANDLE WINAPI DetourGetHeap()
+{
+	assert(s_hHeap);
+	return s_hHeap;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -1564,15 +1626,29 @@ PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound)
 
 LONG WINAPI DetourTransactionBegin()
 {
+    return DetourTransactionBeginEx(FALSE);
+}
+
+LONG WINAPI DetourTransactionBeginEx(_In_opt_ BOOL fWait)
+{
     // Only one transaction is allowed at a time.
 _Benign_race_begin_
+	Check__s_nPendingThreadId:
     if (s_nPendingThreadId != 0) {
+		if (fWait) {
+			Sleep(10);
+			goto Check__s_nPendingThreadId;
+		}
         return ERROR_INVALID_OPERATION;
     }
 _Benign_race_end_
 
     // Make sure only one thread can start a transaction.
     if (InterlockedCompareExchange(&s_nPendingThreadId, (LONG)GetCurrentThreadId(), 0) != 0) {
+		if (fWait) {
+			Sleep(10);
+			goto Check__s_nPendingThreadId;
+		}
         return ERROR_INVALID_OPERATION;
     }
 
@@ -1607,7 +1683,7 @@ LONG WINAPI DetourTransactionAbort()
         }
 
         DetourOperation *n = o->pNext;
-        delete o;
+        DetourDestroyObject(o);
         o = n;
     }
     s_pPendingOperations = NULL;
@@ -1621,7 +1697,7 @@ LONG WINAPI DetourTransactionAbort()
         ResumeThread(t->hThread);
 
         DetourThread *n = t->pNext;
-        delete t;
+        DetourDestroyObject(t);
         t = n;
     }
     s_pPendingThreads = NULL;
@@ -1892,7 +1968,7 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
         }
 
         DetourOperation *n = o->pNext;
-        delete o;
+        DetourDestroyObject(o);
         o = n;
     }
     s_pPendingOperations = NULL;
@@ -1911,7 +1987,7 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
         ResumeThread(t->hThread);
 
         DetourThread *n = t->pNext;
-        delete t;
+        DetourDestroyObject(t);
         t = n;
     }
     s_pPendingThreads = NULL;
@@ -1926,6 +2002,11 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
 
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
 {
+    return DetourUpdateThreadEx(hThread, FALSE);
+}
+
+LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_opt_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject)
+{
     LONG error;
 
     // If any of the pending operations failed, then we don't need to do this.
@@ -1938,12 +2019,12 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
         return NO_ERROR;
     }
 
-    DetourThread *t = new NOTHROW DetourThread;
+    DetourThread *t = DetourCreateObject<DetourThread>();
     if (t == NULL) {
         error = ERROR_NOT_ENOUGH_MEMORY;
       fail:
         if (t != NULL) {
-            delete t;
+            DetourDestroyObject(t);
             t = NULL;
         }
         s_nPendingError = error;
@@ -1959,10 +2040,301 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     }
 
     t->hThread = hThread;
+	t->fCloseThreadHandleOnDestroyDetourThreadObject = fCloseThreadHandleOnDestroyDetourThreadObject;
     t->pNext = s_pPendingThreads;
     s_pPendingThreads = t;
 
     return NO_ERROR;
+}
+
+//Code modified from https://github.com/apriorit/mhook/blob/master/mhook-lib/mhook.c
+//=========================================================================
+// ntdll definitions
+
+typedef LONG NTSTATUS;
+
+typedef LONG KPRIORITY;
+
+typedef enum _SYSTEM_INFORMATION_CLASS
+{
+	SystemBasicInformation = 0,
+	SystemPerformanceInformation = 2,
+	SystemTimeOfDayInformation = 3,
+	SystemProcessInformation = 5,
+	SystemProcessorPerformanceInformation = 8,
+	SystemHandleInformation = 16,
+	SystemInterruptInformation = 23,
+	SystemExceptionInformation = 33,
+	SystemRegistryQuotaInformation = 37,
+	SystemLookasideInformation = 45,
+	SystemProcessIdInformation = 0x58
+} SYSTEM_INFORMATION_CLASS;
+
+typedef enum _KWAIT_REASON
+{
+	Executive,
+	FreePage,
+	PageIn,
+	PoolAllocation,
+	DelayExecution,
+	Suspended,
+	UserRequest,
+	WrExecutive,
+	WrFreePage,
+	WrPageIn,
+	WrPoolAllocation,
+	WrDelayExecution,
+	WrSuspended,
+	WrUserRequest,
+	WrEventPair,
+	WrQueue,
+	WrLpcReceive,
+	WrLpcReply,
+	WrVirtualMemory,
+	WrPageOut,
+	WrRendezvous,
+	Spare2,
+	Spare3,
+	Spare4,
+	Spare5,
+	Spare6,
+	WrKernel,
+	MaximumWaitReason
+} KWAIT_REASON, *PKWAIT_REASON;
+
+typedef struct _CLIENT_ID
+{
+	HANDLE  UniqueProcess;
+	HANDLE  UniqueThread;
+} CLIENT_ID, *PCLIENT_ID;
+
+typedef struct _SYSTEM_THREAD_INFORMATION
+{
+	LARGE_INTEGER KernelTime;
+	LARGE_INTEGER UserTime;
+	LARGE_INTEGER CreateTime;
+	ULONG WaitTime;
+	PVOID StartAddress;
+	CLIENT_ID ClientId;
+	KPRIORITY Priority;
+	LONG BasePriority;
+	ULONG ContextSwitches;
+	ULONG ThreadState;
+	KWAIT_REASON WaitReason;
+} SYSTEM_THREAD_INFORMATION, *PSYSTEM_THREAD_INFORMATION;
+
+typedef struct _UNICODE_STRING
+{
+	USHORT Length;
+	USHORT MaximumLength;
+	PWSTR  Buffer;
+} UNICODE_STRING;
+
+typedef struct _SYSTEM_PROCESS_INFORMATION
+{
+	ULONG uNext;
+	ULONG uThreadCount;
+	LARGE_INTEGER WorkingSetPrivateSize; // since VISTA
+	ULONG HardFaultCount; // since WIN7
+	ULONG NumberOfThreadsHighWatermark; // since WIN7
+	ULONGLONG CycleTime; // since WIN7
+	LARGE_INTEGER CreateTime;
+	LARGE_INTEGER UserTime;
+	LARGE_INTEGER KernelTime;
+	UNICODE_STRING ImageName;
+	KPRIORITY BasePriority;
+	HANDLE uUniqueProcessId;
+	HANDLE InheritedFromUniqueProcessId;
+	ULONG HandleCount;
+	ULONG SessionId;
+	ULONG_PTR UniqueProcessKey; // since VISTA (requires SystemExtendedProcessInformation)
+	SIZE_T PeakVirtualSize;
+	SIZE_T VirtualSize;
+	ULONG PageFaultCount;
+	SIZE_T PeakWorkingSetSize;
+	SIZE_T WorkingSetSize;
+	SIZE_T QuotaPeakPagedPoolUsage;
+	SIZE_T QuotaPagedPoolUsage;
+	SIZE_T QuotaPeakNonPagedPoolUsage;
+	SIZE_T QuotaNonPagedPoolUsage;
+	SIZE_T PagefileUsage;
+	SIZE_T PeakPagefileUsage;
+	SIZE_T PrivatePageCount;
+	LARGE_INTEGER ReadOperationCount;
+	LARGE_INTEGER WriteOperationCount;
+	LARGE_INTEGER OtherOperationCount;
+	LARGE_INTEGER ReadTransferCount;
+	LARGE_INTEGER WriteTransferCount;
+	LARGE_INTEGER OtherTransferCount;
+	SYSTEM_THREAD_INFORMATION Threads[1];
+} SYSTEM_PROCESS_INFORMATION, *PSYSTEM_PROCESS_INFORMATION;
+
+//=========================================================================
+// ZwQuerySystemInformation definitions
+typedef NTSTATUS(NTAPI* PZwQuerySystemInformation)(
+	__in       SYSTEM_INFORMATION_CLASS SystemInformationClass,
+	__inout    PVOID SystemInformation,
+	__in       ULONG SystemInformationLength,
+	__out_opt  PULONG ReturnLength
+	);
+
+#define STATUS_INFO_LENGTH_MISMATCH      ((NTSTATUS)0xC0000004L)
+static PZwQuerySystemInformation fnZwQuerySystemInformation = NULL;
+//=========================================================================
+// Internal function:
+//
+// Get snapshot of the processes started in the system
+//=========================================================================
+static BOOL CreateProcessSnapshot(VOID** snapshotContext)
+{
+    HMODULE hModule = NULL;
+	ULONG   cbBuffer = 1024 * 1024;  // 1Mb - default process information buffer size (that's enough in most cases for high-loaded systems)
+	LPVOID  pBuffer = NULL;
+	NTSTATUS status = 0;
+
+	if (!fnZwQuerySystemInformation)
+	{
+        hModule = GetModuleHandle(TEXT("ntdll.dll"));
+		if (!hModule)
+		{
+			return FALSE;
+		}
+		fnZwQuerySystemInformation = (PZwQuerySystemInformation)GetProcAddress(hModule, "ZwQuerySystemInformation");
+		if (!fnZwQuerySystemInformation)
+		{
+			return FALSE;
+		}
+	}
+
+	do
+	{
+		pBuffer = DetourCreateObjectArray<BYTE>(cbBuffer);
+		if (pBuffer == NULL)
+		{
+			return FALSE;
+		}
+
+		status = fnZwQuerySystemInformation(SystemProcessInformation, pBuffer, cbBuffer, NULL);
+
+		if (status == STATUS_INFO_LENGTH_MISMATCH)
+		{
+			DetourDestroyObjectArray((LPBYTE)pBuffer);
+			cbBuffer *= 2;
+		}
+		else if (status < 0)
+		{
+			DetourDestroyObjectArray((LPBYTE)pBuffer);
+			return FALSE;
+		}
+	} while (status == STATUS_INFO_LENGTH_MISMATCH);
+
+	*snapshotContext = pBuffer;
+
+	return TRUE;
+}
+
+//=========================================================================
+// Internal function:
+//
+// Find and return process information from snapshot
+//=========================================================================
+static PSYSTEM_PROCESS_INFORMATION FindProcess(VOID* snapshotContext, SIZE_T processId)
+{
+	PSYSTEM_PROCESS_INFORMATION currentProcess = (PSYSTEM_PROCESS_INFORMATION)snapshotContext;
+
+	while (currentProcess != NULL)
+	{
+		if (currentProcess->uUniqueProcessId == (HANDLE)processId)
+		{
+			break;
+		}
+
+		if (currentProcess->uNext == 0)
+		{
+			currentProcess = NULL;
+		}
+		else
+		{
+			currentProcess = (PSYSTEM_PROCESS_INFORMATION)(((LPBYTE)currentProcess) + currentProcess->uNext);
+		}
+	}
+
+	return currentProcess;
+}
+
+//=========================================================================
+// Internal function:
+//
+// Get current process snapshot and process info
+//
+//=========================================================================
+static BOOL GetCurrentProcessSnapshot(PVOID* snapshot, PSYSTEM_PROCESS_INFORMATION* procInfo)
+{
+	// get a view of the threads in the system
+
+	if (!CreateProcessSnapshot(snapshot))
+	{
+		DETOUR_TRACE(("detours: can't get process snapshot!"));
+		return FALSE;
+	}
+
+	DWORD pid = GetCurrentProcessId();
+
+	*procInfo = FindProcess(*snapshot, pid);
+	return TRUE;
+}
+
+//=========================================================================
+// Internal function:
+//
+// Free memory allocated for processes snapshot
+//=========================================================================
+static VOID CloseProcessSnapshot(VOID* snapshotContext)
+{
+	DetourDestroyObjectArray((LPBYTE)snapshotContext);
+}
+
+BOOL WINAPI DetourUpdateAllOtherThreads()
+{
+	LONG bResult = FALSE;
+
+	VOID* procEnumerationCtx = NULL;
+	PSYSTEM_PROCESS_INFORMATION procInfo = NULL;
+
+	if (GetCurrentProcessSnapshot(&procEnumerationCtx, &procInfo))
+	{
+		DWORD tid = GetCurrentThreadId();
+		// go through every thread
+		for (ULONG threadIdx = 0; threadIdx < procInfo->uThreadCount; threadIdx++)
+		{
+			DWORD threadId = (DWORD)(DWORD_PTR)procInfo->Threads[threadIdx].ClientId.UniqueThread;
+
+			if (threadId != tid)
+			{
+				HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION | THREAD_SET_CONTEXT, FALSE, threadId);
+				if (hThread)
+				{
+					LONG error = DetourUpdateThreadEx(hThread, TRUE);
+					assert(error == NO_ERROR);
+					if (error)
+					{
+						DETOUR_TRACE(("DetourUpdateThreadEx failed, error=%d\n", error));
+						//Reset s_nPendingError so that subsequent threads can continue to try to call the DetourUpdateThreadEx function
+						assert(error == s_nPendingError);
+						//When the console program is terminated, s_nPendingError == ERROR_ACCESS_DENIED may be caused when the SuspendThread is called in DetourUpdateThreadEx
+						assert(s_nPendingError == ERROR_ACCESS_DENIED);
+						s_nPendingError = NO_ERROR;
+					}
+				}
+			}
+		}
+
+		CloseProcessSnapshot(procEnumerationCtx);
+
+		bResult = TRUE;
+	}
+
+	return bResult;
 }
 
 ///////////////////////////////////////////////////////////// Transacted APIs.
@@ -2059,7 +2431,7 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
         *ppRealDetour = pDetour;
     }
 
-    o = new NOTHROW DetourOperation;
+    o = DetourCreateObject<DetourOperation>();
     if (o == NULL) {
         error = ERROR_NOT_ENOUGH_MEMORY;
       fail:
@@ -2074,7 +2446,7 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
             }
         }
         if (o != NULL) {
-            delete o;
+            DetourDestroyObject(o);
             o = NULL;
         }
         s_ppPendingError = ppPointer;
@@ -2355,7 +2727,7 @@ LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
         return error;
     }
 
-    DetourOperation *o = new NOTHROW DetourOperation;
+    DetourOperation *o = DetourCreateObject<DetourOperation>();
     if (o == NULL) {
         error = ERROR_NOT_ENOUGH_MEMORY;
       fail:
@@ -2363,7 +2735,7 @@ LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
         DETOUR_BREAK();
       stop:
         if (o != NULL) {
-            delete o;
+            DetourDestroyObject(o);
             o = NULL;
         }
         s_ppPendingError = ppPointer;
