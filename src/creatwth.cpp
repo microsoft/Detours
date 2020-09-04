@@ -323,6 +323,7 @@ static BOOL RecordExeRestore(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTOR
 #define IMAGE_NT_HEADERS_XX             IMAGE_NT_HEADERS32
 #define IMAGE_NT_OPTIONAL_HDR_MAGIC_XX  IMAGE_NT_OPTIONAL_HDR32_MAGIC
 #define IMAGE_ORDINAL_FLAG_XX           IMAGE_ORDINAL_FLAG32
+#define IMAGE_THUNK_DATAXX              IMAGE_THUNK_DATA32
 #define UPDATE_IMPORTS_XX               UpdateImports32
 #define DETOURS_BITS_XX                 32
 #include "uimports.cpp"
@@ -339,6 +340,7 @@ static BOOL RecordExeRestore(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTOR
 #define IMAGE_NT_HEADERS_XX             IMAGE_NT_HEADERS64
 #define IMAGE_NT_OPTIONAL_HDR_MAGIC_XX  IMAGE_NT_OPTIONAL_HDR64_MAGIC
 #define IMAGE_ORDINAL_FLAG_XX           IMAGE_ORDINAL_FLAG64
+#define IMAGE_THUNK_DATAXX           	  IMAGE_THUNK_DATA64
 #define UPDATE_IMPORTS_XX               UpdateImports64
 #define DETOURS_BITS_XX                 64
 #include "uimports.cpp"
