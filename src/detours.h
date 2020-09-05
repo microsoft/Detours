@@ -1126,6 +1126,7 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
                                             _In_  DWORD dwNewProtect,
                                             _Out_ PDWORD pdwOldProtect);
 
+// Detours must depend only on kernel32.lib, so we cannot use IsEqualGUID
 BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right);
 #ifdef __cplusplus
 }
