@@ -35,6 +35,7 @@ static PVOID LoadNtHeaderFromProcess(_In_ HANDLE hProcess,
                                      _In_ HMODULE hModule,
                                      _Out_ PIMAGE_NT_HEADERS32 pNtHeader)
 {
+    ZeroMemory(pNtHeader, sizeof(*pNtHeader));
     PBYTE pbModule = (PBYTE)hModule;
 
     if (pbModule == NULL) {
@@ -83,10 +84,11 @@ static PVOID LoadNtHeaderFromProcess(_In_ HANDLE hProcess,
 }
 
 static HMODULE EnumerateModulesInProcess(_In_ HANDLE hProcess,
-                                         _In_ HMODULE hModuleLast,
+                                         _In_opt_ HMODULE hModuleLast,
                                          _Out_ PIMAGE_NT_HEADERS32 pNtHeader,
                                          _Out_opt_ PVOID *pRemoteNtHeader)
 {
+    ZeroMemory(pNtHeader, sizeof(*pNtHeader));
     if (pRemoteNtHeader) {
         *pRemoteNtHeader = NULL;
     }
@@ -188,6 +190,10 @@ static PVOID FindPayloadInRemoteDetourSection(_In_ HANDLE hProcess,
                                                _Out_opt_ DWORD *pcbData,
                                                _In_ PVOID pvRemoteDetoursSection)
 {
+    if (pcbData) {
+        *pcbData = NULL;
+    }
+
     PBYTE pbData = (PBYTE)pvRemoteDetoursSection;
 
     DETOUR_SECTION_HEADER header;
