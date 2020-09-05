@@ -139,21 +139,21 @@ BOOL WINAPI CallbackFunction(HANDLE hProcess, ULONG action, ULONG64 data, ULONG6
         return TRUE;
 
       case CBA_DEFERRED_SYMBOL_LOAD_CANCEL:
-        printf("::> proc=%p action=%08x data=%p\n",
+        printf("::> proc=%p action=%08lx data=%p\n",
                       (PVOID)hProcess,
                       action,
                       (PVOID)data);
         {
             PIMAGEHLP_DEFERRED_SYMBOL_LOAD64 pi = (PIMAGEHLP_DEFERRED_SYMBOL_LOAD64)data;
-            printf("pi->SizeOfStruct = %d\n", pi->SizeOfStruct);
+            printf("pi->SizeOfStruct = %ld\n", pi->SizeOfStruct);
             printf("pi->BaseOfImage  = %p\n", (PVOID)(size_t)pi->BaseOfImage);
-            printf("pi->CheckSum     = %8x\n", pi->CheckSum);
+            printf("pi->CheckSum     = %8lx\n", pi->CheckSum);
             printf("pi->FileName     = %p [%s]\n", pi->FileName, pi->FileName);
             printf("pi->Reparse      = %d\n", pi->Reparse);
         }
         return FALSE;
       default:
-        printf("::> proc=%p action=%08x data=%p\n",
+        printf("::> proc=%p action=%08lx data=%p\n",
                       (PVOID)hProcess,
                       action,
                       (PVOID)data);
@@ -212,7 +212,7 @@ int __cdecl main(void)
                   API_VERSION_NUMBER);
 
     if (!pfSymInitialize(hProcess, NULL, FALSE)) {
-        printf("SymInitialize failed: %d\n", GetLastError());
+        printf("SymInitialize failed: %ld\n", GetLastError());
         return 1;
     }
 
@@ -221,7 +221,7 @@ int __cdecl main(void)
 #endif
 
     DWORD dw = pfSymGetOptions();
-    printf("GetOptions = %08x\n", dw);
+    printf("GetOptions = %08lx\n", dw);
     dw &= ~(SYMOPT_CASE_INSENSITIVE |
             SYMOPT_UNDNAME |
             SYMOPT_DEFERRED_LOADS |
@@ -243,15 +243,15 @@ int __cdecl main(void)
            SYMOPT_INCLUDE_32BIT_MODULES |
 #endif
            0);
-    printf("SetOptions = %08x\n", dw);
+    printf("SetOptions = %08lx\n", dw);
     pfSymSetOptions(dw);
 
     /////////////////////////////////////////////// First, try GetProcAddress.
     //
-    PCHAR pszFile = "target.dll";
+    PCHAR pszFile = "target" DETOURS_STRINGIFY(DETOURS_BITS) ".dll";
     HMODULE hModule = LoadLibraryA(pszFile);
     if (hModule == NULL) {
-        printf("LoadLibraryA(%s) failed: %d\n", pszFile, GetLastError());
+        printf("LoadLibraryA(%s) failed: %ld\n", pszFile, GetLastError());
         return 2;
     }
 
@@ -266,7 +266,7 @@ int __cdecl main(void)
                                        (PCHAR)pszFile/*szFull*/, NULL,
                                        (DWORD64)hModule, 0);
     if (loaded == 0) {
-        printf("SymLoadModule64(%p) failed: %d\n", hProcess, GetLastError());
+        printf("SymLoadModule64(%p) failed: %ld\n", hProcess, GetLastError());
         printf("\n");
     }
     else {
@@ -285,16 +285,16 @@ int __cdecl main(void)
     ZeroMemory(&modinfo, sizeof(modinfo));
     modinfo.SizeOfStruct = 512/*sizeof(modinfo)*/;
     if (!pfSymGetModuleInfo64(hProcess, (DWORD64)hModule, &modinfo)) {
-        printf("SymGetModuleInfo64(%p, %p) [64] failed: %d\n",
+        printf("SymGetModuleInfo64(%p, %p) [64] failed: %ld\n",
                       hProcess, hModule, GetLastError());
     }
     else {
-        printf("SymGetModuleInfo64(%p, %p) [64] succeeded: %d\n",
+        printf("SymGetModuleInfo64(%p, %p) [64] succeeded: %ld\n",
                       hProcess, hModule, GetLastError());
         StringCchCopyA(szModName, ARRAYSIZE(szModName), modinfo.ModuleName);
         StringCchCatA(szModName, ARRAYSIZE(szModName), "!");
 
-        printf("NumSyms:         %d\n", modinfo.NumSyms);
+        printf("NumSyms:         %ld\n", modinfo.NumSyms);
         printf("SymType:         %d\n", modinfo.SymType);
         printf("ModuleName:      %s\n", modinfo.ModuleName);
         printf("ImageName:       %s\n", modinfo.ImageName);
@@ -319,7 +319,7 @@ int __cdecl main(void)
         SetLastError(0);
         nSymbolCount = 0;
         if (!pfSymEnumSymbols(hProcess, (DWORD64)hModule, NULL, SymEnumerateSymbols, NULL)) {
-            printf("SymEnumSymbols() failed: %d\n",
+            printf("SymEnumSymbols() failed: %ld\n",
                           GetLastError());
         }
     }
@@ -345,7 +345,7 @@ int __cdecl main(void)
 
     SetLastError(0);
     if (!pfSymFromName(hProcess, szFullName, &symbol)) {
-        printf("--SymFromName(%s) failed: %d\n", szFullName, GetLastError());
+        printf("--SymFromName(%s) failed: %ld\n", szFullName, GetLastError());
     }
     if (symbol.Address != 0) {
         printf("--SymFromName(%s) succeeded\n", szFullName);
@@ -368,7 +368,7 @@ int __cdecl main(void)
 
     SetLastError(0);
     if (!pfSymFromName(hProcess, szFullName, &symbol)) {
-        printf("--SymFromName(%s) failed: %d\n", szFullName, GetLastError());
+        printf("--SymFromName(%s) failed: %ld\n", szFullName, GetLastError());
     }
     if (symbol.Address != 0) {
         printf("--SymFromName(%s) succeeded\n", szFullName);

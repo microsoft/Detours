@@ -90,8 +90,13 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
         }
 
         DETOUR_TRACE(("ish[%d] : va=%08x sr=%d\n", i, ish.VirtualAddress, ish.SizeOfRawData));
-
-        // If the file didn't have an IAT_DIRECTORY, we assign it...
+        
+        // If the linker didn't suggest an IAT in the data directories, the
+        // loader will look for the section of the import directory to be used
+        // for this instead. Since we put out new IMPORT_DIRECTORY outside any
+        // section boundary, the loader will not find it. So we provide one
+        // explicitly to avoid the search.
+        //
         if (inh.IAT_DIRECTORY.VirtualAddress == 0 &&
             inh.IMPORT_DIRECTORY.VirtualAddress >= ish.VirtualAddress &&
             inh.IMPORT_DIRECTORY.VirtualAddress < ish.VirtualAddress + ish.SizeOfRawData) {
@@ -145,7 +150,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     }
 
     PIMAGE_IMPORT_DESCRIPTOR piid = (PIMAGE_IMPORT_DESCRIPTOR)pbNew;
-    DWORD_XX *pt;
+    IMAGE_THUNK_DATAXX *pt = NULL;
 
     DWORD obBase = (DWORD)(pbNewIid - pbModule);
     DWORD dwProtect = 0;
@@ -181,17 +186,20 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
             goto finish;
         }
 
-        DWORD nOffset = obTab + (sizeof(DWORD_XX) * (4 * n));
+        DWORD nOffset = obTab + (sizeof(IMAGE_THUNK_DATAXX) * (4 * n));
         piid[n].OriginalFirstThunk = obBase + nOffset;
-        pt = ((DWORD_XX*)(pbNew + nOffset));
-        pt[0] = IMAGE_ORDINAL_FLAG_XX + 1;
-        pt[1] = 0;
+      
+        // We need 2 thunks for the import table and 2 thunks for the IAT.
+        // One for an ordinal import and one to mark the end of the list.
+	  pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
+        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
+        pt[1].u1.Ordinal = 0;
 
-        nOffset = obTab + (sizeof(DWORD_XX) * ((4 * n) + 2));
+        nOffset = obTab + (sizeof(IMAGE_THUNK_DATAXX) * ((4 * n) + 2));
         piid[n].FirstThunk = obBase + nOffset;
-        pt = ((DWORD_XX*)(pbNew + nOffset));
-        pt[0] = IMAGE_ORDINAL_FLAG_XX + 1;
-        pt[1] = 0;
+        pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
+        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
+        pt[1].u1.Ordinal = 0;
         piid[n].TimeDateStamp = 0;
         piid[n].ForwarderChain = 0;
         piid[n].Name = obBase + obStr;
@@ -225,7 +233,10 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                   inh.IMPORT_DIRECTORY.VirtualAddress + inh.IMPORT_DIRECTORY.Size));
     DETOUR_TRACE(("obBaseAft = %08x..%08x\n", obBase, obBase + obStr));
 
-    // If the file doesn't have an IAT_DIRECTORY, we create it...
+    // In this case the file didn't have an import directory in first place,
+    // so we couldn't fix the missing IAT above. We still need to explicitly
+    // provide an IAT to prevent to loader from looking for one.
+    //
     if (inh.IAT_DIRECTORY.VirtualAddress == 0) {
         inh.IAT_DIRECTORY.VirtualAddress = obBase;
         inh.IAT_DIRECTORY.Size = cbNew;

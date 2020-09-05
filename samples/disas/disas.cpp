@@ -404,6 +404,26 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     (void)lpszCmdLine;
     (void)nCmdShow;
 
+    // Bug report, but it works here.
+    // 07ff8`4b783054 49ba 70b3d93a d40fb998 mov r10,98B90FD43AD9B370h
+    //
+    {
+        static const UCHAR mov_r10_imm64[] = {0x49, 0xba, 1, 2, 3, 4, 5, 6, 7, 8 };
+
+        PVOID const after = DetourCopyInstructionX64(0, 0, const_cast<PUCHAR>(mov_r10_imm64), 0, 0);
+
+        if (after != &mov_r10_imm64 + 1)
+        {
+            printf("mov_r10_imm64 failed, expected:%p vs. got:%p\n", &mov_r10_imm64 + 1, after);
+            if (IsDebuggerPresent())
+            {
+                __debugbreak();
+                DetourCopyInstructionX64(0, 0, const_cast<PUCHAR>(mov_r10_imm64), 0, 0);
+            }
+            return 1;
+        }
+    }
+
 #ifdef DETOURS_IA64
     // First we check the pre-canned TestCodes from disasm.asm
     //
@@ -510,7 +530,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
     printf("%p:\n", pbBegin);
     for (PBYTE pbTest = pbBegin;;) {
         if (pbTest[0] != 0xcc) {    // int 3
-            printf("%08x  ", (ULONG)(pbTest - pbBegin));
+            printf("%08lx  ", (ULONG)(pbTest - pbBegin));
             DumpMemoryFragment(pbTest, 8, 8);
             printf("\n");
             printf("failed on last.\n");
@@ -530,7 +550,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR lpszCmdLine, int nCmd
 
         LONG cbTest = (LONG)(pbNext - pbTest);
 
-        printf("%08x  ", (ULONG)(pbTest - pbBegin));
+        printf("%08lx  ", (ULONG)(pbTest - pbBegin));
         DumpMemoryFragment(pbTest, cbTest, 12);
         printf("[%16p] ", pbTarget);
         DumpMemoryFragment(rbDst, cbTest + lExtra, 11);
