@@ -1023,13 +1023,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 	//Delete the payload after execution to release the memory occupied by it
 	if (s_pHelper != NULL)
 	{
-		HMODULE hModule = DetourGetContainingModule(s_pHelper);
-		assert(hModule != NULL);
-		if (hModule != NULL)
-		{
-			VirtualFree(hModule, 0, MEM_RELEASE);
-			hModule = NULL;
-		}
+        DetourFreePayload(s_pHelper);
 	}
 
     ExitProcess(Result);

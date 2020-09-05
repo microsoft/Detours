@@ -839,6 +839,25 @@ PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
     return NULL;
 }
 
+BOOL WINAPI DetourFreePayload(_In_ PVOID pvData)
+{
+	BOOL fSucceeded = FALSE;
+
+	HMODULE hModule = DetourGetContainingModule(pvData);
+	assert(hModule != NULL);
+	if (hModule != NULL)
+	{
+		fSucceeded = VirtualFree(hModule, 0, MEM_RELEASE);
+		assert(fSucceeded);
+		if (fSucceeded)
+		{
+			hModule = NULL;
+		}
+	}
+
+	return fSucceeded;
+}
+
 BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
                                      _In_ DWORD cbData)
 {
@@ -885,16 +904,10 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
         }
         VirtualProtect(pder->pidh, pder->cbidh, dwPermIdh, &dwIgnore);
     }
-	//Delete the payload after successful recovery to prevent repeated recovery
+	//Delete the payload after successful recovery to prevent repeated restore
 	if (fSucceeded)
 	{
-		HMODULE hModule = DetourGetContainingModule(pder);
-		assert(hModule != NULL);
-		if (hModule != NULL)
-		{
-			VirtualFree(hModule, 0, MEM_RELEASE);
-			hModule = NULL;
-		}
+        DetourFreePayload(pder);
 	}
     return fSucceeded;
 }

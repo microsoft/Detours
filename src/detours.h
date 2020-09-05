@@ -615,6 +615,7 @@ PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
 
 DWORD WINAPI DetourGetSizeOfPayloads(_In_opt_ HMODULE hModule);
 
+BOOL WINAPI DetourFreePayload(_In_ PVOID pvData);
 ///////////////////////////////////////////////// Persistent Binary Functions.
 //
 
