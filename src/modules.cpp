@@ -24,8 +24,8 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 const GUID DETOUR_EXE_RESTORE_GUID = {
-	0xbda26f34, 0xbc82, 0x4829,
-	{ 0x9e, 0x64, 0x74, 0x2c, 0x4, 0xc8, 0x4f, 0xa0 } };
+    0xbda26f34, 0xbc82, 0x4829,
+    { 0x9e, 0x64, 0x74, 0x2c, 0x4, 0xc8, 0x4f, 0xa0 } };
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -841,21 +841,21 @@ PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
 
 BOOL WINAPI DetourFreePayload(_In_ PVOID pvData)
 {
-	BOOL fSucceeded = FALSE;
+    BOOL fSucceeded = FALSE;
 
-	HMODULE hModule = DetourGetContainingModule(pvData);
-	assert(hModule != NULL);
-	if (hModule != NULL)
-	{
-		fSucceeded = VirtualFree(hModule, 0, MEM_RELEASE);
-		assert(fSucceeded);
-		if (fSucceeded)
-		{
-			hModule = NULL;
-		}
-	}
+    HMODULE hModule = DetourGetContainingModule(pvData);
+    assert(hModule != NULL);
+    if (hModule != NULL)
+    {
+        fSucceeded = VirtualFree(hModule, 0, MEM_RELEASE);
+        assert(fSucceeded);
+        if (fSucceeded)
+        {
+            hModule = NULL;
+        }
+    }
 
-	return fSucceeded;
+    return fSucceeded;
 }
 
 BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
@@ -904,11 +904,11 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
         }
         VirtualProtect(pder->pidh, pder->cbidh, dwPermIdh, &dwIgnore);
     }
-	//Delete the payload after successful recovery to prevent repeated restore
-	if (fSucceeded)
-	{
+    //Delete the payload after successful recovery to prevent repeated restore
+    if (fSucceeded)
+    {
         DetourFreePayload(pder);
-	}
+    }
     return fSucceeded;
 }
 
