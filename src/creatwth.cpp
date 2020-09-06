@@ -408,8 +408,11 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     //
     inh64.Signature = inh32.Signature;
     inh64.FileHeader = inh32.FileHeader;
-    inh64.FileHeader.Machine = machine;//If inh32.FileHeader.Machine is assigned here, the PE loader of win7 and below will not be able to pass,
-	//It will report an error STATUS_INVALID_IMAGE_FORMAT, so you need to save the value of Machine in the original PE header in dep, that is, the value of inh32.FileHeader.Machine,
+    inh64.FileHeader.Machine = machine;//If inh32.FileHeader.Machine is assigned here,
+    //the PE loader of win7 and below will not be able to pass,
+    //It will report an error STATUS_INVALID_IMAGE_FORMAT,
+    //so we need to save the value of Machine in the original PE header to "der",
+    //that is, the value of inh32.FileHeader.Machine.
     inh64.FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER64);
 
     inh64.OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR64_MAGIC;
@@ -477,10 +480,11 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     if (!RecordExeRestore(hProcess, hModule, der)) {
         return FALSE;
     }
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//After the above RecordExeRestore call, the 64-bit PE header is saved in dep, so it is necessary to restore the Machine value of the PE header saved in der, so that the PE parser of .NET can load the CLR file normally
-	der.inh.FileHeader.Machine = inh32.FileHeader.Machine;
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    //After the above RecordExeRestore call, the 64-bit PE header is saved in "der", 
+    //so it is necessary to restore the Machine value of the PE header saved in "der",
+    //so that the PE parser of .NET can load the CLR file normally
+    der.inh.FileHeader.Machine = inh32.FileHeader.Machine;
 
     // Remove the import table.
     if (der.pclr != NULL && (der.clr.Flags & COMIMAGE_FLAGS_ILONLY)) {
@@ -504,58 +508,56 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
 }
 #endif // DETOURS_64BIT
 
-namespace Detour
-{
+namespace Detour {
+
+#ifndef PROCESSOR_ARCHITECTURE_AMD64
+#define PROCESSOR_ARCHITECTURE_AMD64            9
+#endif
+
 #ifndef PROCESSOR_ARCHITECTURE_ARM64
 #define PROCESSOR_ARCHITECTURE_ARM64            12
 #endif
-	BOOL Is64BitOS()
-	{
-		BOOL bRet = FALSE;
+
+    BOOL Is64BitOS()
+    {
+        BOOL bRet = FALSE;
         HMODULE hModule = GetModuleHandle(TEXT("kernel32.dll"));
-        if (!hModule)
-        {
+        if (!hModule) {
             return bRet;
         }
-		VOID(WINAPI * _GetNativeSystemInfo)(OUT LPSYSTEM_INFO lpSystemInfo) = (void(__stdcall *)(LPSYSTEM_INFO))GetProcAddress(hModule, "GetNativeSystemInfo");
-		if (!_GetNativeSystemInfo)
-		{
-			return bRet;
-		}
+        VOID(WINAPI * _GetNativeSystemInfo)(OUT LPSYSTEM_INFO lpSystemInfo) = (void(__stdcall*)(LPSYSTEM_INFO))GetProcAddress(hModule, "GetNativeSystemInfo");
+        if (!_GetNativeSystemInfo) {
+            return bRet;
+        }
 
-		SYSTEM_INFO si;
-		_GetNativeSystemInfo(&si);
-		if (si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64 || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM64 ||
-			si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_IA64 || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ALPHA64)
-		{
-			bRet = TRUE;
-		}
-		return bRet;
-	};
-	//The process handle hProcess needs to have PROCESS_QUERY_INFORMATION or PROCESS_QUERY_LIMITED_INFORMATION access rights
-	BOOL Is64BitProcess(HANDLE hProcess)
-	{
-		BOOL bRet = FALSE;
-		if (hProcess)
-		{
-			if (Is64BitOS())
-			{
+        SYSTEM_INFO si;
+        _GetNativeSystemInfo(&si);
+        if (si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64 || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM64 ||
+            si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_IA64 || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ALPHA64) {
+            bRet = TRUE;
+        }
+        return bRet;
+    };
+    //The process handle hProcess needs to have PROCESS_QUERY_INFORMATION or PROCESS_QUERY_LIMITED_INFORMATION access rights
+    BOOL Is64BitProcess(HANDLE hProcess)
+    {
+        BOOL bRet = FALSE;
+        if (hProcess) {
+            if (Is64BitOS()) {
                 HMODULE hModule = GetModuleHandle(TEXT("kernel32.dll"));
-                if (hModule)
-                {
-					BOOL(WINAPI * _IsWow64Process)(IN  HANDLE hProcess,
-						OUT  PBOOL Wow64Process)
-						= (BOOL(__stdcall*)(HANDLE, PBOOL))GetProcAddress(hModule, "IsWow64Process");
-					BOOL b32BitProcessRunAt64BitOS;
-					if (_IsWow64Process && _IsWow64Process(hProcess, &b32BitProcessRunAt64BitOS) && b32BitProcessRunAt64BitOS == FALSE)
-					{
-						bRet = TRUE;
-					}
+                if (hModule) {
+                    BOOL(WINAPI * _IsWow64Process)(IN  HANDLE hProcess,
+                        OUT  PBOOL Wow64Process)
+                        = (BOOL(__stdcall*)(HANDLE, PBOOL))GetProcAddress(hModule, "IsWow64Process");
+                    BOOL b32BitProcessRunAt64BitOS;
+                    if (_IsWow64Process && _IsWow64Process(hProcess, &b32BitProcessRunAt64BitOS) && b32BitProcessRunAt64BitOS == FALSE) {
+                        bRet = TRUE;
+                    }
                 }
-			}
-		}
-		return bRet;
-	}
+            }
+        }
+        return bRet;
+    }
 }
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -606,7 +608,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         return FALSE;
     }
 
-	bIs32BitProcess = !Detour::Is64BitProcess(hProcess);
+    bIs32BitProcess = !Detour::Is64BitProcess(hProcess);
 
     DETOUR_TRACE(("    32BitExe=%d 32BitProcess=%d\n", bHas32BitExe, bIs32BitProcess));
 
@@ -726,8 +728,10 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         DETOUR_CLR_HEADER clr;
         CopyMemory(&clr, &der.clr, sizeof(clr));
         clr.Flags &= ~COMIMAGE_FLAGS_ILONLY;    // Clear the IL_ONLY flag.
-		//The above sentence clears the IL_ONLY flag, so we need to restore the IL_ONLY flag after the IAT is restored after starting the process completion 
-		//Not clearing the IL_ONLY flag will result in the inability to start the process, because we replaced the original IAT with the new IAT containing the name of our DLL
+        //The above sentence clears the IL_ONLY flag, 
+        //so we need to restore the IL_ONLY flag after the IAT is restored after starting the process completion 
+        //Not clearing the IL_ONLY flag will result in the inability to start the process, 
+        //because we replaced the original IAT with the new IAT containing the name of our DLL
 
         DWORD dwProtect;
         if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {

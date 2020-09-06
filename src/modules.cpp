@@ -858,7 +858,8 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
     if (pder->pclr != NULL && pder->clr.Flags != ((PDETOUR_CLR_HEADER)pder->pclr)->Flags) {
         // If we had to promote the 32/64-bit agnostic IL to 64-bit, we can't restore
         // that.
-		//Now we have supported the recovery of CLR header data in the above situation (IL code of unknown target bit is compiled into native code of 64-bit process by instant compilation)
+        //Now we have supported the restore of CLR header data in the above situation,
+        //that IL code with unknown target bits is compiled into native code for 64-bit processes
         fUpdated32To64 = TRUE;
     }
 
@@ -870,8 +871,9 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
             CopyMemory(pder->pidh, &pder->idh, pder->cbidh);
             CopyMemory(pder->pinh, &pder->inh, pder->cbinh);
 
-			//It can be restored now when fUpdated32To64 is TRUE. At present, only the clr.Flags field is restored.
-            if (pder->pclr != NULL /*&& !fUpdated32To64*/) {
+            //Now, restoration is supported even if fUpdated32To64 is TRUE.
+            //Currently, only the clr.Flags field is actually restored.
+            if (pder->pclr != NULL) {
                 if (DetourVirtualProtectSameExecute(pder->pclr, pder->cbclr,
                                                     PAGE_EXECUTE_READWRITE, &dwPermClr)) {
                     CopyMemory(pder->pclr, &pder->clr, pder->cbclr);
