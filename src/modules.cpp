@@ -844,12 +844,10 @@ BOOL WINAPI DetourFreePayload(_In_ PVOID pvData)
 
     HMODULE hModule = DetourGetContainingModule(pvData);
     DETOUR_ASSERT(hModule != NULL);
-    if (hModule != NULL)
-    {
+    if (hModule != NULL) {
         fSucceeded = VirtualFree(hModule, 0, MEM_RELEASE);
         DETOUR_ASSERT(fSucceeded);
-        if (fSucceeded)
-        {
+        if (fSucceeded) {
             hModule = NULL;
         }
     }
@@ -904,8 +902,7 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
         VirtualProtect(pder->pidh, pder->cbidh, dwPermIdh, &dwIgnore);
     }
     //Delete the payload after successful recovery to prevent repeated restore
-    if (fSucceeded)
-    {
+    if (fSucceeded) {
         DetourFreePayload(pder);
     }
     return fSucceeded;
