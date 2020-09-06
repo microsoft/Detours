@@ -126,7 +126,6 @@ int main()
 	{
 		std::cout << "Error, exit code (0x" << std::uppercase  << std::hex << exitCode
 			<< ") does not matches payload content (0x" << payload << ')' << std::endl;
-		fflush(stdout);
 		return 1;
 	}
 }
