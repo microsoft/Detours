@@ -1,7 +1,7 @@
 #define _CRT_RAND_S
 #include <stdlib.h>
 
-#include <cstdio>
+#include <iostream>
 #include <windows.h>
 #include <detours.h>
 
@@ -11,8 +11,8 @@ HANDLE hParent = NULL;
 
 __declspec(noreturn) void HandleApiFailure(const char* api)
 {
-	printf("payloadtarget.exe: %s failed (%u)\n", api, GetLastError());
-	fflush(stdout);
+	DWORD lastErr = GetLastError();
+	std::cout << "payloadtarget.exe: " << api << " failed (" << lastErr << ')' << std::endl;
 
 	if (hParent)
 	{

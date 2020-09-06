@@ -10,6 +10,7 @@
 !include ..\common.mak
 
 LIBS=$(LIBS) kernel32.lib
+CFLAGS=$(CFLAGS) /EHsc
 
 all: dirs \
     $(BIND)\payload.exe \

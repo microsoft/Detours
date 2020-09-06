@@ -1,4 +1,4 @@
-#include <cstdio>
+#include <iostream>
 #include <string>
 #include <windows.h>
 #include <detours.h>
@@ -10,8 +10,8 @@ HANDLE hChildThread = NULL;
 
 __declspec(noreturn) void HandleApiFailure(const char* api)
 {
-	printf("payload.exe: %s failed (%u)", api, GetLastError());
-	fflush(stdout);
+	DWORD lastErr = GetLastError();
+	std::cout << "payload.exe: " << api << " failed (" << lastErr << ')' << std::endl;
 
 	if (hChildThread != NULL)
 	{
@@ -118,13 +118,14 @@ int main()
 	random_payload_t payload = *payloadAddr;
 	if (exitCode == payload)
 	{
-		printf("Success, exit code (0x%X) matches payload content (0x%X)", exitCode, payload);
-		fflush(stdout);
+		std::cout << "Success, exit code (0x" << std::uppercase << std::hex << exitCode
+			<< ") matches payload content (0x" << payload << ')' << std::endl;
 		return 0;
 	}
 	else
 	{
-		printf("Error, exit code (0x%X) does not matches payload content (0x%X)", exitCode, payload);
+		std::cout << "Error, exit code (0x" << std::uppercase  << std::hex << exitCode
+			<< ") does not matches payload content (0x" << payload << ')' << std::endl;
 		fflush(stdout);
 		return 1;
 	}
