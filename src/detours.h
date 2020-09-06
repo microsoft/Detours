@@ -1136,100 +1136,91 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 template<class T>
 T* DetourCreateObject()
 {
-	T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
-	assert(p);
-	if (!p)
-	{
-		return p;
-	}
+    T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
+    assert(p);
+    if (!p) {
+        return p;
+    }
 
-	::new(p) T;
+    ::new(p) T;
 
-	return p;
+    return p;
 }
 template<class T, class P1>
 T* DetourCreateObject(P1 p1)
 {
-	T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
-	assert(p);
-	if (!p)
-	{
-		return p;
-	}
+    T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
+    assert(p);
+    if (!p) {
+        return p;
+    }
 
-	::new(p) T(p1);
+    ::new(p) T(p1);
 
-	return p;
+    return p;
 }
 template<class T, class P1, class P2>
 T* DetourCreateObject(P1 p1, P2 p2)
 {
-	T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
-	assert(p);
-	if (!p)
-	{
-		return p;
-	}
+    T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
+    assert(p);
+    if (!p) {
+        return p;
+    }
 
-	::new(p) T(p1, p2);
+    ::new(p) T(p1, p2);
 
-	return p;
+    return p;
 }
 template<class T>
 void DetourDestroyObject(T* p)
 {
-	size_t MemSize = HeapSize(DetourGetHeap(), 0, p);
-	assert(MemSize == sizeof(T));
-	if (MemSize != sizeof(T))
-	{
-		return;
-	}
+    size_t MemSize = HeapSize(DetourGetHeap(), 0, p);
+    assert(MemSize == sizeof(T));
+    if (MemSize != sizeof(T)) {
+        return;
+    }
 
-	p->~T();
+    p->~T();
 
-	HeapFree(DetourGetHeap(), 0, p);
-	p = NULL;
+    HeapFree(DetourGetHeap(), 0, p);
+    p = NULL;
 }
 template<class T>
 T* DetourCreateObjectArray(size_t _Size)
 {
-	T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T) * _Size);
-	assert(p);
-	if (!p)
-	{
-		return p;
-	}
+    T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T) * _Size);
+    assert(p);
+    if (!p) {
+        return p;
+    }
 
-	for (size_t i = 0; i < _Size; i++)
-	{
-		::new(&p[i]) T;
-	}
+    for (size_t i = 0; i < _Size; i++) {
+        ::new(&p[i]) T;
+    }
 
-	return p;
+    return p;
 }
 template<class T>
 void DetourDestroyObjectArray(T* p)
 {
-	size_t MemSize = HeapSize(DetourGetHeap(), 0, p);
-	assert(MemSize > 0);
-	if (MemSize == 0)
-	{
-		return;
-	}
-	size_t _Size = MemSize / sizeof(T);
-	assert(_Size > 0);
-	if (_Size == 0)
-	{
-		return;
-	}
+    size_t MemSize = HeapSize(DetourGetHeap(), 0, p);
+    assert(MemSize > 0);
+    if (MemSize == 0) {
+        return;
+    }
+    size_t _Size = MemSize / sizeof(T);
+    assert(_Size > 0);
+    if (_Size == 0) {
+        return;
+    }
 
-	for (size_t i = 0; i < _Size; i++)
-	{
-		(&p[i])->~T();
-	}
+    for (size_t i = 0; i < _Size; i++) {
+        (&p[i])->~T();
+    }
 
-	HeapFree(DetourGetHeap(), 0, (LPVOID)p);
-	p = NULL;
+    HeapFree(DetourGetHeap(), 0, (LPVOID)p);
+    p = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////
