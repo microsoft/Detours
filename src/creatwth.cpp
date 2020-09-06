@@ -1310,8 +1310,7 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
     //so we can't use "%hs" in format string, because the dll that contain this code would inject to any process, even not call _tsetlocale(LC_ALL,_T(".ACP")) before
     WCHAR szDllName[MAX_PATH];
     int cchWrittenWideChar = MultiByteToWideChar(CP_ACP, 0, &helper->rDlls[0], -1, szDllName, ARRAYSIZE(szDllName));
-    if (cchWrittenWideChar >= ARRAYSIZE(szDllName) || cchWrittenWideChar <= 0)
-    {
+    if (cchWrittenWideChar >= ARRAYSIZE(szDllName) || cchWrittenWideChar <= 0) {
         goto Cleanup;
     }
     hr = StringCchPrintfW(szCommand, ARRAYSIZE(szCommand),
