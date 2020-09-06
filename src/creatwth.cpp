@@ -1208,10 +1208,10 @@ BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
-	//for east asia languages and so on, like Chinese, print format with "%hs" can not work fine before user call _tsetlocale(LC_ALL,_T(".ACP"));
+    //for East Asia languages and so on, like Chinese, print format with "%hs" can not work fine before user call _tsetlocale(LC_ALL,_T(".ACP"));
     //so we can't use "%hs" in format string, because the dll that contain this code would inject to any process, even not call _tsetlocale(LC_ALL,_T(".ACP")) before
-	hr = StringCchPrintfA(szCommand, ARRAYSIZE(szCommand),
-	                      "rundll32.exe \"%s\",#1", &helper->rDlls[0]);
+    hr = StringCchPrintfA(szCommand, ARRAYSIZE(szCommand),
+                          "rundll32.exe \"%s\",#1", &helper->rDlls[0]);
     if (!SUCCEEDED(hr)) {
         goto Cleanup;
     }
@@ -1306,12 +1306,16 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
-	//for east asia languages and so on, like Chinese, print format with "%hs" can not work fine before user call _tsetlocale(LC_ALL,_T(".ACP"));
+    //for East Asia languages and so on, like Chinese, print format with "%hs" can not work fine before user call _tsetlocale(LC_ALL,_T(".ACP"));
     //so we can't use "%hs" in format string, because the dll that contain this code would inject to any process, even not call _tsetlocale(LC_ALL,_T(".ACP")) before
-	WCHAR szDllName[MAX_PATH];
-	MultiByteToWideChar(CP_ACP, 0, &helper->rDlls[0], -1, szDllName, ARRAYSIZE(szDllName));
-	hr = StringCchPrintfW(szCommand, ARRAYSIZE(szCommand),
-		L"rundll32.exe \"%s\",#1", szDllName);
+    WCHAR szDllName[MAX_PATH];
+    int cchWrittenWideChar = MultiByteToWideChar(CP_ACP, 0, &helper->rDlls[0], -1, szDllName, ARRAYSIZE(szDllName));
+    if (cchWrittenWideChar >= ARRAYSIZE(szDllName) || cchWrittenWideChar <= 0)
+    {
+        goto Cleanup;
+    }
+    hr = StringCchPrintfW(szCommand, ARRAYSIZE(szCommand),
+        L"rundll32.exe \"%s\",#1", szDllName);
     if (!SUCCEEDED(hr)) {
         goto Cleanup;
     }
