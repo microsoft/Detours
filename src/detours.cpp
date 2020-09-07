@@ -37,7 +37,7 @@ int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int 
     SetLastError(dwLastError);
     return nRet;
 }
-#endif//_DEBUG
+#endif// _DEBUG
 
 //////////////////////////////////////////////////////////////////////////////
 //

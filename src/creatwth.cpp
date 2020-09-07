@@ -1019,7 +1019,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
         rlpDlls = NULL;
     }
 
-    //Delete the payload after execution to release the memory occupied by it
+    // Delete the payload after execution to release the memory occupied by it
     if (s_pHelper != NULL) {
         DetourFreePayload(s_pHelper);
     }

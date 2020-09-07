@@ -921,9 +921,9 @@ int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int 
 
 #define DETOUR_ASSERT(expr) DETOUR_ASSERT_EXPR_WITH_FUNCTION((expr), #expr)
 
-#else//_DEBUG
+#else// _DEBUG
 #define DETOUR_ASSERT(expr)
-#endif//_DEBUG
+#endif// _DEBUG
 
 #ifndef DETOUR_TRACE
 #if DETOUR_DEBUG

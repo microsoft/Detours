@@ -901,7 +901,7 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
         }
         VirtualProtect(pder->pidh, pder->cbidh, dwPermIdh, &dwIgnore);
     }
-    //Delete the payload after successful recovery to prevent repeated restore
+    // Delete the payload after successful recovery to prevent repeated restore
     if (fSucceeded) {
         DetourFreePayload(pder);
     }
