@@ -557,7 +557,7 @@ LONG WINAPI DetourTransactionAbort(VOID);
 LONG WINAPI DetourTransactionCommit(VOID);
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
-//DetourUpdateThread is no longer recommended to be called by users, please use DetourUpdateAllOtherThreads for safer HOOK
+// DetourUpdateThread is no longer recommended to be called by users, please use DetourUpdateAllOtherThreads for safer HOOK
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
 LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_opt_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject /*= TRUE*/);
 BOOL WINAPI DetourUpdateAllOtherThreads();

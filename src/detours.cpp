@@ -2041,7 +2041,7 @@ LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_opt_ BOOL fCloseThread
     return NO_ERROR;
 }
 
-//Code modified from https://github.com/apriorit/mhook/blob/master/mhook-lib/mhook.c
+// Code modified from https://github.com/apriorit/mhook/blob/master/mhook-lib/mhook.c
 //=========================================================================
 // ntdll definitions
 
@@ -2296,9 +2296,9 @@ BOOL WINAPI DetourUpdateAllOtherThreads()
                     assert(error == NO_ERROR);
                     if (error) {
                         DETOUR_TRACE(("DetourUpdateThreadEx failed, error=%d\n", error));
-                        //Reset s_nPendingError so that subsequent threads can continue to try to call the DetourUpdateThreadEx function
+                        // Reset s_nPendingError so that subsequent threads can continue to try to call the DetourUpdateThreadEx function
                         assert(error == s_nPendingError);
-                        //When the console program is terminated, s_nPendingError == ERROR_ACCESS_DENIED may be caused when the SuspendThread is called in DetourUpdateThreadEx
+                        // When the console program is terminated, s_nPendingError == ERROR_ACCESS_DENIED may be caused when the SuspendThread is called in DetourUpdateThreadEx
                         assert(s_nPendingError == ERROR_ACCESS_DENIED);
                         s_nPendingError = NO_ERROR;
                     }
