@@ -559,6 +559,11 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
 // DetourUpdateThread is no longer recommended to be called by users, please use DetourUpdateAllOtherThreads for safer HOOK
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
+
+// After calling DetourUpdateAllOtherThreads, you should call DetourTransactionCommit(Ex) or DetourTransactionAbort as soon as possible.
+// In addition to the DetourAttach(Ex)\DetourDetach(Ex) call, other user operations should not be included between them,
+// because other user operations may cause CRT lock competition, and at this time CRT lock may be owned by other threads.
+// Other threads have been suspended at this time, so that may cause deadlock problems
 LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_opt_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject /*= TRUE*/);
 BOOL WINAPI DetourUpdateAllOtherThreads();
 
