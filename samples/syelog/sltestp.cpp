@@ -22,7 +22,7 @@
 
 VOID MyErrExit(PCSTR pszMsg)
 {
-    fprintf(stderr, "Error %s: %d\n", pszMsg, GetLastError());
+    fprintf(stderr, "Error %s: %ld\n", pszMsg, GetLastError());
     exit(1);
 }
 

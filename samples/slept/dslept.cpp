@@ -65,7 +65,7 @@ int WINAPI TimedEntryPoint(VOID)
     }
     else {
         printf("dslept" DETOURS_STRINGIFY(DETOURS_BITS) ".dll: "
-               " Error detouring SleepEx(): %d\n", error);
+               " Error detouring SleepEx(): %ld\n", error);
     }
 
     Verify("SleepEx", (PVOID)SleepEx);
@@ -118,7 +118,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         }
         else {
             printf("dslept" DETOURS_STRINGIFY(DETOURS_BITS) ".dll: "
-                   " Error detouring EntryPoint(): %d\n", error);
+                   " Error detouring EntryPoint(): %ld\n", error);
         }
     }
     else if (dwReason == DLL_PROCESS_DETACH) {
@@ -131,7 +131,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         error = DetourTransactionCommit();
 
         printf("dslept" DETOURS_STRINGIFY(DETOURS_BITS) ".dll: "
-               " Removed Sleep() detours (%d), slept %d ticks.\n", error, dwSlept);
+               " Removed Sleep() detours (%ld), slept %ld ticks.\n", error, dwSlept);
 
         fflush(stdout);
     }

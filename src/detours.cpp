@@ -7,31 +7,13 @@
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
 
-#pragma warning(disable:4068) // unknown pragma (suppress)
-
-#if _MSC_VER >= 1900
-#pragma warning(push)
-#pragma warning(disable:4091) // empty typedef
-#endif
-
-#define _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE 1
-#include <windows.h>
-
-#if (_MSC_VER < 1299)
-#pragma warning(disable: 4710)
-#endif
 
 //#define DETOUR_DEBUG 1
 #define DETOURS_INTERNAL
-
 #include "detours.h"
 
 #if DETOURS_VERSION != 0x4c0c1   // 0xMAJORcMINORcPATCH
 #error detours.h version mismatch
-#endif
-
-#if _MSC_VER >= 1900
-#pragma warning(pop)
 #endif
 
 #define NOTHROW
@@ -879,7 +861,30 @@ inline ULONG detour_is_code_filler(PBYTE pbCode)
 struct _DETOUR_TRAMPOLINE
 {
     // An ARM64 instruction is 4 bytes long.
-    BYTE            rbCode[64];     // target code + jmp to pbRemain
+    //
+    // The overwrite is always composed of 3 instructions (12 bytes) which perform an indirect jump
+	// using _DETOUR_TRAMPOLINE::pbDetour as the address holding the target location.
+    //
+    // Copied instructions can expand.
+    //
+    // The scheme using MovImmediate can cause an instruction
+    // to grow as much as 6 times.
+    // That would be Bcc or Tbz with a large address space:
+    //   4 instructions to form immediate
+    //   inverted tbz/bcc
+    //   br
+    //
+    // An expansion of 4 is not uncommon -- bl/blr and small address space:
+    //   3 instructions to form immediate
+    //   br or brl
+    //
+    // A theoretical maximum for rbCode is thefore 4*4*6 + 16 = 112 (another 16 for jmp to pbRemain).
+    //
+    // With literals, the maximum expansion is 5, including the literals: 4*4*5 + 16 = 96.
+    //
+    // The number is rounded up to 128. m_rbScratchDst should match this.
+    //
+    BYTE            rbCode[128];    // target code + jmp to pbRemain
     BYTE            cbCode;         // size of moved target code.
     BYTE            cbCodeBreak[3]; // padding to make debugging easier.
     BYTE            rbRestore[24];  // original target code.
@@ -890,10 +895,10 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbDetour;       // first instruction of detour function.
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 120);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 184);
 
 enum {
-    SIZE_OF_JMP = 8
+    SIZE_OF_JMP = 12
 };
 
 inline ULONG fetch_opcode(PBYTE pbCode)
@@ -907,6 +912,79 @@ inline void write_opcode(PBYTE &pbCode, ULONG Opcode)
     pbCode += 4;
 }
 
+struct ARM64_INDIRECT_JMP {
+    struct {
+        ULONG Rd : 5;
+        ULONG immhi : 19;
+        ULONG iop : 5;
+        ULONG immlo : 2;
+        ULONG op : 1;
+    } ardp;
+
+    struct {
+        ULONG Rt : 5;
+        ULONG Rn : 5;
+        ULONG imm : 12;
+        ULONG opc : 2;
+        ULONG iop1 : 2;
+        ULONG V : 1;
+        ULONG iop2 : 3;
+        ULONG size : 2;
+    } ldr;
+
+    ULONG br;
+};
+
+#pragma warning(push)
+#pragma warning(disable:4201)
+
+union ARM64_INDIRECT_IMM {
+    struct {
+        ULONG64 pad : 12;
+        ULONG64 adrp_immlo : 2;
+        ULONG64 adrp_immhi : 19;
+    };
+
+    LONG64 value;
+};
+
+#pragma warning(pop)
+
+PBYTE detour_gen_jmp_indirect(BYTE *pbCode, ULONG64 *pbJmpVal)
+{
+    // adrp x17, [jmpval]
+    // ldr x17, [x17, jmpval]
+    // br x17
+
+    struct ARM64_INDIRECT_JMP *pIndJmp;
+    union ARM64_INDIRECT_IMM jmpIndAddr;
+
+    jmpIndAddr.value = (((LONG64)pbJmpVal) & 0xFFFFFFFFFFFFF000) - 
+                       (((LONG64)pbCode) & 0xFFFFFFFFFFFFF000);
+
+    pIndJmp = (struct ARM64_INDIRECT_JMP *)pbCode;
+    pbCode = (BYTE *)(pIndJmp + 1);
+
+    pIndJmp->ardp.Rd = 17;
+    pIndJmp->ardp.immhi = jmpIndAddr.adrp_immhi;
+    pIndJmp->ardp.iop = 0x10;
+    pIndJmp->ardp.immlo = jmpIndAddr.adrp_immlo;
+    pIndJmp->ardp.op = 1;
+
+    pIndJmp->ldr.Rt = 17;
+    pIndJmp->ldr.Rn = 17;
+    pIndJmp->ldr.imm = (((ULONG64)pbJmpVal) & 0xFFF) / 8;
+    pIndJmp->ldr.opc = 1;
+    pIndJmp->ldr.iop1 = 1;
+    pIndJmp->ldr.V = 0;
+    pIndJmp->ldr.iop2 = 7;
+    pIndJmp->ldr.size = 3;
+
+    pIndJmp->br = 0xD61F0220;
+
+    return pbCode;
+}
+
 PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE *ppPool, PBYTE pbJmpVal)
 {
     PBYTE pbLiteral;
@@ -915,7 +993,7 @@ PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE *ppPool, PBYTE pbJmpVal)
         pbLiteral = *ppPool;
     }
     else {
-        pbLiteral = pbCode + 2*4;
+        pbLiteral = pbCode + 8;
     }
 
     *((PBYTE*&)pbLiteral) = pbJmpVal;
@@ -938,6 +1016,15 @@ inline PBYTE detour_gen_brk(PBYTE pbCode, PBYTE pbLimit)
     return pbCode;
 }
 
+inline INT64 detour_sign_extend(UINT64 value, UINT bits)
+{
+    const UINT left = 64 - bits;
+    const INT64 m1 = -1;
+    const INT64 wide = (INT64)(value << left);
+    const INT64 sign = (wide < 0) ? (m1 << left) : 0;
+    return value | sign;
+}
+
 inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
 {
     if (pbCode == NULL) {
@@ -950,19 +1037,72 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
     // Skip over the import jump if there is one.
     pbCode = (PBYTE)pbCode;
     ULONG Opcode = fetch_opcode(pbCode);
+
     if ((Opcode & 0x9f00001f) == 0x90000010) {           // adrp  x16, IAT
-        ULONG Opcode2 = fetch_opcode(pbCode+4);
+        ULONG Opcode2 = fetch_opcode(pbCode + 4);
 
         if ((Opcode2 & 0xffe003ff) == 0xf9400210) {      // ldr   x16, [x16, IAT]
-            ULONG Opcode3 = fetch_opcode(pbCode+8);
+            ULONG Opcode3 = fetch_opcode(pbCode + 8);
 
             if (Opcode3 == 0xd61f0200) {                 // br    x16
 
-                ULONG PageOffset = ((Opcode & 0x60000000) >> 29) | ((Opcode & 0x00ffffe0) >> 3);
-                PageOffset = (LONG)(Opcode << 11) >> 11;
+/* https://static.docs.arm.com/ddi0487/bb/DDI0487B_b_armv8_arm.pdf
+    The ADRP instruction shifts a signed, 21-bit immediate left by 12 bits, adds it to the value of the program counter with
+    the bottom 12 bits cleared to zero, and then writes the result to a general-purpose register. This permits the
+    calculation of the address at a 4KB aligned memory region. In conjunction with an ADD (immediate) instruction, or
+    a Load/Store instruction with a 12-bit immediate offset, this allows for the calculation of, or access to, any address
+    within +/- 4GB of the current PC.
 
-                PBYTE pbTarget = (PBYTE)(((ULONG64)pbCode & 0xfffffffffffff000ULL) + PageOffset +
-                                         ((Opcode2 >> 10) & 0xfff));
+PC-rel. addressing
+    This section describes the encoding of the PC-rel. addressing instruction class. The encodings in this section are
+    decoded from Data Processing -- Immediate on page C4-226.
+    Add/subtract (immediate)
+    This section describes the encoding of the Add/subtract (immediate) instruction class. The encodings in this section
+    are decoded from Data Processing -- Immediate on page C4-226.
+    Decode fields
+    Instruction page
+    op
+    0 ADR
+    1 ADRP
+
+C6.2.10 ADRP
+    Form PC-relative address to 4KB page adds an immediate value that is shifted left by 12 bits, to the PC value to
+    form a PC-relative address, with the bottom 12 bits masked out, and writes the result to the destination register.
+    ADRP <Xd>, <label>
+    imm = SignExtend(immhi:immlo:Zeros(12), 64);
+
+    31  30 29 28 27 26 25 24 23 5    4 0
+    1   immlo  1  0  0  0  0  immhi  Rd
+         9             0
+
+Rd is hardcoded as 0x10 above.
+Immediate is 21 signed bits split into 2 bits and 19 bits, and is scaled by 4K.
+*/
+                UINT64 const pageLow2 = (Opcode >> 29) & 3;
+                UINT64 const pageHigh19 = (Opcode >> 5) & ~(~0ui64 << 19);
+                INT64 const page = detour_sign_extend((pageHigh19 << 2) | pageLow2, 21) << 12;
+
+/* https://static.docs.arm.com/ddi0487/bb/DDI0487B_b_armv8_arm.pdf
+
+    C6.2.101 LDR (immediate)
+    Load Register (immediate) loads a word or doubleword from memory and writes it to a register. The address that is
+    used for the load is calculated from a base register and an immediate offset.
+    The Unsigned offset variant scales the immediate offset value by the size of the value accessed before adding it
+    to the base register value.
+
+Unsigned offset
+64-bit variant Applies when size == 11.
+    31 30 29 28  27 26 25 24  23 22  21   10   9 5   4 0
+     1  x  1  1   1  0  0  1   0  1  imm12      Rn    Rt
+         F             9        4              200    10
+
+That is, two low 5 bit fields are registers, hardcoded as 0x10 and 0x10 << 5 above,
+then unsigned size-unscaled (8) 12-bit offset, then opcode bits 0xF94.
+*/
+                UINT64 const offset = ((Opcode2 >> 10) & ~(~0ui64 << 12)) << 3;
+
+                PBYTE const pbTarget = (PBYTE)((ULONG64)pbCode & 0xfffffffffffff000ULL) + page + offset;
+
                 if (detour_is_imported(pbCode, pbTarget)) {
                     PBYTE pbNew = *(PBYTE *)pbTarget;
                     DETOUR_TRACE(("%p->%p: skipped over import table.\n", pbCode, pbNew));
@@ -972,6 +1112,22 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
         }
     }
     return pbCode;
+}
+
+inline void detour_find_jmp_bounds(PBYTE pbCode,
+                                   PDETOUR_TRAMPOLINE *ppLower,
+                                   PDETOUR_TRAMPOLINE *ppUpper)
+{
+    // The encoding used by detour_gen_jmp_indirect actually enables a
+    // displacement of +/- 4GiB. In the future, this could be changed to
+    // reflect that. For now, just reuse the x86 logic which is plenty.
+
+    ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
+    ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
+    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
+
+    *ppLower = (PDETOUR_TRAMPOLINE)lo;
+    *ppUpper = (PDETOUR_TRAMPOLINE)hi;
 }
 
 inline BOOL detour_does_code_end_function(PBYTE pbCode)
@@ -1096,6 +1252,9 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
             if (pv != NULL) {
                 return pv;
             }
+            else if (GetLastError() == ERROR_DYNAMIC_CODE_BLOCKED) {
+                return NULL;
+            }
             pbTry += DETOUR_REGION_SIZE;
         }
         else {
@@ -1143,6 +1302,9 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
             if (pv != NULL) {
                 return pv;
             }
+            else if (GetLastError() == ERROR_DYNAMIC_CODE_BLOCKED) {
+                return NULL;
+            }
             pbTry -= DETOUR_REGION_SIZE;
         }
         else {
@@ -1151,6 +1313,65 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
         }
     }
     return NULL;
+}
+
+static PVOID detour_alloc_trampoline_allocate_new(PBYTE pbTarget,
+                                                  PDETOUR_TRAMPOLINE pLo,
+                                                  PDETOUR_TRAMPOLINE pHi)
+{
+    PVOID pbTry = NULL;
+
+    // NB: We must always also start the search at an offset from pbTarget
+    //     in order to maintain ASLR entropy.
+
+#if defined(DETOURS_64BIT)
+    // Try looking 1GB below or lower.
+    if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
+        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget - 0x40000000);
+    }
+    // Try looking 1GB above or higher.
+    if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
+        pbTry = detour_alloc_region_from_lo(pbTarget + 0x40000000, (PBYTE)pHi);
+    }
+    // Try looking 1GB below or higher.
+    if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
+        pbTry = detour_alloc_region_from_lo(pbTarget - 0x40000000, pbTarget);
+    }
+    // Try looking 1GB above or lower.
+    if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
+        pbTry = detour_alloc_region_from_hi(pbTarget, pbTarget + 0x40000000);
+    }
+#endif
+
+    // Try anything below.
+    if (pbTry == NULL) {
+        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget);
+    }
+    // try anything above.
+    if (pbTry == NULL) {
+        pbTry = detour_alloc_region_from_lo(pbTarget, (PBYTE)pHi);
+    }
+
+    return pbTry;
+}
+
+PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
+                                                  _Out_ PDWORD pcbAllocatedSize)
+{
+    PDETOUR_TRAMPOLINE pLo;
+    PDETOUR_TRAMPOLINE pHi;
+    detour_find_jmp_bounds((PBYTE)pbTarget, &pLo, &pHi);
+
+    PVOID pbNewlyAllocated =
+        detour_alloc_trampoline_allocate_new((PBYTE)pbTarget, pLo, pHi);
+    if (pbNewlyAllocated == NULL) {
+        DETOUR_TRACE(("Couldn't find available memory region!\n"));
+        *pcbAllocatedSize = 0;
+        return NULL;
+    }
+
+    *pcbAllocatedSize = DETOUR_REGION_SIZE;
+    return pbNewlyAllocated;
 }
 
 static PDETOUR_TRAMPOLINE detour_alloc_trampoline(PBYTE pbTarget)
@@ -1197,41 +1418,10 @@ static PDETOUR_TRAMPOLINE detour_alloc_trampoline(PBYTE pbTarget)
     // Round pbTarget down to 64KB block.
     pbTarget = pbTarget - (PtrToUlong(pbTarget) & 0xffff);
 
-    PVOID pbTry = NULL;
-
-    // NB: We must always also start the search at an offset from pbTarget
-    //     in order to maintain ASLR entropy.
-
-#if defined(DETOURS_64BIT)
-    // Try looking 1GB below or lower.
-    if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
-        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget - 0x40000000);
-    }
-    // Try looking 1GB above or higher.
-    if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
-        pbTry = detour_alloc_region_from_lo(pbTarget + 0x40000000, (PBYTE)pHi);
-    }
-    // Try looking 1GB below or higher.
-    if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
-        pbTry = detour_alloc_region_from_lo(pbTarget - 0x40000000, pbTarget);
-    }
-    // Try looking 1GB above or lower.
-    if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
-        pbTry = detour_alloc_region_from_hi(pbTarget, pbTarget + 0x40000000);
-    }
-#endif
-
-    // Try anything below.
-    if (pbTry == NULL) {
-        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget);
-    }
-    // try anything above.
-    if (pbTry == NULL) {
-        pbTry = detour_alloc_region_from_lo(pbTarget, (PBYTE)pHi);
-    }
-
-    if (pbTry != NULL) {
-        s_pRegion = (DETOUR_REGION*)pbTry;
+    PVOID pbNewlyAllocated =
+        detour_alloc_trampoline_allocate_new(pbTarget, pLo, pHi);
+    if (pbNewlyAllocated != NULL) {
+        s_pRegion = (DETOUR_REGION*)pbNewlyAllocated;
         s_pRegion->dwSignature = DETOUR_REGION_SIGNATURE;
         s_pRegion->pFree = NULL;
         s_pRegion->pNext = s_pRegions;
@@ -1558,7 +1748,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_ARM
 
 #ifdef DETOURS_ARM64
-            PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, o->pTrampoline->pbDetour);
+            PBYTE pbCode = detour_gen_jmp_indirect(o->pbTarget, (ULONG64*)&(o->pTrampoline->pbDetour));
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = o->pTrampoline->rbCode;
             UNREFERENCED_PARAMETER(pbCode);

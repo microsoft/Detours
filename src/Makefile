@@ -16,7 +16,7 @@ DETOURS_SOURCE_BROWSING = 0
 
 #######################/#######################################################
 ##
-CFLAGS=/W4 /WX /Zi /MT /Gy /Gm- /Zl /Od
+CFLAGS=/nologo /W4 /WX /we4777 /we4800 /Zi /MT /Gy /Gm- /Zl /Od
 
 !IF $(DETOURS_SOURCE_BROWSING)==1
 CFLAGS=$(CFLAGS) /FR
@@ -90,7 +90,7 @@ $(OBJD)\detours.bsc : $(OBJS)
     bscmake /v /n /o $@ $(OBJS:.obj=.sbr)
 
 $(LIBD)\detours.lib : $(OBJS)
-    link /lib /out:$@ $(OBJS)
+    link /lib /out:$@ /nologo $(OBJS)
 
 $(INCD)\detours.h : detours.h
     copy detours.h $@

@@ -16,6 +16,53 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 
+#ifdef DETOURS_INTERNAL
+
+#define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS 1
+#define _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE 1
+
+#pragma warning(disable:4068) // unknown pragma (suppress)
+
+#if _MSC_VER >= 1900
+#pragma warning(push)
+#pragma warning(disable:4091) // empty typedef
+#endif
+
+// Suppress declspec(dllimport) for the sake of Detours
+// users that provide kernel32 functionality themselves.
+// This is ok in the mainstream case, it will just cost
+// an extra instruction calling some functions, which
+// LTCG optimizes away.
+//
+#define _KERNEL32_ 1
+#define _USER32_ 1
+
+#include <windows.h>
+#if (_MSC_VER < 1310)
+#else
+#pragma warning(push)
+#if _MSC_VER > 1400
+#pragma warning(disable:6102 6103) // /analyze warnings
+#endif
+#include <strsafe.h>
+#pragma warning(pop)
+#endif
+
+// From winerror.h, as this error isn't found in some SDKs:
+//
+// MessageId: ERROR_DYNAMIC_CODE_BLOCKED
+//
+// MessageText:
+//
+// The operation was blocked as the process prohibits dynamic code generation.
+//
+#define ERROR_DYNAMIC_CODE_BLOCKED       1655L
+
+#endif // DETOURS_INTERNAL
+
+//////////////////////////////////////////////////////////////////////////////
+//
+
 #undef DETOURS_X64
 #undef DETOURS_X86
 #undef DETOURS_IA64
@@ -61,7 +108,12 @@
 //#define DETOURS_OPTION_BITS 32
 #endif
 
-#define VER_DETOURS_BITS    DETOUR_STRINGIFY(DETOURS_BITS)
+/////////////////////////////////////////////////////////////// Helper Macros.
+//
+#define DETOURS_STRINGIFY_(x)    #x
+#define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
+
+#define VER_DETOURS_BITS    DETOURS_STRINGIFY(DETOURS_BITS)
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -87,6 +139,7 @@ typedef ULONG ULONG_PTR;
 #undef _In_
 #undef _In_bytecount_
 #undef _In_count_
+#undef __in_ecount
 #undef _In_opt_
 #undef _In_opt_bytecount_
 #undef _In_opt_count_
@@ -141,6 +194,10 @@ typedef ULONG ULONG_PTR;
 
 #ifndef _In_count_
 #define _In_count_(x)
+#endif
+
+#ifndef __in_ecount
+#define __in_ecount(x)
 #endif
 
 #ifndef _In_opt_
@@ -377,15 +434,34 @@ typedef struct _DETOUR_EXE_RESTORE
 
     IMAGE_DOS_HEADER    idh;
     union {
-        IMAGE_NT_HEADERS    inh;
+        IMAGE_NT_HEADERS    inh;        // all environments have this
+#ifdef IMAGE_NT_OPTIONAL_HDR32_MAGIC    // some environments do not have this
         IMAGE_NT_HEADERS32  inh32;
+#endif
+#ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC    // some environments do not have this
         IMAGE_NT_HEADERS64  inh64;
+#endif
+#ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC    // some environments do not have this
         BYTE                raw[sizeof(IMAGE_NT_HEADERS64) +
                                 sizeof(IMAGE_SECTION_HEADER) * 32];
+#else
+        BYTE                raw[0x108 + sizeof(IMAGE_SECTION_HEADER) * 32];
+#endif
     };
     DETOUR_CLR_HEADER   clr;
 
 } DETOUR_EXE_RESTORE, *PDETOUR_EXE_RESTORE;
+
+#ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC
+C_ASSERT(sizeof(IMAGE_NT_HEADERS64) == 0x108);
+#endif
+
+// The size can change, but assert for clarity due to the muddying #ifdefs.
+#ifdef _WIN64
+C_ASSERT(sizeof(DETOUR_EXE_RESTORE) == 0x688);
+#else
+C_ASSERT(sizeof(DETOUR_EXE_RESTORE) == 0x678);
+#endif
 
 typedef struct _DETOUR_EXE_HELPER
 {
@@ -414,11 +490,6 @@ typedef struct _DETOUR_EXE_HELPER
       0,\
       0,\
 }
-
-/////////////////////////////////////////////////////////////// Helper Macros.
-//
-#define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
-#define DETOURS_STRINGIFY_(x)    #x
 
 ///////////////////////////////////////////////////////////// Binary Typedefs.
 //
@@ -507,6 +578,8 @@ PVOID WINAPI DetourCopyInstruction(_In_opt_ PVOID pDst,
                                    _Out_opt_ LONG *plExtra);
 BOOL WINAPI DetourSetCodeModule(_In_ HMODULE hModule,
                                 _In_ BOOL fLimitReferencesToModule);
+PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
+                                                  _Out_ PDWORD pcbAllocatedSize);
 
 ///////////////////////////////////////////////////// Loaded Binary Functions.
 //

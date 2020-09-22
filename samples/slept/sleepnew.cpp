@@ -69,7 +69,7 @@ int __cdecl main(void)
     }
 #endif
 
-    printf("sleepnew.exe: GetSleptTicks() = %d\n\n", GetSleptTicks());
+    printf("sleepnew.exe: GetSleptTicks() = %ld\n\n", GetSleptTicks());
     return 0;
 }
 //

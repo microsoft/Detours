@@ -2,12 +2,12 @@
 
 Detours is a software package for monitoring and instrumenting API calls on Windows. Detours
 has been used by many ISVs and  is also  used by product teams at Microsoft. Detours is now available under
-a standard open source  license (MIT).  This simplifies licensing for programmers using Detours
+a standard open source  license ([MIT](https://github.com/microsoft/Detours/blob/master/LICENSE.md)).  This simplifies licensing for programmers using Detours
 and allows the community to support Detours using open source tools and processes.
 
 Detours is compatible with the Windows NT family of 
 operating systems: Windows NT, Windows XP, Windows Server 2003, Windows 7,
-Windows 8, and Windows 10.  It cannot be used by Window Store apps
+Windows 8, and Windows 10.  It cannot be used by Windows Store apps
 because Detours requires APIs not available to those applications. 
 This repo contains the source code for version 4.0.1 of Detours.
 
@@ -21,9 +21,17 @@ The [`Detours`](https://github.com/microsoft/detours) repository is where develo
 Here are some ways you can participate in the project:
 
 * [Answer questions](https://github.com/microsoft/detours/issues) about using Detours.
-* [Improve the Wiki](https://github.com/microsoft/detours/Wiki).
+* [Improve the Wiki](https://github.com/microsoft/detours/wiki).
 * [Submit bugs](https://github.com/microsoft/detours/issues) and help us verify fixes and changes as they are checked in.
 * Review [source code changes](https://github.com/microsoft/detours/pulls).
+
+Most contributions require you to agree to a Contributor License Agreement (CLA) declaring that
+you have the right to, and actually do, grant us the rights to use your contribution.
+For details, visit https://cla.opensource.microsoft.com.
+
+When you submit a pull request, a CLA bot will automatically determine whether you need to provide
+a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
+provided by the bot. You will only need to do this once across all repos using our CLA.
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
@@ -45,4 +53,4 @@ message body containing only the text UNSUBSCRIBE DETOURS-ANNOUNCE.
 
 Copyright (c) Microsoft Corporation. All rights reserved.
 
-Licensed under the [MIT](LICENSE.txt) License.
+Licensed under the [MIT](LICENSE.md) License.
