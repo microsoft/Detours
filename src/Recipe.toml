@@ -1,8 +1,9 @@
 Name = "Detours"
+Language = "C++"
 Version = "4.0.1"
-Public = "detours.cpp"
+Interface = "Detours.cpp"
 Source = [
-    "creatwth.cpp",
-    "disasm.cpp",
-    "modules.cpp",
+	"creatwth.cpp",
+	"disasm.cpp",
+	"modules.cpp",
 ]
