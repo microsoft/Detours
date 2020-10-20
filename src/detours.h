@@ -541,14 +541,6 @@ typedef BOOL (CALLBACK *PF_DETOUR_IMPORT_FUNC_CALLBACK_EX)(_In_opt_ PVOID pConte
 typedef VOID * PDETOUR_BINARY;
 typedef VOID * PDETOUR_LOADED_BINARY;
 
-//////////////////////////////////////////////////////////// Memory management APIs.
-BOOL WINAPI DetourCreateHeap(BOOL fAutoDestroy);
-HANDLE WINAPI DetourGetHeap();
-void WINAPI DetourDestroyHeap();
-#ifdef __AUTO_CREATE_DETOUR_HEAP__
-static BOOL s_fAlreadyCreatedDetourHeap = DetourCreateHeap(TRUE);
-#endif
-
 //////////////////////////////////////////////////////////// Transaction APIs.
 //
 LONG WINAPI DetourTransactionBegin(VOID);
@@ -1138,15 +1130,83 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 #endif // __cplusplus
 
 //////////////////////////////////////////////////////////// Memory management APIs.
+struct DetourMemory
+{
+    DWORD dwHead;
+    size_t nObjectSize;
+    //T object
+    //DWORD dwTail;
+public:
+    DetourMemory(size_t nObjectSize, BOOL bOnlyForGetStructSize)
+    {
+        dwHead = 0x12345678;
+        this->nObjectSize = nObjectSize;
+        if (!bOnlyForGetStructSize) {
+            *TailPtr() = 0x9ABCDEF0;
+        }
+    }
+public:
+    size_t GetObjectSize() const
+    {
+        return nObjectSize;
+    }
+    size_t GetStructSize() const
+    {
+        size_t nStructSize = sizeof(DetourMemory) + nObjectSize + sizeof(DWORD);
+        return nStructSize;
+    }
+    PBYTE ObjectPtr()
+    {
+        PBYTE p = ((PBYTE)this) + sizeof(DetourMemory);
+        return p;
+    }
+    PDWORD TailPtr()
+    {
+        PDWORD pdwTail = (PDWORD)(ObjectPtr() + nObjectSize);
+        return pdwTail;
+    }
+    BOOL Validate()
+    {
+        BOOL bIsValid = dwHead == 0x12345678;
+        assert(bIsValid);
+        if (bIsValid) {
+            bIsValid = *TailPtr() == 0x9ABCDEF0;
+            assert(bIsValid);
+        }
+        return bIsValid;
+    }
+public:
+    static DetourMemory* FromObjectPtr(PBYTE p)
+    {
+        PBYTE pm = p - sizeof(DetourMemory);
+        return (DetourMemory*)pm;
+    }
+};
+
+inline PVOID DetourMemAlloc(size_t size)
+{
+    PVOID memblock = VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+    assert(memblock);
+    return memblock;
+}
+inline VOID DetourMemFree(PVOID memblock)
+{
+    BOOL bResult = VirtualFree(memblock, 0, MEM_RELEASE);
+    assert(bResult);
+}
+
 template<class T>
 T* DetourCreateObject()
 {
-    T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
-    assert(p);
-    if (!p) {
-        return p;
+    DetourMemory m(sizeof(T), TRUE);
+    DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
+    assert(pm);
+    if (!pm) {
+        return NULL;
     }
+	::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
 
+    T* p = (T*)pm->ObjectPtr();
     ::new(p) T;
 
     return p;
@@ -1154,12 +1214,15 @@ T* DetourCreateObject()
 template<class T, class P1>
 T* DetourCreateObject(P1 p1)
 {
-    T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
-    assert(p);
-    if (!p) {
-        return p;
+    DetourMemory m(sizeof(T), TRUE);
+    DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
+    assert(pm);
+    if (!pm) {
+        return NULL;
     }
+	::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
 
+    T* p = (T*)pm->ObjectPtr();
     ::new(p) T(p1);
 
     return p;
@@ -1167,12 +1230,15 @@ T* DetourCreateObject(P1 p1)
 template<class T, class P1, class P2>
 T* DetourCreateObject(P1 p1, P2 p2)
 {
-    T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T));
-    assert(p);
-    if (!p) {
-        return p;
+    DetourMemory m(sizeof(T), TRUE);
+    DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
+    assert(pm);
+    if (!pm) {
+        return NULL;
     }
+	::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
 
+    T* p = (T*)pm->ObjectPtr();
     ::new(p) T(p1, p2);
 
     return p;
@@ -1180,7 +1246,8 @@ T* DetourCreateObject(P1 p1, P2 p2)
 template<class T>
 void DetourDestroyObject(T* p)
 {
-    size_t MemSize = HeapSize(DetourGetHeap(), 0, p);
+    DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+    size_t MemSize = pm->GetObjectSize();
     assert(MemSize == sizeof(T));
     if (MemSize != sizeof(T)) {
         return;
@@ -1188,18 +1255,22 @@ void DetourDestroyObject(T* p)
 
     p->~T();
 
-    HeapFree(DetourGetHeap(), 0, p);
-    p = NULL;
+    pm->Validate();
+    DetourMemFree((PVOID)pm);
+    pm = NULL;
 }
 template<class T>
 T* DetourCreateObjectArray(size_t _Size)
 {
-    T* p = (T*)HeapAlloc(DetourGetHeap(), 0, sizeof(T) * _Size);
-    assert(p);
-    if (!p) {
-        return p;
+    DetourMemory m(sizeof(T) * _Size, TRUE);
+    DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
+    assert(pm);
+    if (!pm) {
+        return NULL;
     }
+	::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
 
+    T* p = (T*)pm->ObjectPtr();
     for (size_t i = 0; i < _Size; i++) {
         ::new(&p[i]) T;
     }
@@ -1209,7 +1280,8 @@ T* DetourCreateObjectArray(size_t _Size)
 template<class T>
 void DetourDestroyObjectArray(T* p)
 {
-    size_t MemSize = HeapSize(DetourGetHeap(), 0, p);
+    DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+    size_t MemSize = pm->GetObjectSize();
     assert(MemSize > 0);
     if (MemSize == 0) {
         return;
@@ -1224,8 +1296,9 @@ void DetourDestroyObjectArray(T* p)
         (&p[i])->~T();
     }
 
-    HeapFree(DetourGetHeap(), 0, (LPVOID)p);
-    p = NULL;
+    pm->Validate();
+    DetourMemFree((PVOID)pm);
+    pm = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////

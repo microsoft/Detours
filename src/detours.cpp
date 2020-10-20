@@ -1545,43 +1545,6 @@ static DetourOperation *    s_pPendingOperations    = NULL;
 
 //////////////////////////////////////////////////////////////////////////////
 //
-void WINAPI DetourDestroyHeap()
-{
-    if (s_hHeap) {
-        HeapDestroy(s_hHeap);
-        s_hHeap = NULL;
-    }
-}
-
-static void DetourDestroyHeap__for__atexit()
-{
-    DetourDestroyHeap();
-}
-
-BOOL WINAPI DetourCreateHeap(BOOL fAutoDestroy)
-{
-    BOOL bResult = FALSE;
-    if (s_hHeap == NULL) {
-        s_hHeap = HeapCreate(0, 0, 0);
-        assert(s_hHeap);
-        if (s_hHeap != NULL) {
-            if (fAutoDestroy) {
-                atexit(DetourDestroyHeap__for__atexit);
-            }
-            bResult = TRUE;
-        }
-    }
-    return bResult;
-}
-
-HANDLE WINAPI DetourGetHeap()
-{
-    assert(s_hHeap);
-    return s_hHeap;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-//
 PVOID WINAPI DetourCodeFromPointer(_In_ PVOID pPointer,
                                    _Out_opt_ PVOID *ppGlobals)
 {
