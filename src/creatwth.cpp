@@ -1145,7 +1145,7 @@ BOOL WINAPI AllocExeHelper(_Out_ PDETOUR_EXE_HELPER *pHelper,
 
   Cleanup:
     if (Helper != NULL) {
-        DetourDestroyObjectArray((PBYTE)Helper);
+        DetourDestroyObjectArray((PBYTE&)Helper);
         Helper = NULL;
     }
     return Result;
@@ -1155,7 +1155,7 @@ static
 VOID WINAPI FreeExeHelper(PDETOUR_EXE_HELPER *pHelper)
 {
     if (*pHelper != NULL) {
-        DetourDestroyObjectArray((PBYTE)*pHelper);
+        DetourDestroyObjectArray((PBYTE&)*pHelper);
         *pHelper = NULL;
     }
 }

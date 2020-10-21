@@ -1136,7 +1136,7 @@ struct DetourMemory
     size_t nObjectSize;
     //T object
     //DWORD dwTail;
-public:
+private:
     DetourMemory(size_t nObjectSize, BOOL bOnlyForGetStructSize)
     {
         dwHead = 0x12345678;
@@ -1160,6 +1160,7 @@ public:
         PBYTE p = ((PBYTE)this) + sizeof(DetourMemory);
         return p;
     }
+private:
     PDWORD TailPtr()
     {
         PDWORD pdwTail = (PDWORD)(ObjectPtr() + nObjectSize);
@@ -1175,130 +1176,142 @@ public:
         }
         return bIsValid;
     }
+private:
+    static inline PVOID DetourMemAlloc(size_t size)
+    {
+        PVOID memblock = VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+        assert(memblock);
+        return memblock;
+    }
+    static inline BOOL DetourMemFree(PVOID memblock)
+    {
+        BOOL bResult = VirtualFree(memblock, 0, MEM_RELEASE);
+        assert(bResult);
+        return bResult;
+    }
+public:
+    static DetourMemory* Create(size_t nObjectSize)
+    {
+        DetourMemory m(nObjectSize, TRUE);
+        DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
+        assert(pm);
+        if (pm) {
+            ::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
+        }
+        return pm;
+    }
+    static BOOL Destroy(DetourMemory*& pm, BOOL bValidate)
+    {
+        BOOL bResult = FALSE;
+        if (pm) {
+            bResult = bValidate ? pm->Validate() : TRUE;
+            if (bResult) {
+                bResult = DetourMemFree((PVOID)pm);
+                if (bResult) {
+                    pm = NULL;
+                }
+            }
+        }
+        return bResult;
+    }
 public:
     static DetourMemory* FromObjectPtr(PBYTE p)
     {
-        PBYTE pm = p - sizeof(DetourMemory);
-        return (DetourMemory*)pm;
+        DetourMemory* pm = NULL;
+        if (p) {
+            pm = (DetourMemory*)(p - sizeof(DetourMemory));
+            if (!pm->Validate()) {
+                pm = NULL;
+            }
+        }
+        return pm;
     }
 };
-
-inline PVOID DetourMemAlloc(size_t size)
-{
-    PVOID memblock = VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
-    assert(memblock);
-    return memblock;
-}
-inline VOID DetourMemFree(PVOID memblock)
-{
-    BOOL bResult = VirtualFree(memblock, 0, MEM_RELEASE);
-    assert(bResult);
-}
 
 template<class T>
 T* DetourCreateObject()
 {
-    DetourMemory m(sizeof(T), TRUE);
-    DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
-    assert(pm);
-    if (!pm) {
-        return NULL;
+    DetourMemory* pm = DetourMemory::Create(sizeof(T));
+    T* p = NULL;
+    if (pm) {
+        p = (T*)pm->ObjectPtr();
+        ::new(p) T;
     }
-	::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
-
-    T* p = (T*)pm->ObjectPtr();
-    ::new(p) T;
-
     return p;
 }
 template<class T, class P1>
 T* DetourCreateObject(P1 p1)
 {
-    DetourMemory m(sizeof(T), TRUE);
-    DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
-    assert(pm);
-    if (!pm) {
-        return NULL;
+    DetourMemory* pm = DetourMemory::Create(sizeof(T));
+    T* p = NULL;
+    if (pm) {
+        p = (T*)pm->ObjectPtr();
+        ::new(p) T(p1);
     }
-	::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
-
-    T* p = (T*)pm->ObjectPtr();
-    ::new(p) T(p1);
-
     return p;
 }
 template<class T, class P1, class P2>
 T* DetourCreateObject(P1 p1, P2 p2)
 {
-    DetourMemory m(sizeof(T), TRUE);
-    DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
-    assert(pm);
-    if (!pm) {
-        return NULL;
+    DetourMemory* pm = DetourMemory::Create(sizeof(T));
+    T* p = NULL;
+    if (pm) {
+        p = (T*)pm->ObjectPtr();
+        ::new(p) T(p1, p2);
     }
-	::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
-
-    T* p = (T*)pm->ObjectPtr();
-    ::new(p) T(p1, p2);
-
     return p;
 }
 template<class T>
-void DetourDestroyObject(T* p)
+void DetourDestroyObject(T*& p)
 {
     DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
-    size_t MemSize = pm->GetObjectSize();
-    assert(MemSize == sizeof(T));
-    if (MemSize != sizeof(T)) {
-        return;
+    if (pm) {
+        size_t MemSize = pm->GetObjectSize();
+        assert(MemSize == sizeof(T));
+        if (MemSize != sizeof(T)) {
+            return;
+        }
+
+        p->~T();
+        p = NULL;
+
+        DetourMemory::Destroy(pm, FALSE);
     }
-
-    p->~T();
-
-    pm->Validate();
-    DetourMemFree((PVOID)pm);
-    pm = NULL;
 }
 template<class T>
 T* DetourCreateObjectArray(size_t _Size)
 {
-    DetourMemory m(sizeof(T) * _Size, TRUE);
-    DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetStructSize());
-    assert(pm);
-    if (!pm) {
-        return NULL;
-    }
-	::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
-
-    T* p = (T*)pm->ObjectPtr();
-    for (size_t i = 0; i < _Size; i++) {
-        ::new(&p[i]) T;
+    DetourMemory* pm = DetourMemory::Create(sizeof(T) * _Size);
+    T* p = NULL;
+    if (pm) {
+        p = (T*)pm->ObjectPtr();
+        for (size_t i = 0; i < _Size; i++) {
+            ::new(&p[i]) T;
+        }
     }
 
     return p;
 }
 template<class T>
-void DetourDestroyObjectArray(T* p)
+void DetourDestroyObjectArray(T*& p)
 {
     DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
-    size_t MemSize = pm->GetObjectSize();
-    assert(MemSize > 0);
-    if (MemSize == 0) {
-        return;
-    }
-    size_t _Size = MemSize / sizeof(T);
-    assert(_Size > 0);
-    if (_Size == 0) {
-        return;
-    }
+    if (pm) {
+        size_t MemSize = pm->GetObjectSize();
+        assert(MemSize % sizeof(T) == 0);
+        if (MemSize % sizeof(T) != 0) {
+            return;
+        }
 
-    for (size_t i = 0; i < _Size; i++) {
-        (&p[i])->~T();
-    }
+        size_t _Size = MemSize / sizeof(T);
+        //_Size equal to 0 is allowed
+        for (size_t i = 0; i < _Size; i++) {
+            (&p[i])->~T();
+        }
+        p = NULL;
 
-    pm->Validate();
-    DetourMemFree((PVOID)pm);
-    pm = NULL;
+        DetourMemory::Destroy(pm, FALSE);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////

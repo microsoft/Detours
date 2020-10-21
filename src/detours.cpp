@@ -2142,11 +2142,11 @@ static PZwQuerySystemInformation fnZwQuerySystemInformation = NULL;
 //
 // Get snapshot of the processes started in the system
 //=========================================================================
-static BOOL CreateProcessSnapshot(VOID** snapshotContext)
+static BOOL CreateProcessSnapshot(PBYTE* snapshotContext)
 {
     HMODULE hModule = NULL;
     ULONG   cbBuffer = 1024 * 1024;  // 1Mb - default process information buffer size (that's enough in most cases for high-loaded systems)
-    LPVOID  pBuffer = NULL;
+    PBYTE pBuffer = NULL;
     NTSTATUS status = 0;
 
     if (!fnZwQuerySystemInformation) {
@@ -2169,11 +2169,11 @@ static BOOL CreateProcessSnapshot(VOID** snapshotContext)
         status = fnZwQuerySystemInformation(SystemProcessInformation, pBuffer, cbBuffer, NULL);
 
         if (status == STATUS_INFO_LENGTH_MISMATCH) {
-            DetourDestroyObjectArray((LPBYTE)pBuffer);
+            DetourDestroyObjectArray(pBuffer);
             cbBuffer *= 2;
         }
         else if (status < 0) {
-            DetourDestroyObjectArray((LPBYTE)pBuffer);
+            DetourDestroyObjectArray(pBuffer);
             return FALSE;
         }
     } while (status == STATUS_INFO_LENGTH_MISMATCH);
@@ -2214,7 +2214,7 @@ static PSYSTEM_PROCESS_INFORMATION FindProcess(VOID* snapshotContext, SIZE_T pro
 // Get current process snapshot and process info
 //
 //=========================================================================
-static BOOL GetCurrentProcessSnapshot(PVOID* snapshot, PSYSTEM_PROCESS_INFORMATION* procInfo)
+static BOOL GetCurrentProcessSnapshot(PBYTE* snapshot, PSYSTEM_PROCESS_INFORMATION* procInfo)
 {
     // get a view of the threads in the system
 
@@ -2235,16 +2235,16 @@ static BOOL GetCurrentProcessSnapshot(PVOID* snapshot, PSYSTEM_PROCESS_INFORMATI
 //
 // Free memory allocated for processes snapshot
 //=========================================================================
-static VOID CloseProcessSnapshot(VOID* snapshotContext)
+static VOID CloseProcessSnapshot(PBYTE& snapshotContext)
 {
-    DetourDestroyObjectArray((LPBYTE)snapshotContext);
+    DetourDestroyObjectArray(snapshotContext);
 }
 
 BOOL WINAPI DetourUpdateAllOtherThreads()
 {
     LONG bResult = FALSE;
 
-    VOID* procEnumerationCtx = NULL;
+    PBYTE procEnumerationCtx = NULL;
     PSYSTEM_PROCESS_INFORMATION procInfo = NULL;
 
     if (GetCurrentProcessSnapshot(&procEnumerationCtx, &procInfo)) {
