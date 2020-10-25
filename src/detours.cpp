@@ -20,6 +20,22 @@
 
 //////////////////////////////////////////////////////////////////////////////
 //
+
+extern "C" void __cdecl _assert(const char* expr, const char* filename, unsigned lineno);
+void DetourAssert(const char* expr, const char* filename, unsigned lineno)
+{
+    DWORD dwLastError = GetLastError();
+    SetLastError(dwLastError);
+    int last_error_mode = _set_error_mode(_OUT_TO_MSGBOX);
+    _assert(expr, filename, lineno);
+    if (last_error_mode != _OUT_TO_MSGBOX) {
+        _set_error_mode(last_error_mode);
+    }
+    SetLastError(dwLastError);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
 struct _DETOUR_ALIGN
 {
     BYTE    obTarget        : 3;
@@ -2225,7 +2241,7 @@ static BOOL GetCurrentProcessSnapshot(PBYTE* snapshot, PSYSTEM_PROCESS_INFORMATI
 
     // this never returns NULL as the current process id is always present in the processes snapshot
     *procInfo = FindProcess(*snapshot, GetCurrentProcessId());
-    assert(procInfo);
+    DETOUR_ASSERT(procInfo);
 
     return TRUE;
 }
@@ -2257,13 +2273,13 @@ BOOL WINAPI DetourUpdateAllOtherThreads()
                 HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION | THREAD_SET_CONTEXT, FALSE, threadId);
                 if (hThread) {
                     LONG error = DetourUpdateThreadEx(hThread, TRUE);
-                    assert(error == NO_ERROR);
+                    DETOUR_ASSERT(error == NO_ERROR);
                     if (error) {
                         DETOUR_TRACE(("DetourUpdateThreadEx failed, error=%d\n", error));
                         // Reset s_nPendingError so that subsequent threads can continue to try to call the DetourUpdateThreadEx function
-                        assert(error == s_nPendingError);
+                        DETOUR_ASSERT(error == s_nPendingError);
                         // When the console program is terminated, s_nPendingError == ERROR_ACCESS_DENIED may be caused when the SuspendThread is called in DetourUpdateThreadEx
-                        assert(s_nPendingError == ERROR_ACCESS_DENIED);
+                        DETOUR_ASSERT(s_nPendingError == ERROR_ACCESS_DENIED);
                         s_nPendingError = NO_ERROR;
                     }
                 }
