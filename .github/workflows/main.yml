@@ -41,7 +41,7 @@ jobs:
 
       # Setup build environment variables using vcvarsall.bat.
       - name: Configure MSCV Compiler for ${{ matrix.arch }}
-        uses: ilammy/msvc-dev-cmd@v1.3.0
+        uses: ilammy/msvc-dev-cmd@v1.4.1
         with:
           arch: ${{ matrix.arch }}
 
