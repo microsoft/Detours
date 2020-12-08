@@ -6,6 +6,7 @@
 //
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
+#pragma once
 
 DWORD WINAPI UntimedSleepEx(DWORD dwMilliseconds, BOOL bAlertable);
 DWORD WINAPI TimedSleepEx(DWORD dwMilliseconds, BOOL bAlertable);
