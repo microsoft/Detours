@@ -13,7 +13,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 //
-static LONG dwSlept = 0;
 static DWORD (WINAPI * TrueSleepEx)(DWORD dwMilliseconds, BOOL bAlertable) = SleepEx;
 
 DWORD WINAPI LoudSleepEx(DWORD dwMilliseconds, BOOL bAlertable)
