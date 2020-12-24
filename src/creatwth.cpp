@@ -332,10 +332,31 @@ static BOOL RecordExeRestore(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTOR
 #undef IMAGE_NT_HEADERS_XX
 #undef IMAGE_NT_OPTIONAL_HDR_MAGIC_XX
 #undef IMAGE_ORDINAL_FLAG_XX
+#undef IMAGE_THUNK_DATAXX
 #undef UPDATE_IMPORTS_XX
+#undef DETOURS_BITS_XX
 #endif // DETOURS_32BIT
 
 #if DETOURS_64BIT
+
+#define DWORD_XX                        DWORD32
+#define IMAGE_NT_HEADERS_XX             IMAGE_NT_HEADERS32
+#define IMAGE_NT_OPTIONAL_HDR_MAGIC_XX  IMAGE_NT_OPTIONAL_HDR32_MAGIC
+#define IMAGE_ORDINAL_FLAG_XX           IMAGE_ORDINAL_FLAG32
+#define IMAGE_THUNK_DATAXX              IMAGE_THUNK_DATA32
+#define UPDATE_IMPORTS_XX               UpdateImports32
+#define DETOURS_BITS_XX                 32
+#include "uimports.cpp"
+#undef DETOUR_EXE_RESTORE_FIELD_XX
+#undef DWORD_XX
+#undef IMAGE_NT_HEADERS_XX
+#undef IMAGE_NT_OPTIONAL_HDR_MAGIC_XX
+#undef IMAGE_ORDINAL_FLAG_XX
+#undef IMAGE_THUNK_DATAXX
+#undef UPDATE_IMPORTS_XX
+#undef DETOURS_BITS_XX
+
+
 #define DWORD_XX                        DWORD64
 #define IMAGE_NT_HEADERS_XX             IMAGE_NT_HEADERS64
 #define IMAGE_NT_OPTIONAL_HDR_MAGIC_XX  IMAGE_NT_OPTIONAL_HDR64_MAGIC
@@ -349,7 +370,9 @@ static BOOL RecordExeRestore(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTOR
 #undef IMAGE_NT_HEADERS_XX
 #undef IMAGE_NT_OPTIONAL_HDR_MAGIC_XX
 #undef IMAGE_ORDINAL_FLAG_XX
+#undef IMAGE_THUNK_DATAXX
 #undef UPDATE_IMPORTS_XX
+#undef DETOURS_BITS_XX
 #endif // DETOURS_64BIT
 
 //////////////////////////////////////////////////////////////////////////////
@@ -598,7 +621,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         bIs32BitProcess = TRUE;
     }
 
-    DETOUR_TRACE(("    32BitExe=%d 32BitProcess\n", bHas32BitExe, bIs32BitProcess));
+    DETOUR_TRACE(("    bIs64BitOS=%d 32BitProcess\n", bIs64BitOS, bIs32BitProcess));
 
     return DetourUpdateProcessWithDllEx(hProcess,
                                         hModule,
@@ -695,10 +718,17 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         return FALSE;
     }
 #elif defined(DETOURS_64BIT)
-    if (bIs32BitProcess || bIs32BitExe) {
-        // Can't detour a 32-bit process with 64-bit code.
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
+    if (bIs32BitProcess) {
+        if (bIs32BitExe) {
+            if (!UpdateImports32(hProcess, hModule, rlpDlls, nDlls)) {
+                return FALSE;
+            }
+        }
+        else {
+            // Can't detour a 32-bit process with 64-bit code.
+            SetLastError(ERROR_INVALID_HANDLE);
+            return FALSE;
+        }
     }
     else {
         // 64-bit native or 64-bit managed process on any platform.
