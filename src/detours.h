@@ -48,11 +48,23 @@
 #pragma warning(pop)
 #endif
 
+// Allow Detours to cleanly compile with the MingW toolchain.
+//
 #ifdef __GNUC__
 #define __try
 #define __except(x) if (0)
 #include <strsafe.h>
 #endif
+
+// From winerror.h, as this error isn't found in some SDKs:
+//
+// MessageId: ERROR_DYNAMIC_CODE_BLOCKED
+//
+// MessageText:
+//
+// The operation was blocked as the process prohibits dynamic code generation.
+//
+#define ERROR_DYNAMIC_CODE_BLOCKED       1655L
 
 #endif // DETOURS_INTERNAL
 

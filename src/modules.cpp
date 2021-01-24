@@ -803,9 +803,9 @@ PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
 
                 if (pcbData) {
                     *pcbData = pSection->cbBytes - sizeof(*pSection);
-                    SetLastError(NO_ERROR);
-                    return (PBYTE)(pSection + 1);
                 }
+                SetLastError(NO_ERROR);
+                return (PBYTE)(pSection + 1);
             }
 
             pbData = (PBYTE)pSection + pSection->cbBytes;

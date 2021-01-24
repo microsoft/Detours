@@ -1252,6 +1252,9 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
             if (pv != NULL) {
                 return pv;
             }
+            else if (GetLastError() == ERROR_DYNAMIC_CODE_BLOCKED) {
+                return NULL;
+            }
             pbTry += DETOUR_REGION_SIZE;
         }
         else {
@@ -1298,6 +1301,9 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
                                     PAGE_EXECUTE_READWRITE);
             if (pv != NULL) {
                 return pv;
+            }
+            else if (GetLastError() == ERROR_DYNAMIC_CODE_BLOCKED) {
+                return NULL;
             }
             pbTry -= DETOUR_REGION_SIZE;
         }

@@ -323,6 +323,7 @@ static BOOL RecordExeRestore(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTOR
 #define IMAGE_NT_HEADERS_XX             IMAGE_NT_HEADERS32
 #define IMAGE_NT_OPTIONAL_HDR_MAGIC_XX  IMAGE_NT_OPTIONAL_HDR32_MAGIC
 #define IMAGE_ORDINAL_FLAG_XX           IMAGE_ORDINAL_FLAG32
+#define IMAGE_THUNK_DATAXX              IMAGE_THUNK_DATA32
 #define UPDATE_IMPORTS_XX               UpdateImports32
 #define DETOURS_BITS_XX                 32
 #include "uimports.cpp"
@@ -339,6 +340,7 @@ static BOOL RecordExeRestore(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTOR
 #define IMAGE_NT_HEADERS_XX             IMAGE_NT_HEADERS64
 #define IMAGE_NT_OPTIONAL_HDR_MAGIC_XX  IMAGE_NT_OPTIONAL_HDR64_MAGIC
 #define IMAGE_ORDINAL_FLAG_XX           IMAGE_ORDINAL_FLAG64
+#define IMAGE_THUNK_DATAXX           	  IMAGE_THUNK_DATA64
 #define UPDATE_IMPORTS_XX               UpdateImports64
 #define DETOURS_BITS_XX                 64
 #include "uimports.cpp"
@@ -478,7 +480,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     }
 
     // Remove the import table.
-    if (der.pclr != NULL && (der.clr.Flags & 1)) {
+    if (der.pclr != NULL && (der.clr.Flags & COMIMAGE_FLAGS_ILONLY)) {
         inh64.IMPORT_DIRECTORY.VirtualAddress = 0;
         inh64.IMPORT_DIRECTORY.Size = 0;
 
@@ -499,6 +501,37 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
 }
 #endif // DETOURS_64BIT
 
+typedef BOOL(WINAPI *LPFN_ISWOW64PROCESS)(HANDLE, PBOOL);
+
+static BOOL IsWow64ProcessHelper(HANDLE hProcess,
+                                 PBOOL Wow64Process)
+{
+#ifdef _X86_
+    if (Wow64Process == NULL) {
+        return FALSE;
+    }
+
+    // IsWow64Process is not available on all supported versions of Windows.
+    //
+    HMODULE hKernel32 = LoadLibraryW(L"KERNEL32.DLL");
+    if (hKernel32 == NULL) {
+        DETOUR_TRACE(("LoadLibraryW failed: %d\n", GetLastError()));
+        return FALSE;
+    }
+
+    LPFN_ISWOW64PROCESS pfnIsWow64Process = (LPFN_ISWOW64PROCESS)GetProcAddress(
+        hKernel32, "IsWow64Process");
+
+    if (pfnIsWow64Process == NULL) {
+        DETOUR_TRACE(("GetProcAddress failed: %d\n", GetLastError()));
+        return FALSE;
+    }
+    return pfnIsWow64Process(hProcess, Wow64Process);
+#else
+    return IsWow64Process(hProcess, Wow64Process);
+#endif
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //
 BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
@@ -507,9 +540,8 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 {
     // Find the next memory region that contains a mapped PE image.
     //
-    BOOL bHas64BitDll = FALSE;
-    BOOL bHas32BitExe = FALSE;
     BOOL bIs32BitProcess;
+    BOOL bIs64BitOS = FALSE;
     HMODULE hModule = NULL;
     HMODULE hLast = NULL;
 
@@ -527,19 +559,7 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 
         if ((inh.FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
             hModule = hLast;
-            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC
-                && inh.FileHeader.Machine != 0) {
-
-                bHas32BitExe = TRUE;
-            }
             DETOUR_TRACE(("%p  Found EXE\n", hLast));
-        }
-        else {
-            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC
-                && inh.FileHeader.Machine != 0) {
-
-                bHas64BitDll = TRUE;
-            }
         }
     }
 
@@ -548,16 +568,34 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         return FALSE;
     }
 
-    if (!bHas32BitExe) {
-        bIs32BitProcess = FALSE;
+    // Determine if the target process is 32bit or 64bit. This is a two-stop process:
+    //
+    // 1. First, determine if we're running on a 64bit operating system.
+    //   - If we're running 64bit code (i.e. _WIN64 is defined), this is trivially true.
+    //   - If we're running 32bit code (i.e. _WIN64 is not defined), test if
+    //   we're running under Wow64. If so, it implies that the operating system
+    //   is 64bit.
+    //
+#ifdef _WIN64
+    bIs64BitOS = TRUE;
+#else
+    if (!IsWow64ProcessHelper(GetCurrentProcess(), &bIs64BitOS)) {
+        return FALSE;
     }
-    else if (!bHas64BitDll) {
-        bIs32BitProcess = TRUE;
-    }
-    else {
-        if (!IsWow64Process(hProcess, &bIs32BitProcess)) {
+#endif
+
+    // 2. With the operating system bitness known, we can now consider the target process:
+    //   - If we're running on a 64bit OS, the target process is 32bit in case
+    //   it is running under Wow64. Otherwise, it's 64bit, running natively
+    //   (without Wow64).
+    //   - If we're running on a 32bit OS, the target process must be 32bit, too.
+    //
+    if (bIs64BitOS) {
+        if (!IsWow64ProcessHelper(hProcess, &bIs32BitProcess)) {
             return FALSE;
         }
+    } else {
+        bIs32BitProcess = TRUE;
     }
 
     DETOUR_TRACE(("    32BitExe=%d 32BitProcess\n", bHas32BitExe, bIs32BitProcess));
@@ -613,8 +651,8 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
     // Try to convert a neutral 32-bit managed binary to a 64-bit managed binary.
     if (bIs32BitExe && !bIs32BitProcess) {
         if (!der.pclr                       // Native binary
-            || (der.clr.Flags & 1) == 0     // Or mixed-mode MSIL
-            || (der.clr.Flags & 2) != 0) {  // Or 32BIT Required MSIL
+            || (der.clr.Flags & COMIMAGE_FLAGS_ILONLY) == 0     // Or mixed-mode MSIL
+            || (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) != 0) {  // Or 32BIT Required MSIL
 
             SetLastError(ERROR_INVALID_HANDLE);
             return FALSE;
@@ -677,7 +715,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
     if (der.pclr != NULL) {
         DETOUR_CLR_HEADER clr;
         CopyMemory(&clr, &der.clr, sizeof(clr));
-        clr.Flags &= 0xfffffffe;    // Clear the IL_ONLY flag.
+        clr.Flags &= ~COMIMAGE_FLAGS_ILONLY;    // Clear the IL_ONLY flag.
 
         DWORD dwProtect;
         if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {
@@ -697,7 +735,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         DETOUR_TRACE(("CLR: %p..%p\n", der.pclr, der.pclr + der.cbclr));
 
 #if DETOURS_64BIT
-        if (der.clr.Flags & 0x2) { // Is the 32BIT Required Flag set?
+        if (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) { // Is the 32BIT Required Flag set?
             // X64 never gets here because the process appears as a WOW64 process.
             // However, on IA64, it doesn't appear to be a WOW process.
             DETOUR_TRACE(("CLR Requires 32-bit\n", der.pclr, der.pclr + der.cbclr));
@@ -1172,8 +1210,10 @@ BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
+    //for East Asia languages and so on, like Chinese, print format with "%hs" can not work fine before user call _tsetlocale(LC_ALL,_T(".ACP"));
+    //so we can't use "%hs" in format string, because the dll that contain this code would inject to any process, even not call _tsetlocale(LC_ALL,_T(".ACP")) before
     hr = StringCchPrintfA(szCommand, ARRAYSIZE(szCommand),
-                          "rundll32.exe \"%hs\",#1", &helper->rDlls[0]);
+                          "rundll32.exe \"%s\",#1", &helper->rDlls[0]);
     if (!SUCCEEDED(hr)) {
         goto Cleanup;
     }
@@ -1240,6 +1280,8 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
     WCHAR szCommand[MAX_PATH];
     PDETOUR_EXE_HELPER helper = NULL;
     HRESULT hr;
+    WCHAR szDllName[MAX_PATH];
+    int cchWrittenWideChar;
     DWORD nLen = GetEnvironmentVariableW(L"WINDIR", szExe, ARRAYSIZE(szExe));
 
     DETOUR_TRACE(("DetourProcessViaHelperDlls(pid=%d,dlls=%d)\n", dwTargetPid, nDlls));
@@ -1268,8 +1310,15 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
         goto Cleanup;
     }
 
+    //for East Asia languages and so on, like Chinese, print format with "%hs" can not work fine before user call _tsetlocale(LC_ALL,_T(".ACP"));
+    //so we can't use "%hs" in format string, because the dll that contain this code would inject to any process, even not call _tsetlocale(LC_ALL,_T(".ACP")) before
+    
+    cchWrittenWideChar = MultiByteToWideChar(CP_ACP, 0, &helper->rDlls[0], -1, szDllName, ARRAYSIZE(szDllName));
+    if (cchWrittenWideChar >= ARRAYSIZE(szDllName) || cchWrittenWideChar <= 0) {
+        goto Cleanup;
+    }
     hr = StringCchPrintfW(szCommand, ARRAYSIZE(szCommand),
-                          L"rundll32.exe \"%hs\",#1", &helper->rDlls[0]);
+        L"rundll32.exe \"%s\",#1", szDllName);
     if (!SUCCEEDED(hr)) {
         goto Cleanup;
     }
@@ -1291,8 +1340,6 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
             CloseHandle(pi.hThread);
             goto Cleanup;
         }
-
-        ResumeThread(pi.hThread);
 
         ResumeThread(pi.hThread);
         WaitForSingleObject(pi.hProcess, INFINITE);
