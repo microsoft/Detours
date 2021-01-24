@@ -559,7 +559,7 @@ nmake</Command>
     <None Include="..\system.mak" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\CREDITS.TXT" />
+    <Text Include="..\CREDITS.md" />
     <Text Include="..\samples\cping\ReadMe.Txt" />
     <Text Include="..\samples\dtest\NORMAL_IA64.TXT" />
     <Text Include="..\samples\dtest\NORMAL_X64.TXT" />

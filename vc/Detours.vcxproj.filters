@@ -524,7 +524,7 @@
     <Text Include="..\samples\README.TXT">
       <Filter>samples</Filter>
     </Text>
-    <Text Include="..\CREDITS.TXT" />
+    <Text Include="..\CREDITS.md" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\samples\traceapi\trcapi.rc">
