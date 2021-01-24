@@ -16,9 +16,11 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [windows-2019, windows-2016]
         arch: [x86, x64, x64_arm, x64_arm64]
 
     steps:
@@ -39,28 +41,32 @@ jobs:
 
       # Setup build environment variables using vcvarsall.bat.
       - name: Configure MSCV Compiler for ${{ matrix.arch }}
-        uses: ilammy/msvc-dev-cmd@v1.3.0
+        uses: ilammy/msvc-dev-cmd@v1.4.1
         with:
           arch: ${{ matrix.arch }}
 
-      # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL for C++
         uses: github/codeql-action/init@v1
+        if: ${{ matrix.os == 'windows-2019' }}
         with:
           languages: cpp
           config-file: ./.github/codeql/codeql-config.yml
 
-      # Actually run the build
-      - name: Build Detours for ${{ matrix.arch }}
+      - name: Build Detours for ${{ matrix.arch }} on ${{ matrix.os }} 
         env:
           # Tell detours what process to target
           DETOURS_TARGET_PROCESSOR: ${{ env.VSCMD_ARG_TGT_ARCH }}
         run: nmake
 
-      # Upload artifacts for this subsection of the build matrix.
-      - name: Upload artifacts for ${{ matrix.arch }}
+      - name: Run unit tests for ${{ matrix.arch }} on ${{ matrix.os }} 
+        id: run-unit-tests
+        run: cd tests && nmake test
+        if: ${{ matrix.arch == 'x86' || matrix.arch == 'x64' }}
+
+      - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }} 
         uses: actions/upload-artifact@v2
-        with:	
+        with:
+          name: artifacts-${{ matrix.os }}
           path: |
             lib.*/
             bin.*/
@@ -68,3 +74,4 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1
+        if: ${{ matrix.os == 'windows-2019' }}

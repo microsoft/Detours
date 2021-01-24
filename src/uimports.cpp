@@ -150,7 +150,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     }
 
     PIMAGE_IMPORT_DESCRIPTOR piid = (PIMAGE_IMPORT_DESCRIPTOR)pbNew;
-    DWORD_XX *pt;
+    IMAGE_THUNK_DATAXX *pt = NULL;
 
     DWORD obBase = (DWORD)(pbNewIid - pbModule);
     DWORD dwProtect = 0;
@@ -186,17 +186,20 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
             goto finish;
         }
 
-        DWORD nOffset = obTab + (sizeof(DWORD_XX) * (4 * n));
+        DWORD nOffset = obTab + (sizeof(IMAGE_THUNK_DATAXX) * (4 * n));
         piid[n].OriginalFirstThunk = obBase + nOffset;
-        pt = ((DWORD_XX*)(pbNew + nOffset));
-        pt[0] = IMAGE_ORDINAL_FLAG_XX + 1;
-        pt[1] = 0;
+      
+        // We need 2 thunks for the import table and 2 thunks for the IAT.
+        // One for an ordinal import and one to mark the end of the list.
+	  pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
+        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
+        pt[1].u1.Ordinal = 0;
 
-        nOffset = obTab + (sizeof(DWORD_XX) * ((4 * n) + 2));
+        nOffset = obTab + (sizeof(IMAGE_THUNK_DATAXX) * ((4 * n) + 2));
         piid[n].FirstThunk = obBase + nOffset;
-        pt = ((DWORD_XX*)(pbNew + nOffset));
-        pt[0] = IMAGE_ORDINAL_FLAG_XX + 1;
-        pt[1] = 0;
+        pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
+        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
+        pt[1].u1.Ordinal = 0;
         piid[n].TimeDateStamp = 0;
         piid[n].ForwarderChain = 0;
         piid[n].Name = obBase + obStr;
