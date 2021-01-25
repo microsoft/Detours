@@ -2028,7 +2028,7 @@ LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_opt_ BOOL fCloseThread
 // so we do not use winternl.h in the current compilation environment by default.
 #ifdef __USE_WINTERNL_H__
 #include <winternl.h>
-#else// __USE_WINTERNL_H__
+#else // __USE_WINTERNL_H__
 // Excerpted from "C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\um\winternl.h"
 typedef struct _UNICODE_STRING {
     USHORT Length;
@@ -2106,7 +2106,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS {
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
 #endif
 
-#endif// __USE_WINTERNL_H__
+#endif // __USE_WINTERNL_H__
 
 static
 NTSTATUS
