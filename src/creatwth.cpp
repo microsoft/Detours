@@ -621,7 +621,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
 
     IMAGE_NT_HEADERS32 inh;
 
-    if (hModule == NULL || LoadNtHeaderFromProcess(hProcess, hModule, &inh) == NULL) {
+    if (hModule == NULL || !LoadNtHeaderFromProcess(hProcess, hModule, &inh)) {
         SetLastError(ERROR_INVALID_OPERATION);
         return FALSE;
     }

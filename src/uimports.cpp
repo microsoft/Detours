@@ -106,7 +106,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
         }
     }
 
-    if (inh.IMPORT_DIRECTORY.VirtualAddress != NULL && inh.IMPORT_DIRECTORY.Size == 0) {
+    if (inh.IMPORT_DIRECTORY.VirtualAddress == 0 && inh.IMPORT_DIRECTORY.Size == 0) {
 
         // Don't worry about changing the PE file, 
         // because the load information of the original PE header has been saved and will be restored. 
