@@ -283,7 +283,7 @@ int __cdecl main(void)
 
     IMAGEHLP_MODULE64 modinfo;
     ZeroMemory(&modinfo, sizeof(modinfo));
-    modinfo.SizeOfStruct = 512/*sizeof(modinfo)*/;
+    modinfo.SizeOfStruct = sizeof(modinfo);
     if (!pfSymGetModuleInfo64(hProcess, (DWORD64)hModule, &modinfo)) {
         printf("SymGetModuleInfo64(%p, %p) [64] failed: %ld\n",
                       hProcess, hModule, GetLastError());
@@ -318,7 +318,7 @@ int __cdecl main(void)
         printf("===Enum===\n");
         SetLastError(0);
         nSymbolCount = 0;
-        if (!pfSymEnumSymbols(hProcess, (DWORD64)hModule, NULL, SymEnumerateSymbols, NULL)) {
+        if (!pfSymEnumSymbols(hProcess, loaded, NULL, SymEnumerateSymbols, NULL)) {
             printf("SymEnumSymbols() failed: %ld\n",
                           GetLastError());
         }
