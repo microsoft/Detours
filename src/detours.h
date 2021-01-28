@@ -1149,6 +1149,7 @@ private:
 private:
     DetourMemory(size_t nObjectSize, BOOL bOnlyForGetNeedAllocateSize)
     {
+        dwpHead = 0;
         this->nObjectSize = nObjectSize;
         if (!bOnlyForGetNeedAllocateSize) {
             Fill();
