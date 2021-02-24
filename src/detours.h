@@ -126,7 +126,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 
-#if (_MSC_VER < 1299)
+#if (_MSC_VER < 1299) && !defined(__MINGW32__)
 typedef LONG LONG_PTR;
 typedef ULONG ULONG_PTR;
 #endif
