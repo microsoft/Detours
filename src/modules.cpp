@@ -160,7 +160,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     DETOUR_TRACE(("DetourFindFunction(%hs, %hs)\n", pszModule, pszFunction));
     PDETOUR_SYM_INFO pSymInfo = DetourLoadImageHlp();
     if (pSymInfo == NULL) {
-        DETOUR_TRACE(("DetourLoadImageHlp failed: %ld\n",
+        DETOUR_TRACE(("DetourLoadImageHlp failed: %lx\n",
                       GetLastError()));
         return NULL;
     }
@@ -169,7 +169,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                     (PCHAR)pszModule, NULL,
                                     (DWORD64)hModule, 0) == 0) {
         if (ERROR_SUCCESS != GetLastError()) {
-            DETOUR_TRACE(("SymLoadModule64(%p) failed: %ld\n",
+            DETOUR_TRACE(("SymLoadModule64(%p) failed: %lx\n",
                           pSymInfo->hProcess, GetLastError()));
             return NULL;
         }
@@ -181,7 +181,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     ZeroMemory(&modinfo, sizeof(modinfo));
     modinfo.SizeOfStruct = sizeof(modinfo);
     if (!pSymInfo->pfSymGetModuleInfo64(pSymInfo->hProcess, (DWORD64)hModule, &modinfo)) {
-        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %ld\n",
+        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %lx\n",
                       pSymInfo->hProcess, hModule, GetLastError()));
         return NULL;
     }
@@ -215,7 +215,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
 #endif
 
     if (!pSymInfo->pfSymFromName(pSymInfo->hProcess, szFullName, &symbol)) {
-        DETOUR_TRACE(("SymFromName(%hs) failed: %ld\n", szFullName, GetLastError()));
+        DETOUR_TRACE(("SymFromName(%hs) failed: %lx\n", szFullName, GetLastError()));
         return NULL;
     }
 
