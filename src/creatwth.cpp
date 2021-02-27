@@ -376,7 +376,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     //////////////////////////////////////////////////////// Read old headers.
     //
     if (!ReadProcessMemory(hProcess, pbModule, &idh, sizeof(idh), NULL)) {
-        DETOUR_TRACE(("ReadProcessMemory(idh@%p..%p) failed: %ld\n",
+        DETOUR_TRACE(("ReadProcessMemory(idh@%p..%p) failed: %lx\n",
                       pbModule, pbModule + sizeof(idh), GetLastError()));
         return FALSE;
     }
@@ -385,7 +385,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
 
     PBYTE pnh = pbModule + idh.e_lfanew;
     if (!ReadProcessMemory(hProcess, pnh, &inh32, sizeof(inh32), NULL)) {
-        DETOUR_TRACE(("ReadProcessMemory(inh@%p..%p) failed: %ld\n",
+        DETOUR_TRACE(("ReadProcessMemory(inh@%p..%p) failed: %lx\n",
                       pnh, pnh + sizeof(inh32), GetLastError()));
         return FALSE;
     }
@@ -400,7 +400,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
         inh32.FileHeader.SizeOfOptionalHeader;
     ULONG cb = inh32.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER);
     if (!ReadProcessMemory(hProcess, psects, &sects, cb, NULL)) {
-        DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %ld\n",
+        DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %lx\n",
                       psects, psects + cb, GetLastError()));
         return FALSE;
     }
@@ -457,7 +457,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     }
 
     if (!WriteProcessMemory(hProcess, pnh, &inh64, sizeof(inh64), NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(inh@%p..%p) failed: %ld\n",
+        DETOUR_TRACE(("WriteProcessMemory(inh@%p..%p) failed: %lx\n",
                       pnh, pnh + sizeof(inh64), GetLastError()));
         return FALSE;
     }
@@ -468,7 +468,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
         inh64.FileHeader.SizeOfOptionalHeader;
     cb = inh64.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER);
     if (!WriteProcessMemory(hProcess, psects, &sects, cb, NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(ish@%p..%p) failed: %ld\n",
+        DETOUR_TRACE(("WriteProcessMemory(ish@%p..%p) failed: %lx\n",
                       psects, psects + cb, GetLastError()));
         return FALSE;
     }
@@ -485,7 +485,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
         inh64.IMPORT_DIRECTORY.Size = 0;
 
         if (!WriteProcessMemory(hProcess, pnh, &inh64, sizeof(inh64), NULL)) {
-            DETOUR_TRACE(("WriteProcessMemory(inh@%p..%p) failed: %ld\n",
+            DETOUR_TRACE(("WriteProcessMemory(inh@%p..%p) failed: %lx\n",
                           pnh, pnh + sizeof(inh64), GetLastError()));
             return FALSE;
         }
