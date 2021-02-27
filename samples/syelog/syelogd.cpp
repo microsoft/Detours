@@ -93,7 +93,7 @@ static PCSTR FileTimeToString(PCHAR pszBuffer, DWORD cbBuffer, FILETIME ftTime)
         ul.LowPart = ftTime.dwLowDateTime;
         ul.HighPart = ftTime.dwHighDateTime;
 
-        ULONG64 delta = ul.QuadPart - s_llLastTime;
+        LONG64 delta = ul.QuadPart - s_llLastTime;
         s_llLastTime = ul.QuadPart;
         delta /= 10000;
 

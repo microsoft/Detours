@@ -1,7 +1,7 @@
-==============================================================================
+# Detours Contributor Credits
+
 The following individuals have helped identify specific bugs and improvements
-in Detours.  The entire Detours community has benefited from their help.
-==============================================================================
+in Detours. The entire Detours community has benefited from their help.
 
 * Jay Krell:          Identified error in DetourFindPayload that caused a
                       incorrect failure when pcbData is NULL. (Build_342)

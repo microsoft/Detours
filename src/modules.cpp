@@ -340,7 +340,7 @@ PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule)
             }
 
             SetLastError(NO_ERROR);
-            return GetProcAddress(hClr, "_CorExeMain");
+            return (PVOID)GetProcAddress(hClr, "_CorExeMain");
         }
 
         SetLastError(NO_ERROR);

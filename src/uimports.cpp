@@ -106,6 +106,35 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
         }
     }
 
+    if (inh.IMPORT_DIRECTORY.VirtualAddress != 0 && inh.IMPORT_DIRECTORY.Size == 0) {
+
+        // Don't worry about changing the PE file, 
+        // because the load information of the original PE header has been saved and will be restored. 
+        // The change here is just for the following code to work normally
+
+        PIMAGE_IMPORT_DESCRIPTOR pImageImport = (PIMAGE_IMPORT_DESCRIPTOR)(pbModule + inh.IMPORT_DIRECTORY.VirtualAddress);
+
+        do {
+            IMAGE_IMPORT_DESCRIPTOR ImageImport;
+            if (!ReadProcessMemory(hProcess, pImageImport, &ImageImport, sizeof(ImageImport), NULL)) {
+                DETOUR_TRACE(("ReadProcessMemory failed: %u\n", GetLastError()));
+                goto finish;
+            }
+            inh.IMPORT_DIRECTORY.Size += sizeof(IMAGE_IMPORT_DESCRIPTOR);
+            if (!ImageImport.Name) {
+                break;
+            }
+            ++pImageImport;
+        } while (TRUE);
+
+        DWORD dwLastError = GetLastError();
+        OutputDebugString(TEXT("[This PE file has an import table, but the import table size is marked as 0. This is an error.")
+            TEXT("If it is not repaired, the launched program will not work properly, Detours has automatically repaired its import table size for you! ! !]\r\n"));
+        if (GetLastError() != dwLastError) {
+            SetLastError(dwLastError);
+        }
+    }
+
     DETOUR_TRACE(("     Imports: %p..%p\n",
                   (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress,
                   (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress +

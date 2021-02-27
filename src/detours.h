@@ -48,6 +48,14 @@
 #pragma warning(pop)
 #endif
 
+// Allow Detours to cleanly compile with the MingW toolchain.
+//
+#ifdef __GNUC__
+#define __try
+#define __except(x) if (0)
+#include <strsafe.h>
+#endif
+
 // From winerror.h, as this error isn't found in some SDKs:
 //
 // MessageId: ERROR_DYNAMIC_CODE_BLOCKED
@@ -118,7 +126,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 
-#if (_MSC_VER < 1299)
+#if (_MSC_VER < 1299) && !defined(__MINGW32__)
 typedef LONG LONG_PTR;
 typedef ULONG ULONG_PTR;
 #endif
@@ -857,7 +865,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 
 //////////////////////////////////////////////////////////////////////////////
 //
-#if (_MSC_VER < 1299)
+#if (_MSC_VER < 1299) && !defined(__GNUC__)
 #include <imagehlp.h>
 typedef IMAGEHLP_MODULE IMAGEHLP_MODULE64;
 typedef PIMAGEHLP_MODULE PIMAGEHLP_MODULE64;
