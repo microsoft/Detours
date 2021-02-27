@@ -45,7 +45,7 @@ jobs:
         env:
           # Tell detours what process to target
           DETOURS_TARGET_PROCESSOR: ${{ env.VSCMD_ARG_TGT_ARCH }}
-          DETOURS_CONFIG: ${{ matrix.config }}
+          DETOURS_CONFIG: ${{ matrix.conf }}
         run: nmake
 
       - name: Run unit tests for ${{ matrix.arch }} on ${{ matrix.os }} 
