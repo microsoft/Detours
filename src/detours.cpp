@@ -818,7 +818,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
     // We have to place trampolines within +/- 2GB of code.
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
-    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
+    DETOUR_TRACE(("[%p..%p..%p]\n", (PVOID)lo, pbCode, (PVOID)hi));
 
     *ppLower = (PDETOUR_TRAMPOLINE)lo;
     *ppUpper = (PDETOUR_TRAMPOLINE)hi;
@@ -1124,7 +1124,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
 
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
-    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
+    DETOUR_TRACE(("[%p..%p..%p]\n", (PVOID)lo, pbCode, (PVOID)hi));
 
     *ppLower = (PDETOUR_TRAMPOLINE)lo;
     *ppUpper = (PDETOUR_TRAMPOLINE)hi;
@@ -1704,11 +1704,11 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_ARM
         }
         else {
-            DETOUR_TRACE(("detours: pbTramp =%p, pbRemain=%p, pbDetour=%p, cbRestore=%d\n",
+            DETOUR_TRACE(("detours: pbTramp =%p, pbRemain=%p, pbDetour=%p, cbRestore=%ld\n",
                           o->pTrampoline,
                           o->pTrampoline->pbRemain,
                           o->pTrampoline->pbDetour,
-                          o->pTrampoline->cbRestore));
+                          (DWORD)o->pTrampoline->cbRestore));
 
             DETOUR_TRACE(("detours: pbTarget=%p: "
                           "%02x %02x %02x %02x "
@@ -2183,9 +2183,9 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
                 pTrampoline->rAlign[n].obTrampoline == 0) {
                 break;
             }
-            DETOUR_TRACE((" %d/%d",
-                          pTrampoline->rAlign[n].obTarget,
-                          pTrampoline->rAlign[n].obTrampoline
+            DETOUR_TRACE((" %ld/%ld",
+                          (DWORD)pTrampoline->rAlign[n].obTarget,
+                          (DWORD)pTrampoline->rAlign[n].obTrampoline
                           ));
 
         }
