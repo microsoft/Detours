@@ -161,7 +161,7 @@ static PVOID FindDetourSectionInRemoteModule(_In_ HANDLE hProcess,
     IMAGE_SECTION_HEADER header;
     for (DWORD n = 0; n < pNtHeader->FileHeader.NumberOfSections; ++n) {
         if (!ReadProcessMemory(hProcess, pRemoteSectionHeaders + n, &header, sizeof(header), NULL)) {
-            DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %d\n",
+            DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %lx\n",
                 pRemoteSectionHeaders + n,
                 (PBYTE)(pRemoteSectionHeaders + n) + sizeof(header),
                 GetLastError()));
@@ -198,7 +198,7 @@ static PVOID FindPayloadInRemoteDetourSection(_In_ HANDLE hProcess,
 
     DETOUR_SECTION_HEADER header;
     if (!ReadProcessMemory(hProcess, pbData, &header, sizeof(header), NULL)) {
-        DETOUR_TRACE(("ReadProcessMemory(dsh@%p..%p) failed: %d\n",
+        DETOUR_TRACE(("ReadProcessMemory(dsh@%p..%p) failed: %lx\n",
             pbData,
             pbData + sizeof(header),
             GetLastError()));
@@ -218,7 +218,7 @@ static PVOID FindPayloadInRemoteDetourSection(_In_ HANDLE hProcess,
     for (PVOID pvSection = pbData + header.nDataOffset; pvSection < pbData + header.cbDataSize;) {
         DETOUR_SECTION_RECORD section;
         if (!ReadProcessMemory(hProcess, pvSection, &section, sizeof(section), NULL)) {
-            DETOUR_TRACE(("ReadProcessMemory(dsr@%p..%p) failed: %d\n",
+            DETOUR_TRACE(("ReadProcessMemory(dsr@%p..%p) failed: %lx\n",
                 pvSection,
                 (PBYTE)pvSection + sizeof(section),
                 GetLastError()));
