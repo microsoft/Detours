@@ -452,6 +452,8 @@ nmake</Command>
     <ClCompile Include="..\samples\setdll\setdll.cpp" />
     <ClCompile Include="..\samples\simple\simple.cpp" />
     <ClCompile Include="..\samples\simple\sleep5.cpp" />
+    <ClCompile Include="..\samples\simple_safe\simple_safe.cpp" />
+    <ClCompile Include="..\samples\simple_safe\sleep5.cpp" />
     <ClCompile Include="..\samples\slept\dslept.cpp" />
     <ClCompile Include="..\samples\slept\sleepbed.cpp" />
     <ClCompile Include="..\samples\slept\sleepnew.cpp" />
@@ -542,6 +544,7 @@ nmake</Command>
     <None Include="..\samples\region\Makefile" />
     <None Include="..\samples\setdll\Makefile" />
     <None Include="..\samples\simple\Makefile" />
+    <None Include="..\samples\simple_safe\Makefile" />
     <None Include="..\samples\slept\Makefile" />
     <None Include="..\samples\syelog\Makefile" />
     <None Include="..\samples\talloc\Makefile" />
@@ -579,6 +582,7 @@ nmake</Command>
     <ResourceCompile Include="..\samples\findfunc\target.rc" />
     <ResourceCompile Include="..\samples\opengl\ogldet.rc" />
     <ResourceCompile Include="..\samples\simple\simple.rc" />
+    <ResourceCompile Include="..\samples\simple_safe\simple_safe.rc" />
     <ResourceCompile Include="..\samples\slept\dslept.rc" />
     <ResourceCompile Include="..\samples\slept\slept.rc" />
     <ResourceCompile Include="..\samples\traceapi\trcapi.rc" />

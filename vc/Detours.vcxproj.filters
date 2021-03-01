@@ -58,6 +58,9 @@
     <Filter Include="samples\simple">
       <UniqueIdentifier>{D9D7E0B0-4E14-473F-AE28-B4A5AF4EB427}</UniqueIdentifier>
     </Filter>
+    <Filter Include="samples\simple_safe">
+      <UniqueIdentifier>{1F157B88-D9DA-41E3-9B18-FC5600777FB1}</UniqueIdentifier>
+    </Filter>
     <Filter Include="samples\slept">
       <UniqueIdentifier>{88EFC740-5E28-484E-97FC-E7BBA6D36454}</UniqueIdentifier>
     </Filter>
@@ -182,6 +185,12 @@
     </ClCompile>
     <ClCompile Include="..\samples\simple\sleep5.cpp">
       <Filter>samples\simple</Filter>
+    </ClCompile>
+    <ClCompile Include="..\samples\simple_safe\simple_safe.cpp">
+      <Filter>samples\simple_safe</Filter>
+    </ClCompile>
+    <ClCompile Include="..\samples\simple_safe\sleep5.cpp">
+      <Filter>samples\simple_safe</Filter>
     </ClCompile>
     <ClCompile Include="..\samples\slept\sleepbed.cpp">
       <Filter>samples\slept</Filter>
@@ -400,6 +409,9 @@
     <None Include="..\samples\simple\Makefile">
       <Filter>samples\simple</Filter>
     </None>
+    <None Include="..\samples\simple_safe\Makefile">
+      <Filter>samples\simple_safe</Filter>
+    </None>
     <None Include="..\samples\slept\Makefile">
       <Filter>samples\slept</Filter>
     </None>
@@ -559,6 +571,9 @@
     </ResourceCompile>
     <ResourceCompile Include="..\samples\simple\simple.rc">
       <Filter>samples\simple</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="..\samples\simple_safe\simple_safe.rc">
+      <Filter>samples\simple_safe</Filter>
     </ResourceCompile>
     <ResourceCompile Include="..\samples\slept\slept.rc">
       <Filter>samples\slept</Filter>
