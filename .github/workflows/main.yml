@@ -22,6 +22,7 @@ jobs:
       matrix:
         os: [windows-2019, windows-2016]
         arch: [x86, x64, x64_arm, x64_arm64]
+        conf: [Release, Debug]
 
     steps:
       - name: Clone Repository
@@ -44,10 +45,13 @@ jobs:
         env:
           # Tell detours what process to target
           DETOURS_TARGET_PROCESSOR: ${{ env.VSCMD_ARG_TGT_ARCH }}
+          DETOURS_CONFIG: ${{ matrix.conf }}
         run: nmake
 
       - name: Run unit tests for ${{ matrix.arch }} on ${{ matrix.os }} 
         id: run-unit-tests
+        env:
+          DETOURS_CONFIG: ${{ matrix.conf }}
         run: cd tests && nmake test
         if: ${{ matrix.arch == 'x86' || matrix.arch == 'x64' }}
 
