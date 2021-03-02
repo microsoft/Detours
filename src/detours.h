@@ -846,18 +846,18 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 
 /////////////////////////////////////////////////// Type-safe overloads for C++
 //
-#if __cplusplus >= 201402L || _MSVC_LANG >= 201402L
+#if __cplusplus >= 201103L || _MSVC_LANG >= 201103L
 #include <type_traits>
 
 template<typename T>
 struct DetoursIsFunctionPointer : std::false_type {};
 
 template<typename T>
-struct DetoursIsFunctionPointer<T*> : std::is_function<std::remove_pointer_t<T>> {};
+struct DetoursIsFunctionPointer<T*> : std::is_function<typename std::remove_pointer<T>::type> {};
 
 template<
     typename T,
-    std::enable_if_t<DetoursIsFunctionPointer<T>::value, int> = 0>
+    typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
 LONG DetourAttach(_Inout_ T *ppPointer,
                   _In_ T pDetour) noexcept
 {
@@ -868,7 +868,7 @@ LONG DetourAttach(_Inout_ T *ppPointer,
 
 template<
     typename T,
-    std::enable_if_t<DetoursIsFunctionPointer<T>::value, int> = 0>
+    typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
 LONG DetourAttachEx(_Inout_ T *ppPointer,
                     _In_ T pDetour,
                     _Out_opt_ PDETOUR_TRAMPOLINE *ppRealTrampoline,
@@ -885,7 +885,7 @@ LONG DetourAttachEx(_Inout_ T *ppPointer,
 
 template<
     typename T,
-    std::enable_if_t<DetoursIsFunctionPointer<T>::value, int> = 0>
+    typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
 LONG DetourDetach(_Inout_ T *ppPointer,
                   _In_ T pDetour) noexcept
 {
@@ -894,7 +894,7 @@ LONG DetourDetach(_Inout_ T *ppPointer,
         reinterpret_cast<void*>(pDetour));
 }
 
-#endif // __cplusplus >= 201402L || _MSVC_LANG >= 201402L
+#endif // __cplusplus >= 201103L || _MSVC_LANG >= 201103L
 //
 //////////////////////////////////////////////////////////////////////////////
 
