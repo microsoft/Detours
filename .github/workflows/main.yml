@@ -36,7 +36,7 @@ jobs:
 
       - name: Initialize CodeQL for C++
         uses: github/codeql-action/init@v1
-        if: ${{ matrix.os == 'windows-2019' }}
+        if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
         with:
           languages: cpp
           config-file: ./.github/codeql/codeql-config.yml
@@ -66,4 +66,4 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1
-        if: ${{ matrix.os == 'windows-2019' }}
+        if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
