@@ -34,17 +34,17 @@ $(OBJD)\corruptor.obj : corruptor.cpp
 $(OBJD)\process_helpers.obj : process_helpers.cpp
 
 $(BIND)\unittests.exe : $(OBJD)\main.obj \
-                        $(OBJD)\test_module_api.obj \
-                        $(OBJD)\test_image_api.obj \
+   						$(OBJD)\test_module_api.obj \
+   						$(OBJD)\test_image_api.obj \
                         $(OBJD)\test_create_with_api.obj \
-                        $(OBJD)\corruptor.obj \
+						$(OBJD)\corruptor.obj \
                         $(OBJD)\process_helpers.obj $(DEPS)
     cl $(CFLAGS) /Fe$@ /Fd$(@R).pdb \
-        $(OBJD)\main.obj \
-        $(OBJD)\test_module_api.obj \
-        $(OBJD)\test_image_api.obj \
+	   	$(OBJD)\main.obj \
+	   	$(OBJD)\test_module_api.obj \
+	   	$(OBJD)\test_image_api.obj \
         $(OBJD)\test_create_with_api.obj \
-        $(OBJD)\corruptor.obj \
+	   	$(OBJD)\corruptor.obj \
         $(OBJD)\process_helpers.obj \
         /link $(LINKFLAGS) $(LIBS) /subsystem:console
 
@@ -62,8 +62,8 @@ option:
 ##############################################################################
 
 test: all
-    @cls
-    $(BIND)\unittests.exe --reporter console --success --durations yes
+	@cls
+	$(BIND)\unittests.exe --reporter console --success --durations yes
 
 debug: all
     windbg -o $(BIND)\unittests.exe
