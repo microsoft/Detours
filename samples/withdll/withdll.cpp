@@ -155,8 +155,6 @@ void ProtectToString(DWORD Protect, char *pszBuffer, size_t cBuffer)
     }
 }
 
-static BYTE buffer[65536];
-
 typedef union
 {
     struct
@@ -441,7 +439,7 @@ int CDECL main(int argc, char **argv)
 
         HMODULE hDll = LoadLibraryExA(rpszDllsOut[n], NULL, DONT_RESOLVE_DLL_REFERENCES);
         if (hDll == NULL) {
-            printf("withdll.exe: Error: %s failed to load (error %d).\n",
+            printf("withdll.exe: Error: %s failed to load (error %ld).\n",
                    rpszDllsOut[n],
                    GetLastError());
             return 9003;
@@ -504,7 +502,7 @@ int CDECL main(int argc, char **argv)
                                      NULL, NULL, TRUE, dwFlags, NULL, NULL,
                                      &si, &pi, nDlls, rpszDllsOut, NULL)) {
         DWORD dwError = GetLastError();
-        printf("withdll.exe: DetourCreateProcessWithDllEx failed: %d\n", dwError);
+        printf("withdll.exe: DetourCreateProcessWithDllEx failed: %ld\n", dwError);
         if (dwError == ERROR_INVALID_HANDLE) {
 #if DETOURS_64BIT
             printf("withdll.exe: Can't detour a 32-bit target process from a 64-bit parent process.\n");
@@ -525,7 +523,7 @@ int CDECL main(int argc, char **argv)
 
     DWORD dwResult = 0;
     if (!GetExitCodeProcess(pi.hProcess, &dwResult)) {
-        printf("withdll.exe: GetExitCodeProcess failed: %d\n", GetLastError());
+        printf("withdll.exe: GetExitCodeProcess failed: %ld\n", GetLastError());
         return 9010;
     }
 

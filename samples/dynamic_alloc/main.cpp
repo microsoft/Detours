@@ -49,7 +49,7 @@ bool DetourTransaction(std::function<bool()> callback) {
   LONG status = DetourTransactionBegin();
   if (status != NO_ERROR) {
     Log("DetourTransactionBegin failed with %08x\n", status);
-    return status;
+    return status == NO_ERROR;
   }
 
   if (callback()) {

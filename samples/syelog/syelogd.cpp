@@ -58,7 +58,7 @@ VOID MyErrExit(PCSTR pszMsg)
     DWORD error = GetLastError();
 
     LogMessageV(SYELOG_SEVERITY_FATAL, "Error %d in %s.", error, pszMsg);
-    fprintf(stderr, "SYELOGD: Error %d in %s.\n", error, pszMsg);
+    fprintf(stderr, "SYELOGD: Error %ld in %s.\n", error, pszMsg);
     fflush(stderr);
     exit(1);
 }
@@ -93,7 +93,7 @@ static PCSTR FileTimeToString(PCHAR pszBuffer, DWORD cbBuffer, FILETIME ftTime)
         ul.LowPart = ftTime.dwLowDateTime;
         ul.HighPart = ftTime.dwHighDateTime;
 
-        ULONG64 delta = ul.QuadPart - s_llLastTime;
+        LONG64 delta = ul.QuadPart - s_llLastTime;
         s_llLastTime = ul.QuadPart;
         delta /= 10000;
 
@@ -501,7 +501,7 @@ DWORD main(int argc, char **argv)
                                      FILE_FLAG_SEQUENTIAL_SCAN,
                                      NULL);
             if (s_hOutFile == INVALID_HANDLE_VALUE) {
-                printf("SYELOGD: Error opening output file: %s: %d\n\n",
+                printf("SYELOGD: Error opening output file: %s: %ld\n\n",
                        argv[arg], GetLastError());
                 fNeedHelp = TRUE;
                 break;

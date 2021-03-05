@@ -22,7 +22,7 @@
 //
 VOID AssertMessage(PCSTR szMsg, PCSTR szFile, DWORD nLine)
 {
-    printf("ASSERT(%s) failed in %s, line %d.", szMsg, szFile, nLine);
+    printf("ASSERT(%s) failed in %s, line %ld.", szMsg, szFile, nLine);
 }
 
 #define ASSERT(x)   \
@@ -60,7 +60,7 @@ BOOL DoesDllExportOrdinal1(PCHAR pszDllPath)
 {
     HMODULE hDll = LoadLibraryExA(pszDllPath, NULL, DONT_RESOLVE_DLL_REFERENCES);
     if (hDll == NULL) {
-        printf("setdll.exe: LoadLibraryEx(%s) failed with error %d.\n",
+        printf("setdll.exe: LoadLibraryEx(%s) failed with error %ld.\n",
                pszDllPath,
                GetLastError());
         return FALSE;
@@ -141,7 +141,7 @@ BOOL SetFile(PCHAR pszPath)
                        NULL);
 
     if (hOld == INVALID_HANDLE_VALUE) {
-        printf("Couldn't open input file: %s, error: %d\n",
+        printf("Couldn't open input file: %s, error: %ld\n",
                szOrg, GetLastError());
         bGood = FALSE;
         goto end;
@@ -151,14 +151,14 @@ BOOL SetFile(PCHAR pszPath)
                        GENERIC_WRITE | GENERIC_READ, 0, NULL, CREATE_ALWAYS,
                        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     if (hNew == INVALID_HANDLE_VALUE) {
-        printf("Couldn't open output file: %s, error: %d\n",
+        printf("Couldn't open output file: %s, error: %ld\n",
                szNew, GetLastError());
         bGood = FALSE;
         goto end;
     }
 
     if ((pBinary = DetourBinaryOpen(hOld)) == NULL) {
-        printf("DetourBinaryOpen failed: %d\n", GetLastError());
+        printf("DetourBinaryOpen failed: %ld\n", GetLastError());
         goto end;
     }
 
@@ -176,7 +176,7 @@ BOOL SetFile(PCHAR pszPath)
             if (!DetourBinaryEditImports(pBinary,
                                          &bAddedDll,
                                          AddBywayCallback, NULL, NULL, NULL)) {
-                printf("DetourBinaryEditImports failed: %d\n", GetLastError());
+                printf("DetourBinaryEditImports failed: %ld\n", GetLastError());
             }
         }
 
@@ -184,11 +184,11 @@ BOOL SetFile(PCHAR pszPath)
                                      ListBywayCallback, ListFileCallback,
                                      NULL, NULL)) {
 
-            printf("DetourBinaryEditImports failed: %d\n", GetLastError());
+            printf("DetourBinaryEditImports failed: %ld\n", GetLastError());
         }
 
         if (!DetourBinaryWrite(pBinary, hNew)) {
-            printf("DetourBinaryWrite failed: %d\n", GetLastError());
+            printf("DetourBinaryWrite failed: %ld\n", GetLastError());
             bGood = FALSE;
         }
 
@@ -204,17 +204,17 @@ BOOL SetFile(PCHAR pszPath)
             if (!DeleteFileA(szOld)) {
                 DWORD dwError = GetLastError();
                 if (dwError != ERROR_FILE_NOT_FOUND) {
-                    printf("Warning: Couldn't delete %s: %d\n", szOld, dwError);
+                    printf("Warning: Couldn't delete %s: %ld\n", szOld, dwError);
                     bGood = FALSE;
                 }
             }
             if (!MoveFileA(szOrg, szOld)) {
-                printf("Error: Couldn't back up %s to %s: %d\n",
+                printf("Error: Couldn't back up %s to %s: %ld\n",
                        szOrg, szOld, GetLastError());
                 bGood = FALSE;
             }
             if (!MoveFileA(szNew, szOrg)) {
-                printf("Error: Couldn't install %s as %s: %d\n",
+                printf("Error: Couldn't install %s as %s: %ld\n",
                        szNew, szOrg, GetLastError());
                 bGood = FALSE;
             }

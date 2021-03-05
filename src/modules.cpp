@@ -160,7 +160,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     DETOUR_TRACE(("DetourFindFunction(%hs, %hs)\n", pszModule, pszFunction));
     PDETOUR_SYM_INFO pSymInfo = DetourLoadImageHlp();
     if (pSymInfo == NULL) {
-        DETOUR_TRACE(("DetourLoadImageHlp failed: %d\n",
+        DETOUR_TRACE(("DetourLoadImageHlp failed: %lx\n",
                       GetLastError()));
         return NULL;
     }
@@ -169,7 +169,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                     (PCHAR)pszModule, NULL,
                                     (DWORD64)hModule, 0) == 0) {
         if (ERROR_SUCCESS != GetLastError()) {
-            DETOUR_TRACE(("SymLoadModule64(%p) failed: %d\n",
+            DETOUR_TRACE(("SymLoadModule64(%p) failed: %lx\n",
                           pSymInfo->hProcess, GetLastError()));
             return NULL;
         }
@@ -181,24 +181,24 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     ZeroMemory(&modinfo, sizeof(modinfo));
     modinfo.SizeOfStruct = sizeof(modinfo);
     if (!pSymInfo->pfSymGetModuleInfo64(pSymInfo->hProcess, (DWORD64)hModule, &modinfo)) {
-        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %d\n",
+        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %lx\n",
                       pSymInfo->hProcess, hModule, GetLastError()));
         return NULL;
     }
 
     hrRet = StringCchCopyA(szFullName, sizeof(szFullName)/sizeof(CHAR), modinfo.ModuleName);
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCopyA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCopyA failed: %08lx\n", hrRet));
         return NULL;
     }
     hrRet = StringCchCatA(szFullName, sizeof(szFullName)/sizeof(CHAR), "!");
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCatA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCatA failed: %08lx\n", hrRet));
         return NULL;
     }
     hrRet = StringCchCatA(szFullName, sizeof(szFullName)/sizeof(CHAR), pszFunction);
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCatA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCatA failed: %08lx\n", hrRet));
         return NULL;
     }
 
@@ -215,7 +215,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
 #endif
 
     if (!pSymInfo->pfSymFromName(pSymInfo->hProcess, szFullName, &symbol)) {
-        DETOUR_TRACE(("SymFromName(%hs) failed: %d\n", szFullName, GetLastError()));
+        DETOUR_TRACE(("SymFromName(%hs) failed: %lx\n", szFullName, GetLastError()));
         return NULL;
     }
 
@@ -340,7 +340,7 @@ PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule)
             }
 
             SetLastError(NO_ERROR);
-            return GetProcAddress(hClr, "_CorExeMain");
+            return (PVOID)GetProcAddress(hClr, "_CorExeMain");
         }
 
         SetLastError(NO_ERROR);
@@ -803,9 +803,9 @@ PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
 
                 if (pcbData) {
                     *pcbData = pSection->cbBytes - sizeof(*pSection);
-                    SetLastError(NO_ERROR);
-                    return (PBYTE)(pSection + 1);
                 }
+                SetLastError(NO_ERROR);
+                return (PBYTE)(pSection + 1);
             }
 
             pbData = (PBYTE)pSection + pSection->cbBytes;
