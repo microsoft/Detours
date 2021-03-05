@@ -244,6 +244,11 @@ PVOID WINAPI DetourFindRemotePayload(_In_ HANDLE hProcess,
                                      _In_ REFGUID rguid,
                                      _Out_opt_ DWORD *pcbData)
 {
+    if (hProcess == NULL) {
+        SetLastError(ERROR_INVALID_HANDLE);
+        return NULL;
+    }
+
     IMAGE_NT_HEADERS32 header;
     PVOID pvRemoteHeader;
     for (HMODULE hMod = NULL; (hMod = EnumerateModulesInProcess(hProcess, hMod, &header, &pvRemoteHeader)) != NULL;) {
@@ -1019,6 +1024,11 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
                                           _In_reads_bytes_(cbData) LPCVOID pvData,
                                           _In_ DWORD cbData)
 {
+    if (hProcess == NULL) {
+        SetLastError(ERROR_INVALID_HANDLE);
+        return NULL;
+    }
+
     DWORD cbTotal = (sizeof(IMAGE_DOS_HEADER) +
                      sizeof(IMAGE_NT_HEADERS) +
                      sizeof(IMAGE_SECTION_HEADER) +
@@ -1105,6 +1115,8 @@ PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
 
     DETOUR_TRACE(("Copied %lx byte payload into target process at %p\n",
                   cbData, pbTarget));
+    
+    SetLastError(NO_ERROR);
     return pbTarget;
 }
 
