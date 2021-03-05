@@ -842,6 +842,7 @@ BOOL WINAPI DetourFreePayload(_In_ PVOID pvData)
 {
     BOOL fSucceeded = FALSE;
 
+    // If you have any doubts about the following code, please refer to the comments in DetourCopyPayloadToProcess.
     HMODULE hModule = DetourGetContainingModule(pvData);
     DETOUR_ASSERT(hModule != NULL);
     if (hModule != NULL) {
@@ -904,6 +905,7 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
     // Delete the payload after successful recovery to prevent repeated restore
     if (fSucceeded) {
         DetourFreePayload(pder);
+        pder = NULL;
     }
     return fSucceeded;
 }

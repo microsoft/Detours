@@ -887,6 +887,11 @@ BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
         return FALSE;
     }
 
+    // As you can see in the following code,
+    // the memory layout of the payload range "[pbBase, pbBase+cbTotal]" is a PE executable file,
+    // so DetourFreePayload can use "DetourGetContainingModule(Payload pointer)" to get the above "pbBase" pointer,
+    // pbBase: the memory block allocated by VirtualAllocEx will be released in DetourFreePayload by VirtualFree.
+
     PBYTE pbTarget = pbBase;
     IMAGE_DOS_HEADER idh;
     IMAGE_NT_HEADERS inh;
@@ -1019,9 +1024,13 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
         rlpDlls = NULL;
     }
 
+    // Note: s_pHelper is allocated as part of injecting the payload in DetourCopyPayloadToProcess(..),
+    // it's a fake section and not data allocated by the system PE loader.
+
     // Delete the payload after execution to release the memory occupied by it
     if (s_pHelper != NULL) {
         DetourFreePayload(s_pHelper);
+        s_pHelper = NULL;
     }
 
     ExitProcess(Result);
