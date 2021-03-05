@@ -167,14 +167,14 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     }
     DWORD obDll;
     if (DWordAdd(obTab, stSize, &obDll) != S_OK) {
-        DETOUR_TRACE("Import table size overflow\n");
+        DETOUR_TRACE(("Import table size overflow\n"));
         goto finish;
     }
     DWORD obStr = obDll;
     cbNew = obStr;
     for (n = 0; n < nDlls; n++) {
         if (DWordAdd(cbNew, PadToDword((DWORD)strlen(plpDlls[n]) + 1), &cbNew) != S_OK) {
-            DETOUR_TRACE("Overflow adding string table entry\n");
+            DETOUR_TRACE(("Overflow adding string table entry\n"));
             goto finish;
         }
     }
