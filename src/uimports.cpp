@@ -220,7 +220,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
       
         // We need 2 thunks for the import table and 2 thunks for the IAT.
         // One for an ordinal import and one to mark the end of the list.
-	  pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
+        pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
         pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
         pt[1].u1.Ordinal = 0;
 
