@@ -31,10 +31,6 @@ do { if (!(x)) { AssertMessage(#x, __FILE__, __LINE__); DebugBreak(); }} while (
 
 //////////////////////////////////////////////////////////////////////////////
 //
-static BOOL s_fSubs = FALSE;
-
-//////////////////////////////////////////////////////////////////////////////
-//
 static CHAR s_szFile[MAX_PATH] = "\0";
 
 static BOOL CALLBACK ListFileCallback(_In_opt_ PVOID pContext,
