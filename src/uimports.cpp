@@ -146,23 +146,23 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     DWORD nOldDlls = inh.IMPORT_DIRECTORY.Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
     DWORD obRem;
     if (DWordMult(sizeof(IMAGE_IMPORT_DESCRIPTOR), nDlls, &obRem) != S_OK) {
-        DETOUR_TRACE("too many new DLLs.\n");
+        DETOUR_TRACE(("too many new DLLs.\n"));
         goto finish;
     }
     DWORD obOld;
     if (DWordAdd(obRem, sizeof(IMAGE_IMPORT_DESCRIPTOR) * nOldDlls, &obOld) != S_OK) {
-        DETOUR_TRACE("DLL entries overflow.\n");
+        DETOUR_TRACE(("DLL entries overflow.\n"));
         goto finish;
     }
     DWORD obTab = PadToDwordPtr(obOld);
     // Check for integer overflow.
     if (obTab < obOld) {
-        DETOUR_TRACE("DLL entries padding overflow.\n");
+        DETOUR_TRACE(("DLL entries padding overflow.\n"));
         goto finish;
     }
     DWORD stSize;
     if (DWordMult(sizeof(DWORD_XX) * 4, nDlls, &stSize) != S_OK) {
-        DETOUR_TRACE("String table overflow.\n");
+        DETOUR_TRACE(("String table overflow.\n"));
         goto finish;
     }
     DWORD obDll;
