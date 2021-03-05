@@ -21,6 +21,8 @@ all:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\simple"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
+    cd "$(MAKEDIR)\simple_safe"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\slept"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\setdll"
@@ -98,6 +100,8 @@ clean:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\simple"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
+    cd "$(MAKEDIR)\simple_safe"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\slept"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\setdll"
@@ -166,6 +170,8 @@ realclean:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\simple"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
+    cd "$(MAKEDIR)\simple_safe"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\slept"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\setdll"
@@ -233,6 +239,8 @@ test:
     cd "$(MAKEDIR)\syelog"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
     cd "$(MAKEDIR)\simple"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
+    cd "$(MAKEDIR)\simple_safe"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
 !IF "$(DETOURS_TARGET_PROCESSOR)" != "ARM64"
     cd "$(MAKEDIR)\slept"
