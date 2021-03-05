@@ -142,6 +142,11 @@ PDETOUR_SYM_INFO DetourLoadImageHlp(VOID)
 PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                 _In_ LPCSTR pszFunction)
 {
+    if (pszFunction == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+
     /////////////////////////////////////////////// First, try GetProcAddress.
     //
 #pragma prefast(suppress:28752, "We don't do the unicode conversion for LoadLibraryExA.")
@@ -160,7 +165,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     DETOUR_TRACE(("DetourFindFunction(%hs, %hs)\n", pszModule, pszFunction));
     PDETOUR_SYM_INFO pSymInfo = DetourLoadImageHlp();
     if (pSymInfo == NULL) {
-        DETOUR_TRACE(("DetourLoadImageHlp failed: %d\n",
+        DETOUR_TRACE(("DetourLoadImageHlp failed: %lx\n",
                       GetLastError()));
         return NULL;
     }
@@ -169,7 +174,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                     (PCHAR)pszModule, NULL,
                                     (DWORD64)hModule, 0) == 0) {
         if (ERROR_SUCCESS != GetLastError()) {
-            DETOUR_TRACE(("SymLoadModule64(%p) failed: %d\n",
+            DETOUR_TRACE(("SymLoadModule64(%p) failed: %lx\n",
                           pSymInfo->hProcess, GetLastError()));
             return NULL;
         }
@@ -181,24 +186,24 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     ZeroMemory(&modinfo, sizeof(modinfo));
     modinfo.SizeOfStruct = sizeof(modinfo);
     if (!pSymInfo->pfSymGetModuleInfo64(pSymInfo->hProcess, (DWORD64)hModule, &modinfo)) {
-        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %d\n",
+        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %lx\n",
                       pSymInfo->hProcess, hModule, GetLastError()));
         return NULL;
     }
 
     hrRet = StringCchCopyA(szFullName, sizeof(szFullName)/sizeof(CHAR), modinfo.ModuleName);
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCopyA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCopyA failed: %08lx\n", hrRet));
         return NULL;
     }
     hrRet = StringCchCatA(szFullName, sizeof(szFullName)/sizeof(CHAR), "!");
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCatA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCatA failed: %08lx\n", hrRet));
         return NULL;
     }
     hrRet = StringCchCatA(szFullName, sizeof(szFullName)/sizeof(CHAR), pszFunction);
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCatA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCatA failed: %08lx\n", hrRet));
         return NULL;
     }
 
@@ -215,7 +220,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
 #endif
 
     if (!pSymInfo->pfSymFromName(pSymInfo->hProcess, szFullName, &symbol)) {
-        DETOUR_TRACE(("SymFromName(%hs) failed: %d\n", szFullName, GetLastError()));
+        DETOUR_TRACE(("SymFromName(%hs) failed: %lx\n", szFullName, GetLastError()));
         return NULL;
     }
 
@@ -277,6 +282,7 @@ HMODULE WINAPI DetourEnumerateModules(_In_opt_ HMODULE hModuleLast)
                 continue;
             }
 
+            SetLastError(NO_ERROR);
             return (HMODULE)pDosHeader;
         }
 #pragma prefast(suppress:28940, "A bad pointer means this probably isn't a PE header.")
@@ -340,7 +346,7 @@ PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule)
             }
 
             SetLastError(NO_ERROR);
-            return GetProcAddress(hClr, "_CorExeMain");
+            return (PVOID)GetProcAddress(hClr, "_CorExeMain");
         }
 
         SetLastError(NO_ERROR);
@@ -456,6 +462,11 @@ BOOL WINAPI DetourEnumerateExports(_In_ HMODULE hModule,
                                    _In_opt_ PVOID pContext,
                                    _In_ PF_DETOUR_ENUMERATE_EXPORT_CALLBACK pfExport)
 {
+    if (pfExport == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)hModule;
     if (hModule == NULL) {
         pDosHeader = (PIMAGE_DOS_HEADER)GetModuleHandleW(NULL);
@@ -658,6 +669,11 @@ BOOL WINAPI DetourEnumerateImports(_In_opt_ HMODULE hModule,
                                    _In_opt_ PF_DETOUR_IMPORT_FILE_CALLBACK pfImportFile,
                                    _In_opt_ PF_DETOUR_IMPORT_FUNC_CALLBACK pfImportFunc)
 {
+    if (pfImportFile == NULL || pfImportFunc == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
     _DETOUR_ENUMERATE_IMPORTS_THUNK_CONTEXT const context = { pContext, pfImportFunc };
 
     return DetourEnumerateImportsEx(hModule,
@@ -803,9 +819,9 @@ PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
 
                 if (pcbData) {
                     *pcbData = pSection->cbBytes - sizeof(*pSection);
-                    SetLastError(NO_ERROR);
-                    return (PBYTE)(pSection + 1);
                 }
+                SetLastError(NO_ERROR);
+                return (PBYTE)(pSection + 1);
             }
 
             pbData = (PBYTE)pSection + pSection->cbBytes;

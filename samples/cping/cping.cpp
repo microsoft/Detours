@@ -185,7 +185,6 @@ NTSTATUS (NTAPI *Real_NtDeviceIoControlFile)(HANDLE FileHandle,
 //////////////////////////////////////////////////////////////////////////////
 //
 static LONG     s_nInCall = 0;
-static LONG     s_nInIRpc = 0;
 static ULONG    s_nThread = 0;
 
 enum {

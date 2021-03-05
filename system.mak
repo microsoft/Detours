@@ -100,6 +100,12 @@ DETOURS_OPTION_BITS=64
 
 ##############################################################################
 ##
+!IF "$(DETOURS_CONFIG)" == "Debug"
+DETOURS_DEBUG=1
+!ELSE
+DETOURS_DEBUG=0
+!ENDIF
+
 INCD = $(ROOT)\include
 LIBD = $(ROOT)\lib.$(DETOURS_TARGET_PROCESSOR)$(DETOURS_CONFIG)
 BIND = $(ROOT)\bin.$(DETOURS_TARGET_PROCESSOR)$(DETOURS_CONFIG)
