@@ -142,6 +142,11 @@ PDETOUR_SYM_INFO DetourLoadImageHlp(VOID)
 PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                 _In_ LPCSTR pszFunction)
 {
+    if (pszFunction == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+
     /////////////////////////////////////////////// First, try GetProcAddress.
     //
 #pragma prefast(suppress:28752, "We don't do the unicode conversion for LoadLibraryExA.")
@@ -277,6 +282,7 @@ HMODULE WINAPI DetourEnumerateModules(_In_opt_ HMODULE hModuleLast)
                 continue;
             }
 
+            SetLastError(NO_ERROR);
             return (HMODULE)pDosHeader;
         }
 #pragma prefast(suppress:28940, "A bad pointer means this probably isn't a PE header.")
@@ -456,6 +462,11 @@ BOOL WINAPI DetourEnumerateExports(_In_ HMODULE hModule,
                                    _In_opt_ PVOID pContext,
                                    _In_ PF_DETOUR_ENUMERATE_EXPORT_CALLBACK pfExport)
 {
+    if (pfExport == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)hModule;
     if (hModule == NULL) {
         pDosHeader = (PIMAGE_DOS_HEADER)GetModuleHandleW(NULL);
@@ -658,6 +669,11 @@ BOOL WINAPI DetourEnumerateImports(_In_opt_ HMODULE hModule,
                                    _In_opt_ PF_DETOUR_IMPORT_FILE_CALLBACK pfImportFile,
                                    _In_opt_ PF_DETOUR_IMPORT_FUNC_CALLBACK pfImportFunc)
 {
+    if (pfImportFile == NULL || pfImportFunc == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
     _DETOUR_ENUMERATE_IMPORTS_THUNK_CONTEXT const context = { pContext, pfImportFunc };
 
     return DetourEnumerateImportsEx(hModule,
