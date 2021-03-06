@@ -2551,4 +2551,20 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
                                              pAddress, nSize, dwNewProtect, pdwOldProtect);
 }
 
+BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right)
+{
+    return
+        left.Data1 == right.Data1 &&
+        left.Data2 == right.Data2 &&
+        left.Data3 == right.Data3 &&
+        left.Data4[0] == right.Data4[0] &&
+        left.Data4[1] == right.Data4[1] &&
+        left.Data4[2] == right.Data4[2] &&
+        left.Data4[3] == right.Data4[3] &&
+        left.Data4[4] == right.Data4[4] &&
+        left.Data4[5] == right.Data4[5] &&
+        left.Data4[6] == right.Data4[6] &&
+        left.Data4[7] == right.Data4[7];
+}
+
 //  End of File

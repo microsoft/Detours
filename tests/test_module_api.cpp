@@ -13,6 +13,8 @@
 
 #include "detours.h"
 #include "corruptor.h"
+#include "payload.h"
+#include "process_helpers.h"
 
 // Expose the image base of the current module for test assertions.
 //
@@ -106,7 +108,7 @@ TEST_CASE("DetourGetContainingModule", "[module]")
         auto mod = DetourGetContainingModule(GetCommandLineW);
 
         REQUIRE( GetLastError() == NO_ERROR );
-        REQUIRE( mod == LoadLibrary("kernel32.dll") );
+        REQUIRE( mod == LoadLibraryW(L"kernel32.dll") );
     }
 
     SECTION("Passing own function, results in own HMODULE")
@@ -471,42 +473,6 @@ TEST_CASE("DetourEnumerateImports", "[module]")
     }
 }
 
-struct CPrivateStuff
-{
-    DETOUR_SECTION_HEADER   header;
-    DETOUR_SECTION_RECORD   record;
-    CHAR                    szMessage[32];
-};
-
-GUID PayloadGUID
-{ /* d9ab8a40-f4cc-11d1-b6d7-006097b010e3 */
-    0xd9ab8a40,
-    0xf4cc,
-    0x11d1,
-    {0xb6, 0xd7, 0x00, 0x60, 0x97, 0xb0, 0x10, 0xe3}
-};
-
-// Define a detours payload for testing.
-//
-#pragma data_seg(".detour")
-
-static CPrivateStuff private_stuff = {
-    DETOUR_SECTION_HEADER_DECLARE(sizeof(CPrivateStuff)),
-    {
-        (sizeof(CPrivateStuff) - sizeof(DETOUR_SECTION_HEADER)),
-        0,
-        { /* d9ab8a40-f4cc-11d1-b6d7-006097b010e3 */
-            0xd9ab8a40,
-            0xf4cc,
-            0x11d1,
-            {0xb6, 0xd7, 0x00, 0x60, 0x97, 0xb0, 0x10, 0xe3}
-        }
-    },
-    "Testing Payload 123"
-};
-
-#pragma data_seg()
-
 TEST_CASE("DetourGetSizeOfPayloads", "[module]")
 {
     SECTION("Passing nullptr for module, is successful.")
@@ -609,11 +575,11 @@ TEST_CASE("DetourFindPayload", "[module]")
         HMODULE module {};
         DWORD data {};
 
-        auto payload = DetourFindPayload(module, PayloadGUID, &data);
+        auto payload = DetourFindPayload(module, TEST_PAYLOAD_GUID, &data);
 
         REQUIRE( GetLastError() == NO_ERROR );
         REQUIRE( payload != nullptr );
-        REQUIRE( data == sizeof(CPrivateStuff::szMessage) );
+        REQUIRE( data == TEST_PAYLOAD_SIZE );
 
         char* szPayloadMessage = reinterpret_cast<char*>(payload);
         REQUIRE_THAT( szPayloadMessage, Catch::Matchers::Contains("123") );
@@ -643,14 +609,112 @@ TEST_CASE("DetourFindPayloadEx", "[module]")
         SetLastError(ERROR_INVALID_HANDLE);
 
         DWORD data {};
-        auto payload = DetourFindPayloadEx(PayloadGUID, &data);
+        auto payload = DetourFindPayloadEx(TEST_PAYLOAD_GUID, &data);
 
         REQUIRE( GetLastError() == NO_ERROR );
         REQUIRE( payload != nullptr );
-        REQUIRE( data == sizeof(CPrivateStuff::szMessage) );
+        REQUIRE( data == TEST_PAYLOAD_SIZE );
 
         char* szPayloadMessage = reinterpret_cast<char*>(payload);
         REQUIRE_THAT( szPayloadMessage, Catch::Matchers::Contains("123") );
+    }
+}
+
+TEST_CASE("DetourCopyPayloadToProcessEx", "[module]")
+{
+    // {44FA1CE0-1DA5-4AFC-946E-F96890C38673}
+    static constexpr GUID guid = { 0x44fa1ce0, 0x1da5, 0x4afc, { 0x94, 0x6e, 0xf9, 0x68, 0x90, 0xc3, 0x86, 0x73 } };
+    static constexpr std::uint32_t data = 0xDEADBEEF;
+
+    SECTION("Passing NULL process handle, results in error")
+    {
+        const auto ptr = DetourCopyPayloadToProcessEx(NULL, guid, &data, sizeof(data));
+        REQUIRE(GetLastError() == ERROR_INVALID_HANDLE);
+        REQUIRE(ptr == nullptr);
+    }
+
+    SECTION("Writing to own process, results in valid pointer")
+    {
+        const auto ptr = reinterpret_cast<std::uint32_t*>(DetourCopyPayloadToProcessEx(GetCurrentProcess(), guid, &data, sizeof(data)));
+        REQUIRE(GetLastError() == NO_ERROR);
+        REQUIRE(*ptr == data);
+    }
+
+    SECTION("Writing to different process, can be read with ReadProcessMemory")
+    {
+        // create a suspended copy of ourself to do things with.
+        TerminateOnScopeExit process{};
+        REQUIRE(SUCCEEDED(CreateSuspendedCopy(process)));
+
+        const auto ptr = DetourCopyPayloadToProcessEx(process.information.hProcess, guid, &data, sizeof(data));
+        REQUIRE(GetLastError() == NO_ERROR);
+        REQUIRE(ptr != nullptr);
+
+        std::uint32_t retrieved_data{};
+        REQUIRE(ReadProcessMemory(process.information.hProcess, ptr, &retrieved_data, sizeof(retrieved_data), nullptr));
+        REQUIRE(retrieved_data == data);
+    }
+}
+
+TEST_CASE("DetourFindRemotePayload", "[module]")
+{
+    SECTION("Passing NULL process handle, results in error")
+    {
+        const auto ptr = DetourFindRemotePayload(NULL, TEST_PAYLOAD_GUID, nullptr);
+        REQUIRE(GetLastError() == ERROR_INVALID_HANDLE);
+        REQUIRE(ptr == nullptr);
+    }
+
+    SECTION("Finding null GUID from own process, results in error")
+    {
+        const GUID guid{};
+
+        const auto ptr = DetourFindRemotePayload(GetCurrentProcess(), guid, nullptr);
+        REQUIRE(GetLastError() == ERROR_MOD_NOT_FOUND);
+        REQUIRE(ptr == nullptr);
+    }
+
+    SECTION("Finding null GUID from different process, results in error")
+    {
+        // create a suspended copy of ourself to do things with.
+        TerminateOnScopeExit process{};
+        REQUIRE(SUCCEEDED(CreateSuspendedCopy(process)));
+
+        const GUID guid{};
+        const auto ptr = DetourFindRemotePayload(process.information.hProcess, guid, nullptr);
+        REQUIRE(GetLastError() == ERROR_MOD_NOT_FOUND);
+        REQUIRE(ptr == nullptr);
+    }
+
+    SECTION("Finding valid GUID from own process, results in valid pointer")
+    {
+        DWORD size = 0;
+        const auto ptr = reinterpret_cast<std::uint32_t*>(DetourFindRemotePayload(GetCurrentProcess(), TEST_PAYLOAD_GUID, &size));
+        REQUIRE(GetLastError() == NO_ERROR);
+        REQUIRE(ptr != nullptr);
+        REQUIRE(size == TEST_PAYLOAD_SIZE);
+
+        char* szPayloadMessage = reinterpret_cast<char*>(ptr);
+        REQUIRE_THAT(szPayloadMessage, Catch::Matchers::Contains("123"));
+    }
+
+    SECTION("Finding valid GUID from different process, can be read with ReadProcessMemory")
+    {
+        // create a suspended copy of ourself to do things with.
+        TerminateOnScopeExit process{};
+        REQUIRE(SUCCEEDED(CreateSuspendedCopy(process)));
+
+        DWORD size = 0;
+        const auto ptr = DetourFindRemotePayload(process.information.hProcess, TEST_PAYLOAD_GUID, &size);
+        REQUIRE(GetLastError() == NO_ERROR);
+        REQUIRE(ptr != nullptr);
+        REQUIRE(size == TEST_PAYLOAD_SIZE);
+
+        SIZE_T bytesRead = 0;
+        char szPayloadMessage[TEST_PAYLOAD_SIZE];
+        REQUIRE(ReadProcessMemory(process.information.hProcess, ptr, &szPayloadMessage, TEST_PAYLOAD_SIZE, &bytesRead));
+        REQUIRE(bytesRead == TEST_PAYLOAD_SIZE);
+        REQUIRE_THAT(szPayloadMessage, Catch::Matchers::Contains("123"));
     }
 }
 
