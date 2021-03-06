@@ -8,8 +8,8 @@
 //
 #pragma once
 #include <cstddef>
+#include "windows.h"
 #include "detours.h"
-#include "guiddef.h"
 
 // {85ECA590-6E6A-40FC-BA75-451D96A2A746}
 static constexpr GUID TEST_PAYLOAD_GUID = 
