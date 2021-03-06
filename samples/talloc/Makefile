@@ -64,7 +64,7 @@ all: dirs \
     $(OBJD)\tdll9x$(DETOURS_BITS).bsc \
     $(OBJD)\talloc.bsc \
 !ENDIF
-	option
+    option
 
 clean:
     -del *~ 2>nul
@@ -95,14 +95,14 @@ $(BIND)\talloc.exe : $(OBJD)\talloc.obj $(DEPS)
     cl $(CFLAGS) /Fe$@ /Fd$(@R).pdb $(OBJD)\talloc.obj \
         /link $(LINKFLAGS) $(LIBS) \
         $(BIND)\tdll1x$(DETOURS_BITS).lib \
-		$(BIND)\tdll2x$(DETOURS_BITS).lib \
-		$(BIND)\tdll3x$(DETOURS_BITS).lib \
-		$(BIND)\tdll4x$(DETOURS_BITS).lib \
-		$(BIND)\tdll5x$(DETOURS_BITS).lib \
-		$(BIND)\tdll6x$(DETOURS_BITS).lib \
-		$(BIND)\tdll7x$(DETOURS_BITS).lib \
-		$(BIND)\tdll8x$(DETOURS_BITS).lib \
-		$(BIND)\tdll9x$(DETOURS_BITS).lib \
+        $(BIND)\tdll2x$(DETOURS_BITS).lib \
+        $(BIND)\tdll3x$(DETOURS_BITS).lib \
+        $(BIND)\tdll4x$(DETOURS_BITS).lib \
+        $(BIND)\tdll5x$(DETOURS_BITS).lib \
+        $(BIND)\tdll6x$(DETOURS_BITS).lib \
+        $(BIND)\tdll7x$(DETOURS_BITS).lib \
+        $(BIND)\tdll8x$(DETOURS_BITS).lib \
+        $(BIND)\tdll9x$(DETOURS_BITS).lib \
         /subsystem:console /entry:WinMainCRTStartup
 
 $(OBJD)\talloc.bsc : $(OBJD)\talloc.obj
@@ -262,61 +262,61 @@ $(OPTD)\tdll9x$(DETOURS_OPTION_BITS).dll:
 $(OPTD)\tdll9x$(DETOURS_OPTION_BITS).pdb:
 
 $(BIND)\tdll1x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll1x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll1x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll1x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll2x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll2x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll2x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll2x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll3x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll3x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll3x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll3x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll4x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll4x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll4x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll4x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll5x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll5x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll5x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll5x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll6x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll6x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll6x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll6x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll7x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll7x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll7x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll7x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll8x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll8x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll8x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll8x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll9x$(DETOURS_OPTION_BITS).dll : $(OPTD)\tdll9x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\tdll9x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\tdll9x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 
 option: \
-	$(BIND)\tdll1x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll1x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\tdll2x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll2x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\tdll3x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll3x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\tdll4x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll4x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\tdll5x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll5x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\tdll6x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll6x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\tdll7x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll7x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\tdll8x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll8x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\tdll9x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\tdll9x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll1x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll1x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll2x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll2x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll3x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll3x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll4x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll4x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll5x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll5x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll6x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll6x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll7x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll7x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll8x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll8x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\tdll9x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\tdll9x$(DETOURS_OPTION_BITS).pdb \
 
 !ELSE
 
