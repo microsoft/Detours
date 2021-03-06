@@ -674,7 +674,7 @@ TEST_CASE("DetourFindRemotePayload", "[module]")
         REQUIRE(ptr == nullptr);
     }
 
-    SECTION("Finding random GUID from different process, results in error")
+    SECTION("Finding null GUID from different process, results in error")
     {
         // create a suspended copy of ourself to do things with.
         TerminateOnScopeExit process{};
