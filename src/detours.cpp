@@ -2167,7 +2167,7 @@ BOOL WINAPI DetourUpdateAllOtherThreads()
                                 LONG error = DetourUpdateThreadEx(hThread, TRUE);
                                 DETOUR_ASSERT(error == NO_ERROR);
                                 if (error) {
-                                    DETOUR_TRACE(("DetourUpdateThreadEx failed, error=%d\n", error));
+                                    DETOUR_TRACE(("DetourUpdateThreadEx failed, error=%ld\n", error));
                                     // Reset s_nPendingError so that subsequent threads can continue to try to call the DetourUpdateThreadEx function
                                     DETOUR_ASSERT(error == s_nPendingError);
                                     // When the console program is terminated, s_nPendingError == ERROR_ACCESS_DENIED may be caused when the SuspendThread is called in DetourUpdateThreadEx
