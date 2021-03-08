@@ -521,7 +521,7 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
 static BOOL Is64BitOS()
 {
     BOOL bRet = FALSE;
-    HMODULE hModule = GetModuleHandle(TEXT("kernel32.dll"));
+    HMODULE hModule = GetModuleHandleW(L"kernel32.dll");
     if (!hModule) {
         return bRet;
     }
@@ -544,7 +544,7 @@ static BOOL Is64BitProcess(HANDLE hProcess)
     BOOL bRet = FALSE;
     if (hProcess) {
         if (Is64BitOS()) {
-            HMODULE hModule = GetModuleHandle(TEXT("kernel32.dll"));
+            HMODULE hModule = GetModuleHandleW(L"kernel32.dll");
             if (hModule) {
                 BOOL(WINAPI * _IsWow64Process)(IN  HANDLE hProcess,
                     OUT  PBOOL Wow64Process)
