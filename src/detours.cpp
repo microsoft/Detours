@@ -1924,6 +1924,35 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
     return s_nPendingError;
 }
 
+static bool IsCurrentThread(_In_ HANDLE hThread)
+{
+    if (hThread == GetCurrentThread()) {
+        return true;
+    }
+
+#if (_WIN32_WINNT >= 0x0502)
+    return GetThreadId(hThread) == GetCurrentThreadId();
+#else
+    typedef DWORD(WINAPI *LPFN_GETTHREADID)(HANDLE);
+
+    // GetThreadId is not available on all supported versions of Windows.
+    HMODULE hKernel32 = GetModuleHandleW(L"KERNEL32.DLL");
+    if (hKernel32 == NULL) {
+        DETOUR_TRACE(("GetModuleHandleW failed: %lx\n", GetLastError()));
+        return false;
+    }
+
+    LPFN_GETTHREADID pfnGetThreadId = (LPFN_GETTHREADID)GetProcAddress(
+        hKernel32, "GetThreadId");
+
+    if (pfnGetThreadId == NULL) {
+        DETOUR_TRACE(("GetProcAddress failed: %lx\n", GetLastError()));
+        return false;
+    }
+    return pfnGetThreadId(hThread) == GetCurrentThreadId();
+#endif
+}
+
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
 {
     LONG error;
@@ -1934,7 +1963,7 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     }
 
     // Silently (and safely) drop any attempt to suspend our own thread.
-    if (hThread == GetCurrentThread() || GetThreadId(hThread) == GetCurrentThreadId()) {
+    if (IsCurrentThread(hThread)) {
         return NO_ERROR;
     }
 
