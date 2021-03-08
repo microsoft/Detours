@@ -653,9 +653,9 @@ static BOOL IsWow64ProcessHelper(HANDLE hProcess,
 
     // IsWow64Process is not available on all supported versions of Windows.
     //
-    HMODULE hKernel32 = GetModuleHandleW(L"KERNEL32.DLL");
+    HMODULE hKernel32 = LoadLibraryW(L"KERNEL32.DLL");
     if (hKernel32 == NULL) {
-        DETOUR_TRACE(("GetModuleHandleW failed: %lx\n", GetLastError()));
+        DETOUR_TRACE(("LoadLibraryW failed: %lx\n", GetLastError()));
         return FALSE;
     }
 
