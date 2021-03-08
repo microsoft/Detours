@@ -1938,7 +1938,7 @@ static bool IsCurrentThread(_In_ HANDLE hThread)
     // GetThreadId is not available on all supported versions of Windows.
     HMODULE hKernel32 = GetModuleHandleW(L"KERNEL32.DLL");
     if (hKernel32 == NULL) {
-        DETOUR_TRACE(("GetModuleHandleW failed: %lx\n", GetLastError()));
+        DETOUR_TRACE(("GetModuleHandleW failed: %lu\n", GetLastError()));
         return false;
     }
 
@@ -1946,7 +1946,7 @@ static bool IsCurrentThread(_In_ HANDLE hThread)
         hKernel32, "GetThreadId");
 
     if (pfnGetThreadId == NULL) {
-        DETOUR_TRACE(("GetProcAddress failed: %lx\n", GetLastError()));
+        DETOUR_TRACE(("GetProcAddress failed: %lu\n", GetLastError()));
         return false;
     }
     return pfnGetThreadId(hThread) == GetCurrentThreadId();
