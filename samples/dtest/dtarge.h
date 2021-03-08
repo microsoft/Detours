@@ -6,6 +6,7 @@
 //
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
+#pragma once
 
 #if (_MSC_VER < 1299)
 typedef DWORD DWORD_PTR;

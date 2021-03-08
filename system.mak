@@ -8,7 +8,14 @@
 ##
 
 ############################################## Determine Processor Build Type.
-##
+#
+# Default the detours architecture to match the compiler target that
+# has been selected by the user via the VS Developer Command Prompt
+# they launched.
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "" && "$(VSCMD_ARG_TGT_ARCH)" != ""
+DETOURS_TARGET_PROCESSOR = $(VSCMD_ARG_TGT_ARCH)
+!ENDIF
+
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "" && "$(PROCESSOR_ARCHITEW6432)" != ""
 DETOURS_TARGET_PROCESSOR = X86
 !ENDIF
@@ -17,7 +24,7 @@ DETOURS_TARGET_PROCESSOR = X86
 DETOURS_TARGET_PROCESSOR = $(PROCESSOR_ARCHITECTURE)
 !ENDIF
 
-# uppercase DETOURS_TARGET_PROCESSOR
+# Uppercase DETOURS_TARGET_PROCESSOR
 DETOURS_TARGET_PROCESSOR=$(DETOURS_TARGET_PROCESSOR:a=A)
 DETOURS_TARGET_PROCESSOR=$(DETOURS_TARGET_PROCESSOR:b=B)
 DETOURS_TARGET_PROCESSOR=$(DETOURS_TARGET_PROCESSOR:c=C)
@@ -63,7 +70,7 @@ DETOURS_BITS=64
 ## DETOURS_OPTION_PROCESSOR: Set this macro if the processor *will* run code
 ##                           from another ISA (i.e. x86 on x64).
 ##
-##      DETOURS_OPTION_BITS: Set this macro if the processor *may* have an
+##      DETOURS_OPTION_BITS: Set this macro if the processor *may* have
 ##                           an alternative word size.
 ##
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
@@ -88,11 +95,17 @@ DETOURS_OPTION_BITS=64
 !MESSAGE Note: To select the target processor architecture set either
 !MESSAGE       PROCESSOR_ARCHITECTURE or DETOURS_TARGET_PROCESSOR.
 !MESSAGE
-!ERROR Unknown target processor: $(DETOURS_TARGET_ARCHITECTURE)
+!ERROR Unknown target processor: "$(DETOURS_TARGET_PROCESSOR)"
 !ENDIF
 
 ##############################################################################
 ##
+!IF "$(DETOURS_CONFIG)" == "Debug"
+DETOURS_DEBUG=1
+!ELSE
+DETOURS_DEBUG=0
+!ENDIF
+
 INCD = $(ROOT)\include
 LIBD = $(ROOT)\lib.$(DETOURS_TARGET_PROCESSOR)$(DETOURS_CONFIG)
 BIND = $(ROOT)\bin.$(DETOURS_TARGET_PROCESSOR)$(DETOURS_CONFIG)

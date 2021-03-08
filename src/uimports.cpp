@@ -35,7 +35,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     if (!ReadProcessMemory(hProcess, pbModule, &idh, sizeof(idh), &cbRead)
         || cbRead < sizeof(idh)) {
 
-        DETOUR_TRACE(("ReadProcessMemory(idh@%p..%p) failed: %d\n",
+        DETOUR_TRACE(("ReadProcessMemory(idh@%p..%p) failed: %lx\n",
                       pbModule, pbModule + sizeof(idh), GetLastError()));
 
       finish:
@@ -51,7 +51,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 
     if (!ReadProcessMemory(hProcess, pbModule + idh.e_lfanew, &inh, sizeof(inh), &cbRead)
         || cbRead < sizeof(inh)) {
-        DETOUR_TRACE(("ReadProcessMemory(inh@%p..%p) failed: %d\n",
+        DETOUR_TRACE(("ReadProcessMemory(inh@%p..%p) failed: %lx\n",
                       pbModule + idh.e_lfanew,
                       pbModule + idh.e_lfanew + sizeof(inh),
                       GetLastError()));
@@ -82,16 +82,21 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                                sizeof(ish), &cbRead)
             || cbRead < sizeof(ish)) {
 
-            DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %d\n",
+            DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %lx\n",
                           pbModule + dwSec + sizeof(ish) * i,
                           pbModule + dwSec + sizeof(ish) * (i + 1),
                           GetLastError()));
             goto finish;
         }
 
-        DETOUR_TRACE(("ish[%d] : va=%08x sr=%d\n", i, ish.VirtualAddress, ish.SizeOfRawData));
-
-        // If the file didn't have an IAT_DIRECTORY, we assign it...
+        DETOUR_TRACE(("ish[%lx] : va=%08lx sr=%lx\n", i, ish.VirtualAddress, ish.SizeOfRawData));
+        
+        // If the linker didn't suggest an IAT in the data directories, the
+        // loader will look for the section of the import directory to be used
+        // for this instead. Since we put out new IMPORT_DIRECTORY outside any
+        // section boundary, the loader will not find it. So we provide one
+        // explicitly to avoid the search.
+        //
         if (inh.IAT_DIRECTORY.VirtualAddress == 0 &&
             inh.IMPORT_DIRECTORY.VirtualAddress >= ish.VirtualAddress &&
             inh.IMPORT_DIRECTORY.VirtualAddress < ish.VirtualAddress + ish.SizeOfRawData) {
@@ -101,25 +106,78 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
         }
     }
 
+    if (inh.IMPORT_DIRECTORY.VirtualAddress != 0 && inh.IMPORT_DIRECTORY.Size == 0) {
+
+        // Don't worry about changing the PE file, 
+        // because the load information of the original PE header has been saved and will be restored. 
+        // The change here is just for the following code to work normally
+
+        PIMAGE_IMPORT_DESCRIPTOR pImageImport = (PIMAGE_IMPORT_DESCRIPTOR)(pbModule + inh.IMPORT_DIRECTORY.VirtualAddress);
+
+        do {
+            IMAGE_IMPORT_DESCRIPTOR ImageImport;
+            if (!ReadProcessMemory(hProcess, pImageImport, &ImageImport, sizeof(ImageImport), NULL)) {
+                DETOUR_TRACE(("ReadProcessMemory failed: %lx\n", GetLastError()));
+                goto finish;
+            }
+            inh.IMPORT_DIRECTORY.Size += sizeof(IMAGE_IMPORT_DESCRIPTOR);
+            if (!ImageImport.Name) {
+                break;
+            }
+            ++pImageImport;
+        } while (TRUE);
+
+        DWORD dwLastError = GetLastError();
+        OutputDebugString(TEXT("[This PE file has an import table, but the import table size is marked as 0. This is an error.")
+            TEXT("If it is not repaired, the launched program will not work properly, Detours has automatically repaired its import table size for you! ! !]\r\n"));
+        if (GetLastError() != dwLastError) {
+            SetLastError(dwLastError);
+        }
+    }
+
     DETOUR_TRACE(("     Imports: %p..%p\n",
-                  (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress,
-                  (DWORD_PTR)pbModule + inh.IMPORT_DIRECTORY.VirtualAddress +
+                  pbModule + inh.IMPORT_DIRECTORY.VirtualAddress,
+                  pbModule + inh.IMPORT_DIRECTORY.VirtualAddress +
                   inh.IMPORT_DIRECTORY.Size));
 
+    // Calculate new import directory size.  Note that since inh is from another
+    // process, inh could have been corrupted. We need to protect against
+    // integer overflow in allocation calculations.
     DWORD nOldDlls = inh.IMPORT_DIRECTORY.Size / sizeof(IMAGE_IMPORT_DESCRIPTOR);
-    DWORD obRem = sizeof(IMAGE_IMPORT_DESCRIPTOR) * nDlls;
-    DWORD obOld = obRem + sizeof(IMAGE_IMPORT_DESCRIPTOR) * nOldDlls;
+    DWORD obRem;
+    if (DWordMult(sizeof(IMAGE_IMPORT_DESCRIPTOR), nDlls, &obRem) != S_OK) {
+        DETOUR_TRACE(("too many new DLLs.\n"));
+        goto finish;
+    }
+    DWORD obOld;
+    if (DWordAdd(obRem, sizeof(IMAGE_IMPORT_DESCRIPTOR) * nOldDlls, &obOld) != S_OK) {
+        DETOUR_TRACE(("DLL entries overflow.\n"));
+        goto finish;
+    }
     DWORD obTab = PadToDwordPtr(obOld);
-    DWORD obDll = obTab + sizeof(DWORD_XX) * 4 * nDlls;
+    // Check for integer overflow.
+    if (obTab < obOld) {
+        DETOUR_TRACE(("DLL entries padding overflow.\n"));
+        goto finish;
+    }
+    DWORD stSize;
+    if (DWordMult(sizeof(DWORD_XX) * 4, nDlls, &stSize) != S_OK) {
+        DETOUR_TRACE(("String table overflow.\n"));
+        goto finish;
+    }
+    DWORD obDll;
+    if (DWordAdd(obTab, stSize, &obDll) != S_OK) {
+        DETOUR_TRACE(("Import table size overflow\n"));
+        goto finish;
+    }
     DWORD obStr = obDll;
     cbNew = obStr;
     for (n = 0; n < nDlls; n++) {
-        cbNew += PadToDword((DWORD)strlen(plpDlls[n]) + 1);
+        if (DWordAdd(cbNew, PadToDword((DWORD)strlen(plpDlls[n]) + 1), &cbNew) != S_OK) {
+            DETOUR_TRACE(("Overflow adding string table entry\n"));
+            goto finish;
+        }
     }
-
-    _Analysis_assume_(cbNew >
-                      sizeof(IMAGE_IMPORT_DESCRIPTOR) * (nDlls + nOldDlls)
-                      + sizeof(DWORD_XX) * 4 * nDlls);
     pbNew = new BYTE [cbNew];
     if (pbNew == NULL) {
         DETOUR_TRACE(("new BYTE [cbNew] failed.\n"));
@@ -145,14 +203,14 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     }
 
     PIMAGE_IMPORT_DESCRIPTOR piid = (PIMAGE_IMPORT_DESCRIPTOR)pbNew;
-    DWORD_XX *pt;
+    IMAGE_THUNK_DATAXX *pt = NULL;
 
     DWORD obBase = (DWORD)(pbNewIid - pbModule);
     DWORD dwProtect = 0;
 
     if (inh.IMPORT_DIRECTORY.VirtualAddress != 0) {
         // Read the old import directory if it exists.
-        DETOUR_TRACE(("IMPORT_DIRECTORY perms=%x\n", dwProtect));
+        DETOUR_TRACE(("IMPORT_DIRECTORY perms=%lx\n", dwProtect));
 
         if (!ReadProcessMemory(hProcess,
                                pbModule + inh.IMPORT_DIRECTORY.VirtualAddress,
@@ -160,7 +218,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                                nOldDlls * sizeof(IMAGE_IMPORT_DESCRIPTOR), &cbRead)
             || cbRead < nOldDlls * sizeof(IMAGE_IMPORT_DESCRIPTOR)) {
 
-            DETOUR_TRACE(("ReadProcessMemory(imports) failed: %d\n", GetLastError()));
+            DETOUR_TRACE(("ReadProcessMemory(imports) failed: %lx\n", GetLastError()));
             goto finish;
         }
     }
@@ -168,7 +226,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     for (n = 0; n < nDlls; n++) {
         HRESULT hrRet = StringCchCopyA((char*)pbNew + obStr, cbNew - obStr, plpDlls[n]);
         if (FAILED(hrRet)) {
-            DETOUR_TRACE(("StringCchCopyA failed: %d\n", GetLastError()));
+            DETOUR_TRACE(("StringCchCopyA failed: %lx\n", GetLastError()));
             goto finish;
         }
 
@@ -177,21 +235,24 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                                      cbNew - obStr,
                                      DETOURS_STRINGIFY(DETOURS_BITS_XX));
         if (FAILED(hrRet)) {
-            DETOUR_TRACE(("ReplaceOptionalSizeA failed: %d\n", GetLastError()));
+            DETOUR_TRACE(("ReplaceOptionalSizeA failed: %lx\n", GetLastError()));
             goto finish;
         }
 
-        DWORD nOffset = obTab + (sizeof(DWORD_XX) * (4 * n));
+        DWORD nOffset = obTab + (sizeof(IMAGE_THUNK_DATAXX) * (4 * n));
         piid[n].OriginalFirstThunk = obBase + nOffset;
-        pt = ((DWORD_XX*)(pbNew + nOffset));
-        pt[0] = IMAGE_ORDINAL_FLAG_XX + 1;
-        pt[1] = 0;
+      
+        // We need 2 thunks for the import table and 2 thunks for the IAT.
+        // One for an ordinal import and one to mark the end of the list.
+	  pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
+        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
+        pt[1].u1.Ordinal = 0;
 
-        nOffset = obTab + (sizeof(DWORD_XX) * ((4 * n) + 2));
+        nOffset = obTab + (sizeof(IMAGE_THUNK_DATAXX) * ((4 * n) + 2));
         piid[n].FirstThunk = obBase + nOffset;
-        pt = ((DWORD_XX*)(pbNew + nOffset));
-        pt[0] = IMAGE_ORDINAL_FLAG_XX + 1;
-        pt[1] = 0;
+        pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
+        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
+        pt[1].u1.Ordinal = 0;
         piid[n].TimeDateStamp = 0;
         piid[n].ForwarderChain = 0;
         piid[n].Name = obBase + obStr;
@@ -216,16 +277,19 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 #endif
 
     if (!WriteProcessMemory(hProcess, pbNewIid, pbNew, obStr, NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(iid) failed: %d\n", GetLastError()));
+        DETOUR_TRACE(("WriteProcessMemory(iid) failed: %lx\n", GetLastError()));
         goto finish;
     }
 
-    DETOUR_TRACE(("obBaseBef = %08x..%08x\n",
+    DETOUR_TRACE(("obBaseBef = %08lx..%08lx\n",
                   inh.IMPORT_DIRECTORY.VirtualAddress,
                   inh.IMPORT_DIRECTORY.VirtualAddress + inh.IMPORT_DIRECTORY.Size));
-    DETOUR_TRACE(("obBaseAft = %08x..%08x\n", obBase, obBase + obStr));
+    DETOUR_TRACE(("obBaseAft = %08lx..%08lx\n", obBase, obBase + obStr));
 
-    // If the file doesn't have an IAT_DIRECTORY, we create it...
+    // In this case the file didn't have an import directory in first place,
+    // so we couldn't fix the missing IAT above. We still need to explicitly
+    // provide an IAT to prevent to loader from looking for one.
+    //
     if (inh.IAT_DIRECTORY.VirtualAddress == 0) {
         inh.IAT_DIRECTORY.VirtualAddress = obBase;
         inh.IAT_DIRECTORY.Size = cbNew;
@@ -238,20 +302,20 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     //
     if (!DetourVirtualProtectSameExecuteEx(hProcess, pbModule, inh.OptionalHeader.SizeOfHeaders,
                                            PAGE_EXECUTE_READWRITE, &dwProtect)) {
-        DETOUR_TRACE(("VirtualProtectEx(inh) write failed: %d\n", GetLastError()));
+        DETOUR_TRACE(("VirtualProtectEx(inh) write failed: %lx\n", GetLastError()));
         goto finish;
     }
 
     inh.OptionalHeader.CheckSum = 0;
 
     if (!WriteProcessMemory(hProcess, pbModule, &idh, sizeof(idh), NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(idh) failed: %d\n", GetLastError()));
+        DETOUR_TRACE(("WriteProcessMemory(idh) failed: %lx\n", GetLastError()));
         goto finish;
     }
     DETOUR_TRACE(("WriteProcessMemory(idh:%p..%p)\n", pbModule, pbModule + sizeof(idh)));
 
     if (!WriteProcessMemory(hProcess, pbModule + idh.e_lfanew, &inh, sizeof(inh), NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(inh) failed: %d\n", GetLastError()));
+        DETOUR_TRACE(("WriteProcessMemory(inh) failed: %lx\n", GetLastError()));
         goto finish;
     }
     DETOUR_TRACE(("WriteProcessMemory(inh:%p..%p)\n",
@@ -260,7 +324,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 
     if (!VirtualProtectEx(hProcess, pbModule, inh.OptionalHeader.SizeOfHeaders,
                           dwProtect, &dwProtect)) {
-        DETOUR_TRACE(("VirtualProtectEx(idh) restore failed: %d\n", GetLastError()));
+        DETOUR_TRACE(("VirtualProtectEx(idh) restore failed: %lx\n", GetLastError()));
         goto finish;
     }
 

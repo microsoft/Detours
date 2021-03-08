@@ -309,7 +309,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
             printf("Detoured EntryPoint().\n");
         }
         else {
-            printf("Error detouring EntryPoint(): %d (@ %p)\n", error, RawEntryPoint);
+            printf("Error detouring EntryPoint(): %ld (@ %p)\n", error, RawEntryPoint);
             __debugbreak();
         }
     }
@@ -323,7 +323,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved)
         LONG error = DetourTransactionCommit();
 
         if (error != NO_ERROR) {
-            printf("Error detach detours failed: %d\n", error);
+            printf("Error detach detours failed: %ld\n", error);
         }
     }
 

@@ -4319,8 +4319,10 @@ BOOL (__stdcall * Real_GetThreadContext)(HANDLE a0,
 HDESK (__stdcall * Real_GetThreadDesktop)(DWORD a0)
     = GetThreadDesktop;
 
+#if(WINVER >= 0x0500)
 LCID (__stdcall * Real_GetThreadLocale)(void)
     = GetThreadLocale;
+#endif // (WINVER >= 0x0500)
 
 int (__stdcall * Real_GetThreadPriority)(HANDLE a0)
     = GetThreadPriority;
@@ -7046,8 +7048,10 @@ DWORD (__stdcall * Real_SetThreadIdealProcessor)(HANDLE a0,
                                                  DWORD a1)
     = SetThreadIdealProcessor;
 
+#if(WINVER >= 0x0500)
 BOOL (__stdcall * Real_SetThreadLocale)(LCID a0)
     = SetThreadLocale;
+#endif // (WINVER >= 0x0500)
 
 BOOL (__stdcall * Real_SetThreadPriority)(HANDLE a0,
                                           int a1)
@@ -21338,6 +21342,7 @@ HDESK __stdcall Mine_GetThreadDesktop(DWORD a0)
     return rv;
 }
 
+#if(WINVER >= 0x0500)
 LCID __stdcall Mine_GetThreadLocale(void)
 {
     _PrintEnter("GetThreadLocale()\n");
@@ -21350,6 +21355,7 @@ LCID __stdcall Mine_GetThreadLocale(void)
     };
     return rv;
 }
+#endif // (WINVER >= 0x0500)
 
 int __stdcall Mine_GetThreadPriority(HANDLE a0)
 {
@@ -29382,6 +29388,7 @@ DWORD __stdcall Mine_SetThreadIdealProcessor(HANDLE a0,
     return rv;
 }
 
+#if(WINVER >= 0x0500)
 BOOL __stdcall Mine_SetThreadLocale(LCID a0)
 {
     _PrintEnter("SetThreadLocale(%p)\n", a0);
@@ -29394,6 +29401,7 @@ BOOL __stdcall Mine_SetThreadLocale(LCID a0)
     };
     return rv;
 }
+#endif // (WINVER >= 0x0500)
 
 BOOL __stdcall Mine_SetThreadPriority(HANDLE a0,
                                       int a1)
@@ -34541,7 +34549,9 @@ LONG AttachDetours(VOID)
     ATTACH(GetTextMetricsW);
     ATTACH(GetThreadContext);
     ATTACH(GetThreadDesktop);
+#if(WINVER >= 0x0500)
     ATTACH(GetThreadLocale);
+#endif // (WINVER >= 0x0500)
     ATTACH(GetThreadPriority);
     ATTACH(GetThreadPriorityBoost);
     ATTACH(GetThreadSelectorEntry);
@@ -35083,7 +35093,9 @@ LONG AttachDetours(VOID)
     ATTACH(SetThreadContext);
     ATTACH(SetThreadDesktop);
     ATTACH(SetThreadIdealProcessor);
+#if(WINVER >= 0x0500)
     ATTACH(SetThreadLocale);
+#endif // (WINVER >= 0x0500)
     ATTACH(SetThreadPriority);
     ATTACH(SetThreadPriorityBoost);
     ATTACH(SetTimeZoneInformation);
@@ -35365,7 +35377,7 @@ LONG AttachDetours(VOID)
     PVOID *ppbFailedPointer = NULL;
     LONG error = DetourTransactionCommitEx(&ppbFailedPointer);
     if (error != 0) {
-        printf("traceapi.dll: Attach transaction failed to commit. Error %d (%p/%p)",
+        printf("traceapi.dll: Attach transaction failed to commit. Error %ld (%p/%p)",
                error, ppbFailedPointer, *ppbFailedPointer);
         return error;
     }
@@ -36218,7 +36230,9 @@ LONG DetachDetours(VOID)
     DETACH(GetTextMetricsW);
     DETACH(GetThreadContext);
     DETACH(GetThreadDesktop);
+#if(WINVER >= 0x0500)
     DETACH(GetThreadLocale);
+#endif // (WINVER >= 0x0500)
     DETACH(GetThreadPriority);
     DETACH(GetThreadPriorityBoost);
     DETACH(GetThreadSelectorEntry);
@@ -36760,7 +36774,9 @@ LONG DetachDetours(VOID)
     DETACH(SetThreadContext);
     DETACH(SetThreadDesktop);
     DETACH(SetThreadIdealProcessor);
+#if(WINVER >= 0x0500)
     DETACH(SetThreadLocale);
+#endif // (WINVER >= 0x0500)
     DETACH(SetThreadPriority);
     DETACH(SetThreadPriorityBoost);
     DETACH(SetTimeZoneInformation);
@@ -37043,7 +37059,7 @@ LONG DetachDetours(VOID)
         PVOID *ppbFailedPointer = NULL;
         LONG error = DetourTransactionCommitEx(&ppbFailedPointer);
 
-        printf("traceapi.dll: Detach transaction failed to commit. Error %d (%p/%p)",
+        printf("traceapi.dll: Detach transaction failed to commit. Error %ld (%p/%p)",
                error, ppbFailedPointer, *ppbFailedPointer);
         return error;
     }

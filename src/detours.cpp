@@ -186,7 +186,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
     // We have to place trampolines within +/- 2GB of code.
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
-    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
+    DETOUR_TRACE(("[%p..%p..%p]\n", (PVOID)lo, pbCode, (PVOID)hi));
 
     // And, within +/- 2GB of relative jmp targets.
     if (pbCode[0] == 0xe9) {   // jmp +imm32
@@ -198,7 +198,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
         else {
             lo = detour_2gb_below((ULONG_PTR)pbNew);
         }
-        DETOUR_TRACE(("[%p..%p..%p] +imm32\n", lo, pbCode, hi));
+        DETOUR_TRACE(("[%p..%p..%p] +imm32\n", (PVOID)lo, pbCode, (PVOID)hi));
     }
 
     *ppLower = (PDETOUR_TRAMPOLINE)lo;
@@ -399,7 +399,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
     // We have to place trampolines within +/- 2GB of code.
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
-    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
+    DETOUR_TRACE(("[%p..%p..%p]\n", (PVOID)lo, pbCode, (PVOID)hi));
 
     // And, within +/- 2GB of relative jmp vectors.
     if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [+imm32]
@@ -411,7 +411,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
         else {
             lo = detour_2gb_below((ULONG_PTR)pbNew);
         }
-        DETOUR_TRACE(("[%p..%p..%p] [+imm32]\n", lo, pbCode, hi));
+        DETOUR_TRACE(("[%p..%p..%p] [+imm32]\n", (PVOID)lo, pbCode, (PVOID)hi));
     }
     // And, within +/- 2GB of relative jmp targets.
     else if (pbCode[0] == 0xe9) {   // jmp +imm32
@@ -423,7 +423,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
         else {
             lo = detour_2gb_below((ULONG_PTR)pbNew);
         }
-        DETOUR_TRACE(("[%p..%p..%p] +imm32\n", lo, pbCode, hi));
+        DETOUR_TRACE(("[%p..%p..%p] +imm32\n", (PVOID)lo, pbCode, (PVOID)hi));
     }
 
     *ppLower = (PDETOUR_TRAMPOLINE)lo;
@@ -818,7 +818,7 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
     // We have to place trampolines within +/- 2GB of code.
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
-    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
+    DETOUR_TRACE(("[%p..%p..%p]\n", (PVOID)lo, pbCode, (PVOID)hi));
 
     *ppLower = (PDETOUR_TRAMPOLINE)lo;
     *ppUpper = (PDETOUR_TRAMPOLINE)hi;
@@ -862,7 +862,8 @@ struct _DETOUR_TRAMPOLINE
 {
     // An ARM64 instruction is 4 bytes long.
     //
-    // The overwrite is always 2 instructions plus a literal, so 16 bytes, 4 instructions.
+    // The overwrite is always composed of 3 instructions (12 bytes) which perform an indirect jump
+	// using _DETOUR_TRAMPOLINE::pbDetour as the address holding the target location.
     //
     // Copied instructions can expand.
     //
@@ -897,7 +898,7 @@ struct _DETOUR_TRAMPOLINE
 C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 184);
 
 enum {
-    SIZE_OF_JMP = 16
+    SIZE_OF_JMP = 12
 };
 
 inline ULONG fetch_opcode(PBYTE pbCode)
@@ -909,6 +910,79 @@ inline void write_opcode(PBYTE &pbCode, ULONG Opcode)
 {
     *(ULONG *)pbCode = Opcode;
     pbCode += 4;
+}
+
+struct ARM64_INDIRECT_JMP {
+    struct {
+        ULONG Rd : 5;
+        ULONG immhi : 19;
+        ULONG iop : 5;
+        ULONG immlo : 2;
+        ULONG op : 1;
+    } ardp;
+
+    struct {
+        ULONG Rt : 5;
+        ULONG Rn : 5;
+        ULONG imm : 12;
+        ULONG opc : 2;
+        ULONG iop1 : 2;
+        ULONG V : 1;
+        ULONG iop2 : 3;
+        ULONG size : 2;
+    } ldr;
+
+    ULONG br;
+};
+
+#pragma warning(push)
+#pragma warning(disable:4201)
+
+union ARM64_INDIRECT_IMM {
+    struct {
+        ULONG64 pad : 12;
+        ULONG64 adrp_immlo : 2;
+        ULONG64 adrp_immhi : 19;
+    };
+
+    LONG64 value;
+};
+
+#pragma warning(pop)
+
+PBYTE detour_gen_jmp_indirect(BYTE *pbCode, ULONG64 *pbJmpVal)
+{
+    // adrp x17, [jmpval]
+    // ldr x17, [x17, jmpval]
+    // br x17
+
+    struct ARM64_INDIRECT_JMP *pIndJmp;
+    union ARM64_INDIRECT_IMM jmpIndAddr;
+
+    jmpIndAddr.value = (((LONG64)pbJmpVal) & 0xFFFFFFFFFFFFF000) - 
+                       (((LONG64)pbCode) & 0xFFFFFFFFFFFFF000);
+
+    pIndJmp = (struct ARM64_INDIRECT_JMP *)pbCode;
+    pbCode = (BYTE *)(pIndJmp + 1);
+
+    pIndJmp->ardp.Rd = 17;
+    pIndJmp->ardp.immhi = jmpIndAddr.adrp_immhi;
+    pIndJmp->ardp.iop = 0x10;
+    pIndJmp->ardp.immlo = jmpIndAddr.adrp_immlo;
+    pIndJmp->ardp.op = 1;
+
+    pIndJmp->ldr.Rt = 17;
+    pIndJmp->ldr.Rn = 17;
+    pIndJmp->ldr.imm = (((ULONG64)pbJmpVal) & 0xFFF) / 8;
+    pIndJmp->ldr.opc = 1;
+    pIndJmp->ldr.iop1 = 1;
+    pIndJmp->ldr.V = 0;
+    pIndJmp->ldr.iop2 = 7;
+    pIndJmp->ldr.size = 3;
+
+    pIndJmp->br = 0xD61F0220;
+
+    return pbCode;
 }
 
 PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE *ppPool, PBYTE pbJmpVal)
@@ -1044,10 +1118,13 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
                                    PDETOUR_TRAMPOLINE *ppLower,
                                    PDETOUR_TRAMPOLINE *ppUpper)
 {
-    // We have to place trampolines within +/- 2GB of code.
+    // The encoding used by detour_gen_jmp_indirect actually enables a
+    // displacement of +/- 4GiB. In the future, this could be changed to
+    // reflect that. For now, just reuse the x86 logic which is plenty.
+
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
-    DETOUR_TRACE(("[%p..%p..%p]\n", lo, pbCode, hi));
+    DETOUR_TRACE(("[%p..%p..%p]\n", (PVOID)lo, pbCode, (PVOID)hi));
 
     *ppLower = (PDETOUR_TRAMPOLINE)lo;
     *ppUpper = (PDETOUR_TRAMPOLINE)hi;
@@ -1160,7 +1237,7 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
             break;
         }
 
-        DETOUR_TRACE(("  Try %p => %p..%p %6x\n",
+        DETOUR_TRACE(("  Try %p => %p..%p %6lx\n",
                       pbTry,
                       mbi.BaseAddress,
                       (PBYTE)mbi.BaseAddress + mbi.RegionSize - 1,
@@ -1174,6 +1251,9 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
                                     PAGE_EXECUTE_READWRITE);
             if (pv != NULL) {
                 return pv;
+            }
+            else if (GetLastError() == ERROR_DYNAMIC_CODE_BLOCKED) {
+                return NULL;
             }
             pbTry += DETOUR_REGION_SIZE;
         }
@@ -1207,7 +1287,7 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
             break;
         }
 
-        DETOUR_TRACE(("  Try %p => %p..%p %6x\n",
+        DETOUR_TRACE(("  Try %p => %p..%p %6lx\n",
                       pbTry,
                       mbi.BaseAddress,
                       (PBYTE)mbi.BaseAddress + mbi.RegionSize - 1,
@@ -1221,6 +1301,9 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
                                     PAGE_EXECUTE_READWRITE);
             if (pv != NULL) {
                 return pv;
+            }
+            else if (GetLastError() == ERROR_DYNAMIC_CODE_BLOCKED) {
+                return NULL;
             }
             pbTry -= DETOUR_REGION_SIZE;
         }
@@ -1621,7 +1704,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_ARM
         }
         else {
-            DETOUR_TRACE(("detours: pbTramp =%p, pbRemain=%p, pbDetour=%p, cbRestore=%d\n",
+            DETOUR_TRACE(("detours: pbTramp =%p, pbRemain=%p, pbDetour=%p, cbRestore=%x\n",
                           o->pTrampoline,
                           o->pTrampoline->pbRemain,
                           o->pTrampoline->pbDetour,
@@ -1665,7 +1748,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_ARM
 
 #ifdef DETOURS_ARM64
-            PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, NULL, o->pTrampoline->pbDetour);
+            PBYTE pbCode = detour_gen_jmp_indirect(o->pbTarget, (ULONG64*)&(o->pTrampoline->pbDetour));
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = o->pTrampoline->rbCode;
             UNREFERENCED_PARAMETER(pbCode);
@@ -1913,13 +1996,13 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
     }
 
     if (s_nPendingThreadId != (LONG)GetCurrentThreadId()) {
-        DETOUR_TRACE(("transaction conflict with thread id=%d\n", s_nPendingThreadId));
+        DETOUR_TRACE(("transaction conflict with thread id=%ld\n", s_nPendingThreadId));
         return ERROR_INVALID_OPERATION;
     }
 
     // If any of the pending operations failed, then we don't need to do this.
     if (s_nPendingError != NO_ERROR) {
-        DETOUR_TRACE(("pending transaction error=%d\n", s_nPendingError));
+        DETOUR_TRACE(("pending transaction error=%ld\n", s_nPendingError));
         return s_nPendingError;
     }
 
@@ -2100,7 +2183,7 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
                 pTrampoline->rAlign[n].obTrampoline == 0) {
                 break;
             }
-            DETOUR_TRACE((" %d/%d",
+            DETOUR_TRACE((" %x/%x",
                           pTrampoline->rAlign[n].obTarget,
                           pTrampoline->rAlign[n].obTrampoline
                           ));
@@ -2466,6 +2549,22 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 {
     return DetourVirtualProtectSameExecuteEx(GetCurrentProcess(),
                                              pAddress, nSize, dwNewProtect, pdwOldProtect);
+}
+
+BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right)
+{
+    return
+        left.Data1 == right.Data1 &&
+        left.Data2 == right.Data2 &&
+        left.Data3 == right.Data3 &&
+        left.Data4[0] == right.Data4[0] &&
+        left.Data4[1] == right.Data4[1] &&
+        left.Data4[2] == right.Data4[2] &&
+        left.Data4[3] == right.Data4[3] &&
+        left.Data4[4] == right.Data4[4] &&
+        left.Data4[5] == right.Data4[5] &&
+        left.Data4[6] == right.Data4[6] &&
+        left.Data4[7] == right.Data4[7];
 }
 
 //  End of File

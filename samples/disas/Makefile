@@ -7,10 +7,10 @@
 ##  Copyright (c) Microsoft Corporation.  All rights reserved.
 ##
 
+!include ..\common.mak
+
 # temporarily disable this test for ARM64
 !if "$(DETOURS_TARGET_PROCESSOR)" != "ARM64"
-
-!include ..\common.mak
 
 LIBS=$(LIBS) kernel32.lib
 

@@ -170,6 +170,9 @@ test: all
     @echo -------- Should load extend$(DETOURS_BITS).dll dynamically using withdll.exe -----------
     $(BIND)\withdll.exe -d:$(BIND)\extend$(DETOURS_BITS).dll $(BIND)\findfunc.exe
     @echo.
+    @echo -------- Should list symbols using symtest.exe -----------
+    $(BIND)\symtest.exe
+    @echo.
     @echo -------- Test completed. ------------------------------------------------
 
 ################################################################# End of File.

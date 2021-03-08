@@ -28,6 +28,15 @@
 #pragma warning(disable:4091) // empty typedef
 #endif
 
+// Suppress declspec(dllimport) for the sake of Detours
+// users that provide kernel32 functionality themselves.
+// This is ok in the mainstream case, it will just cost
+// an extra instruction calling some functions, which
+// LTCG optimizes away.
+//
+#define _KERNEL32_ 1
+#define _USER32_ 1
+
 #include <windows.h>
 #if (_MSC_VER < 1310)
 #else
@@ -36,8 +45,27 @@
 #pragma warning(disable:6102 6103) // /analyze warnings
 #endif
 #include <strsafe.h>
+#include <intsafe.h>
 #pragma warning(pop)
 #endif
+
+// Allow Detours to cleanly compile with the MingW toolchain.
+//
+#ifdef __GNUC__
+#define __try
+#define __except(x) if (0)
+#include <strsafe.h>
+#endif
+
+// From winerror.h, as this error isn't found in some SDKs:
+//
+// MessageId: ERROR_DYNAMIC_CODE_BLOCKED
+//
+// MessageText:
+//
+// The operation was blocked as the process prohibits dynamic code generation.
+//
+#define ERROR_DYNAMIC_CODE_BLOCKED       1655L
 
 #endif // DETOURS_INTERNAL
 
@@ -89,12 +117,17 @@
 //#define DETOURS_OPTION_BITS 32
 #endif
 
-#define VER_DETOURS_BITS    DETOUR_STRINGIFY(DETOURS_BITS)
+/////////////////////////////////////////////////////////////// Helper Macros.
+//
+#define DETOURS_STRINGIFY_(x)    #x
+#define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
+
+#define VER_DETOURS_BITS    DETOURS_STRINGIFY(DETOURS_BITS)
 
 //////////////////////////////////////////////////////////////////////////////
 //
 
-#if (_MSC_VER < 1299)
+#if (_MSC_VER < 1299) && !defined(__MINGW32__)
 typedef LONG LONG_PTR;
 typedef ULONG ULONG_PTR;
 #endif
@@ -115,6 +148,7 @@ typedef ULONG ULONG_PTR;
 #undef _In_
 #undef _In_bytecount_
 #undef _In_count_
+#undef __in_ecount
 #undef _In_opt_
 #undef _In_opt_bytecount_
 #undef _In_opt_count_
@@ -169,6 +203,10 @@ typedef ULONG ULONG_PTR;
 
 #ifndef _In_count_
 #define _In_count_(x)
+#endif
+
+#ifndef __in_ecount
+#define __in_ecount(x)
 #endif
 
 #ifndef _In_opt_
@@ -462,11 +500,6 @@ typedef struct _DETOUR_EXE_HELPER
       0,\
 }
 
-/////////////////////////////////////////////////////////////// Helper Macros.
-//
-#define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
-#define DETOURS_STRINGIFY_(x)    #x
-
 ///////////////////////////////////////////////////////////// Binary Typedefs.
 //
 typedef BOOL (CALLBACK *PF_DETOUR_BINARY_BYWAY_CALLBACK)(
@@ -581,13 +614,13 @@ _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
 PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
                                _In_ REFGUID rguid,
-                               _Out_ DWORD *pcbData);
+                               _Out_opt_ DWORD *pcbData);
 
 _Writable_bytes_(*pcbData)
 _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
 PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
-                                 _Out_ DWORD * pcbData);
+                                 _Out_opt_ DWORD *pcbData);
 
 DWORD WINAPI DetourGetSizeOfPayloads(_In_opt_ HMODULE hModule);
 
@@ -629,6 +662,11 @@ BOOL WINAPI DetourBinaryClose(_In_ PDETOUR_BINARY pBinary);
 
 /////////////////////////////////////////////////// Create Process & Load Dll.
 //
+_Success_(return != NULL)
+PVOID WINAPI DetourFindRemotePayload(_In_ HANDLE hProcess,
+                                     _In_ REFGUID rguid,
+                                     _Out_opt_ DWORD *pcbData);
+
 typedef BOOL (WINAPI *PDETOUR_CREATE_PROCESS_ROUTINEA)(
     _In_opt_ LPCSTR lpApplicationName,
     _Inout_opt_ LPSTR lpCommandLine,
@@ -795,8 +833,14 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
 
 BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
                                        _In_ REFGUID rguid,
-                                       _In_reads_bytes_(cbData) PVOID pvData,
+                                       _In_reads_bytes_(cbData) LPCVOID pvData,
                                        _In_ DWORD cbData);
+_Success_(return != NULL)
+PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
+                                          _In_ REFGUID rguid,
+                                          _In_reads_bytes_(cbData) LPCVOID pvData,
+                                          _In_ DWORD cbData);
+
 BOOL WINAPI DetourRestoreAfterWith(VOID);
 BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
                                      _In_ DWORD cbData);
@@ -812,6 +856,60 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 }
 #endif // __cplusplus
 
+/////////////////////////////////////////////////// Type-safe overloads for C++
+//
+#if __cplusplus >= 201103L || _MSVC_LANG >= 201103L
+#include <type_traits>
+
+template<typename T>
+struct DetoursIsFunctionPointer : std::false_type {};
+
+template<typename T>
+struct DetoursIsFunctionPointer<T*> : std::is_function<typename std::remove_pointer<T>::type> {};
+
+template<
+    typename T,
+    typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
+LONG DetourAttach(_Inout_ T *ppPointer,
+                  _In_ T pDetour) noexcept
+{
+    return DetourAttach(
+        reinterpret_cast<void**>(ppPointer),
+        reinterpret_cast<void*>(pDetour));
+}
+
+template<
+    typename T,
+    typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
+LONG DetourAttachEx(_Inout_ T *ppPointer,
+                    _In_ T pDetour,
+                    _Out_opt_ PDETOUR_TRAMPOLINE *ppRealTrampoline,
+                    _Out_opt_ T *ppRealTarget,
+                    _Out_opt_ T *ppRealDetour) noexcept
+{
+    return DetourAttachEx(
+        reinterpret_cast<void**>(ppPointer),
+        reinterpret_cast<void*>(pDetour),
+        ppRealTrampoline,
+        reinterpret_cast<void**>(ppRealTarget),
+        reinterpret_cast<void**>(ppRealDetour));
+}
+
+template<
+    typename T,
+    typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
+LONG DetourDetach(_Inout_ T *ppPointer,
+                  _In_ T pDetour) noexcept
+{
+    return DetourDetach(
+        reinterpret_cast<void**>(ppPointer),
+        reinterpret_cast<void*>(pDetour));
+}
+
+#endif // __cplusplus >= 201103L || _MSVC_LANG >= 201103L
+//
+//////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////////////////////////// Detours Internal Definitions.
 //
 #ifdef __cplusplus
@@ -822,7 +920,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 
 //////////////////////////////////////////////////////////////////////////////
 //
-#if (_MSC_VER < 1299)
+#if (_MSC_VER < 1299) && !defined(__GNUC__)
 #include <imagehlp.h>
 typedef IMAGEHLP_MODULE IMAGEHLP_MODULE64;
 typedef PIMAGEHLP_MODULE PIMAGEHLP_MODULE64;
@@ -1090,6 +1188,9 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
                                             _In_  SIZE_T nSize,
                                             _In_  DWORD dwNewProtect,
                                             _Out_ PDWORD pdwOldProtect);
+
+// Detours must depend only on kernel32.lib, so we cannot use IsEqualGUID
+BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right);
 #ifdef __cplusplus
 }
 #endif // __cplusplus
