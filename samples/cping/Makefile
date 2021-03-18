@@ -10,10 +10,10 @@
 !include ..\common.mak
 
 LIBS=$(LIBS) \
-	kernel32.lib \
-	user32.lib \
-	shell32.lib \
-	uuid.lib \
+    kernel32.lib \
+    user32.lib \
+    shell32.lib \
+    uuid.lib \
     ole32.lib \
     rpcrt4.lib \
     advapi32.lib \

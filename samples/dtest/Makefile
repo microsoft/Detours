@@ -39,8 +39,8 @@ $(OBJD)\dtarge.res : dtarge.rc
 $(BIND)\dtarge$(DETOURS_BITS).dll $(BIND)\dtarge$(DETOURS_BITS).lib: \
         $(OBJD)\dtarge.obj $(OBJD)\dtarge.res $(DEPS)
     cl /LD $(CFLAGS) \
-		/Fe$(@R).dll \
-		/Fd$(@R).pdb \
+        /Fe$(@R).dll \
+        /Fd$(@R).pdb \
         $(OBJD)\dtarge.obj $(OBJD)\dtarge.res \
         /link $(LINKFLAGS) /subsystem:console \
         /export:Target0 \

@@ -44,7 +44,7 @@ $(OBJD)\tstman.obj : tstman.cpp
 $(OBJD)\tstman.res : tstman.rc
 
 $(BIND)\tstman$(DETOURS_BITS).dll $(BIND)\tstman$(DETOURS_BITS).lib: \
-		$(OBJD)\tstman.obj $(OBJD)\tstman.res $(DEPS)
+        $(OBJD)\tstman.obj $(OBJD)\tstman.res $(DEPS)
     cl /LD $(CFLAGS) /Fe$(@R).dll /Fd$(@R).pdb \
         $(OBJD)\tstman.obj $(OBJD)\tstman.res \
         /link $(LINKFLAGS) /subsystem:console \

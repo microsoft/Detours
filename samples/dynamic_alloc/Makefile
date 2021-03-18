@@ -14,52 +14,52 @@
 
 TARGET_NAME=dalloc
 CFLAGS=\
-	$(CFLAGS)\
-	/EHsc\
+    $(CFLAGS)\
+    /EHsc\
 
 LIBS=$(LIBS)\
-	user32.lib\
+    user32.lib\
 
 all: dirs $(BIND)\$(TARGET_NAME).exe
 
 ##############################################################################
 
 clean:
-	-del $(BIND)\$(TARGET_NAME).* 2>nul
-	-rmdir /q /s $(OBJD) 2>nul
+    -del $(BIND)\$(TARGET_NAME).* 2>nul
+    -rmdir /q /s $(OBJD) 2>nul
 
 realclean: clean
-	-rmdir /q /s $(OBJDS) 2>nul
+    -rmdir /q /s $(OBJDS) 2>nul
 
 ##############################################################################
 
 dirs:
-	@if not exist $(BIND) mkdir $(BIND) && echo.   Created $(BIND)
-	@if not exist $(OBJD) mkdir $(OBJD) && echo.   Created $(OBJD)
+    @if not exist $(BIND) mkdir $(BIND) && echo.   Created $(BIND)
+    @if not exist $(OBJD) mkdir $(OBJD) && echo.   Created $(OBJD)
 
 !IF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
 $(OBJD)\asm.obj : x64.asm
-	$(ASM) $(AFLAGS) /Fl$(OBJD)\x64.lst /Fo$(OBJD)\asm.obj x64.asm
+    $(ASM) $(AFLAGS) /Fl$(OBJD)\x64.lst /Fo$(OBJD)\asm.obj x64.asm
 !ELSE
 $(OBJD)\asm.obj : x86.asm
-	$(ASM) $(AFLAGS) /Fl$(OBJD)\x86.lst /Fo$(OBJD)\asm.obj x86.asm
+    $(ASM) $(AFLAGS) /Fl$(OBJD)\x86.lst /Fo$(OBJD)\asm.obj x86.asm
 !ENDIF
 
 $(OBJD)\main.obj : main.cpp
 
 $(BIND)\$(TARGET_NAME).exe : $(OBJD)\main.obj $(OBJD)\asm.obj $(DEPS)
-	link\
-		/SUBSYSTEM:CONSOLE\
-		$(LINKFLAGS)\
-		$(LIBS)\
-		/PDB:"$(@R).pdb"\
-		/OUT:"$@"\
-		$**\
+    link\
+        /SUBSYSTEM:CONSOLE\
+        $(LINKFLAGS)\
+        $(LIBS)\
+        /PDB:"$(@R).pdb"\
+        /OUT:"$@"\
+        $**\
 
 ##############################################################################
 
 test: all
-	$(BIND)\$(TARGET_NAME).exe
+    $(BIND)\$(TARGET_NAME).exe
 
 ##############################################################################
 
