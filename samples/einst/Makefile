@@ -36,7 +36,7 @@ all: dirs \
     $(OBJD)\edll3x$(DETOURS_BITS).bsc \
     $(OBJD)\einst.bsc \
 !ENDIF
-	option
+    option
 
 clean:
     -del *~ 2>nul
@@ -114,25 +114,25 @@ $(OPTD)\edll3x$(DETOURS_OPTION_BITS).dll:
 $(OPTD)\edll3x$(DETOURS_OPTION_BITS).pdb:
 
 $(BIND)\edll1x$(DETOURS_OPTION_BITS).dll : $(OPTD)\edll1x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\edll1x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\edll1x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\edll2x$(DETOURS_OPTION_BITS).dll : $(OPTD)\edll2x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\edll2x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\edll2x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\edll3x$(DETOURS_OPTION_BITS).dll : $(OPTD)\edll3x$(DETOURS_OPTION_BITS).dll
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 $(BIND)\edll3x$(DETOURS_OPTION_BITS).pdb : $(OPTD)\edll3x$(DETOURS_OPTION_BITS).pdb
-	@if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
+    @if exist $? copy /y $? $(BIND) >nul && echo $@ copied from $(DETOURS_OPTION_PROCESSOR).
 
 option: \
-	$(BIND)\edll1x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\edll1x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\edll2x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\edll2x$(DETOURS_OPTION_BITS).pdb \
-	$(BIND)\edll3x$(DETOURS_OPTION_BITS).dll \
-	$(BIND)\edll3x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\edll1x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\edll1x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\edll2x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\edll2x$(DETOURS_OPTION_BITS).pdb \
+    $(BIND)\edll3x$(DETOURS_OPTION_BITS).dll \
+    $(BIND)\edll3x$(DETOURS_OPTION_BITS).pdb \
 
 !ELSE
 

@@ -18,7 +18,7 @@ all: dirs \
 !IF $(DETOURS_SOURCE_BROWSING)==1
     $(OBJD)\withdll.bsc \
 !ENDIF
-	option
+    option
 
 clean:
     -del *~ 2>nul
@@ -55,6 +55,6 @@ test: all
 
 debug: all
     windbg  -c ".srcfix;l+s;l+t" -o \
-		$(BIND)\withdll.exe -d:$(BIND)\slept$(DETOURS_BITS).dll $(BIND)\sleepold.exe
+        $(BIND)\withdll.exe -d:$(BIND)\slept$(DETOURS_BITS).dll $(BIND)\sleepold.exe
 
 ################################################################# End of File.

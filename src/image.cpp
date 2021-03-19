@@ -536,18 +536,7 @@ PBYTE CImageData::Find(REFGUID rguid, DWORD *pcbData)
             continue;
         }
 
-        if (pRecord->guid.Data1 == rguid.Data1 &&
-            pRecord->guid.Data2 == rguid.Data2 &&
-            pRecord->guid.Data3 == rguid.Data3 &&
-            pRecord->guid.Data4[0] == rguid.Data4[0] &&
-            pRecord->guid.Data4[1] == rguid.Data4[1] &&
-            pRecord->guid.Data4[2] == rguid.Data4[2] &&
-            pRecord->guid.Data4[3] == rguid.Data4[3] &&
-            pRecord->guid.Data4[4] == rguid.Data4[4] &&
-            pRecord->guid.Data4[5] == rguid.Data4[5] &&
-            pRecord->guid.Data4[6] == rguid.Data4[6] &&
-            pRecord->guid.Data4[7] == rguid.Data4[7]) {
-
+        if (DetourAreSameGuid(pRecord->guid, rguid)) {
             *pcbData = cbBytes - sizeof(DETOUR_SECTION_RECORD);
             return (PBYTE)(pRecord + 1);
         }
