@@ -191,7 +191,7 @@ static PVOID FindPayloadInRemoteDetourSection(_In_ HANDLE hProcess,
                                                _In_ PVOID pvRemoteDetoursSection)
 {
     if (pcbData) {
-        *pcbData = NULL;
+        *pcbData = 0;
     }
 
     PBYTE pbData = (PBYTE)pvRemoteDetoursSection;
