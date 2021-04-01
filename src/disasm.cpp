@@ -295,10 +295,10 @@ class CDetourDis
     BOOL                m_bOperandOverride;
     BOOL                m_bAddressOverride;
     BOOL                m_bRaxOverride; // AMD64 only
-    BOOL                m_bVex;
-    BOOL                m_bEvex;
     BOOL                m_bF2;
     BOOL                m_bF3; // x86 only
+    BOOL                m_bVex;
+    BOOL                m_bEvex;
     BYTE                m_nSegmentOverride;
 
     PBYTE *             m_ppbTarget;

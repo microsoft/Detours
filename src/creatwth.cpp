@@ -1436,7 +1436,7 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
     PDETOUR_EXE_HELPER helper = NULL;
     HRESULT hr;
     WCHAR szDllName[MAX_PATH];
-    int cchWrittenWideChar;
+    unsigned int cchWrittenWideChar;
     DWORD nLen = GetEnvironmentVariableW(L"WINDIR", szExe, ARRAYSIZE(szExe));
 
     DETOUR_TRACE(("DetourProcessViaHelperDlls(pid=%lu,dlls=%lu)\n", dwTargetPid, nDlls));
