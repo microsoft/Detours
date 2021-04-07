@@ -654,7 +654,7 @@ PBYTE CDetourDis::CopyF6(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
 
     // TEST BYTE /0
     if (0x00 == (0x38 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 0
-        const COPYENTRY ce = /* f6 */ s_rceCopyMap[eENTRY_CopyBytes2Mod1];
+        const COPYENTRY& ce = /* f6 */ s_rceCopyMap[eENTRY_CopyBytes2Mod1];
         return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
     }
     // DIV /6
@@ -664,7 +664,7 @@ PBYTE CDetourDis::CopyF6(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     // NEG /3
     // NOT /2
 
-    const COPYENTRY ce = /* f6 */ s_rceCopyMap[eENTRY_CopyBytes2Mod];
+    const COPYENTRY& ce = /* f6 */ s_rceCopyMap[eENTRY_CopyBytes2Mod];
     return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
 }
 
@@ -674,7 +674,7 @@ PBYTE CDetourDis::CopyF7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
 
     // TEST WORD /0
     if (0x00 == (0x38 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 0
-        const COPYENTRY ce = /* f7 */ s_rceCopyMap[eENTRY_CopyBytes2ModOperand];
+        const COPYENTRY& ce = /* f7 */ s_rceCopyMap[eENTRY_CopyBytes2ModOperand];
         return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
     }
 
@@ -684,7 +684,7 @@ PBYTE CDetourDis::CopyF7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     // MUL /4
     // NEG /3
     // NOT /2
-    const COPYENTRY ce = /* f7 */ s_rceCopyMap[eENTRY_CopyBytes2Mod];
+    const COPYENTRY& ce = /* f7 */ s_rceCopyMap[eENTRY_CopyBytes2Mod];
     return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
 }
 
@@ -699,7 +699,7 @@ PBYTE CDetourDis::CopyFF(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     // invalid/7
     (void)pEntry;
 
-    const COPYENTRY ce = /* ff */ s_rceCopyMap[eENTRY_CopyBytes2Mod];
+    const COPYENTRY& ce = /* ff */ s_rceCopyMap[eENTRY_CopyBytes2Mod];
     PBYTE pbOut = (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
 
     BYTE const b1 = pbSrc[1];
