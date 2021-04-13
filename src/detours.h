@@ -48,6 +48,7 @@
 #include <intsafe.h>
 #pragma warning(pop)
 #endif
+#include <crtdbg.h>
 
 // Allow Detours to cleanly compile with the MingW toolchain.
 //
@@ -624,6 +625,7 @@ PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
 
 DWORD WINAPI DetourGetSizeOfPayloads(_In_opt_ HMODULE hModule);
 
+BOOL WINAPI DetourFreePayload(_In_ PVOID pvData);
 ///////////////////////////////////////////////// Persistent Binary Functions.
 //
 
@@ -981,6 +983,21 @@ PDETOUR_SYM_INFO DetourLoadImageHlp(VOID);
 #error detours.h must be included before stdio.h (or at least define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS earlier)
 #endif
 #define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS 1
+
+#ifdef _DEBUG
+
+int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int linenumber, const char* FunctionName, const char* msg);
+
+#define DETOUR_ASSERT_EXPR_WITH_FUNCTION(expr, msg) \
+    (void) ((expr) || \
+    (1 != Detour_AssertExprWithFunctionName(_CRT_ASSERT, __FILE__, __LINE__,__FUNCTION__, msg)) || \
+    (_CrtDbgBreak(), 0))
+
+#define DETOUR_ASSERT(expr) DETOUR_ASSERT_EXPR_WITH_FUNCTION((expr), #expr)
+
+#else// _DEBUG
+#define DETOUR_ASSERT(expr)
+#endif// _DEBUG
 
 #ifndef DETOUR_TRACE
 #if DETOUR_DEBUG

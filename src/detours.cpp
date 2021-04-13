@@ -20,6 +20,27 @@
 
 //////////////////////////////////////////////////////////////////////////////
 //
+
+#ifdef _DEBUG
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int linenumber, const char* FunctionName, const char* msg)
+{
+    int nRet = 0;
+    DWORD dwLastError = GetLastError();
+    CHAR szModuleNameWithFunctionName[MAX_PATH * 2];
+    szModuleNameWithFunctionName[0] = 0;
+    GetModuleFileNameA((HMODULE)&__ImageBase, szModuleNameWithFunctionName, ARRAYSIZE(szModuleNameWithFunctionName));
+    StringCchCatNA(szModuleNameWithFunctionName, ARRAYSIZE(szModuleNameWithFunctionName), ",", ARRAYSIZE(szModuleNameWithFunctionName) - strlen(szModuleNameWithFunctionName) - 1);
+    StringCchCatNA(szModuleNameWithFunctionName, ARRAYSIZE(szModuleNameWithFunctionName), FunctionName, ARRAYSIZE(szModuleNameWithFunctionName) - strlen(szModuleNameWithFunctionName) - 1);
+    SetLastError(dwLastError);
+    nRet = _CrtDbgReport(reportType, filename, linenumber, szModuleNameWithFunctionName, msg);
+    SetLastError(dwLastError);
+    return nRet;
+}
+#endif// _DEBUG
+
+//////////////////////////////////////////////////////////////////////////////
+//
 struct _DETOUR_ALIGN
 {
     BYTE    obTarget        : 3;
