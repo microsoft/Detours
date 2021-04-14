@@ -48,6 +48,7 @@
 #include <intsafe.h>
 #pragma warning(pop)
 #endif
+
 #include <new.h>
 #include <stdlib.h>
 
@@ -625,16 +626,17 @@ _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
 PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
                                _In_ REFGUID rguid,
-                               _Out_ DWORD *pcbData);
+                               _Out_opt_ DWORD *pcbData);
 
 _Writable_bytes_(*pcbData)
 _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
 PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
-                                 _Out_ DWORD * pcbData);
+                                 _Out_opt_ DWORD *pcbData);
 
 DWORD WINAPI DetourGetSizeOfPayloads(_In_opt_ HMODULE hModule);
 
+BOOL WINAPI DetourFreePayload(_In_ PVOID pvData);
 ///////////////////////////////////////////////// Persistent Binary Functions.
 //
 
@@ -673,6 +675,11 @@ BOOL WINAPI DetourBinaryClose(_In_ PDETOUR_BINARY pBinary);
 
 /////////////////////////////////////////////////// Create Process & Load Dll.
 //
+_Success_(return != NULL)
+PVOID WINAPI DetourFindRemotePayload(_In_ HANDLE hProcess,
+                                     _In_ REFGUID rguid,
+                                     _Out_opt_ DWORD *pcbData);
+
 typedef BOOL (WINAPI *PDETOUR_CREATE_PROCESS_ROUTINEA)(
     _In_opt_ LPCSTR lpApplicationName,
     _Inout_opt_ LPSTR lpCommandLine,
@@ -839,8 +846,14 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
 
 BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
                                        _In_ REFGUID rguid,
-                                       _In_reads_bytes_(cbData) PVOID pvData,
+                                       _In_reads_bytes_(cbData) LPCVOID pvData,
                                        _In_ DWORD cbData);
+_Success_(return != NULL)
+PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
+                                          _In_ REFGUID rguid,
+                                          _In_reads_bytes_(cbData) LPCVOID pvData,
+                                          _In_ DWORD cbData);
+
 BOOL WINAPI DetourRestoreAfterWith(VOID);
 BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
                                      _In_ DWORD cbData);
@@ -1196,6 +1209,9 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
                                             _In_  SIZE_T nSize,
                                             _In_  DWORD dwNewProtect,
                                             _Out_ PDWORD pdwOldProtect);
+
+// Detours must depend only on kernel32.lib, so we cannot use IsEqualGUID
+BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right);
 #ifdef __cplusplus
 }
 #endif // __cplusplus

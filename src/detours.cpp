@@ -1756,7 +1756,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_ARM
         }
         else {
-            DETOUR_TRACE(("detours: pbTramp =%p, pbRemain=%p, pbDetour=%p, cbRestore=%x\n",
+            DETOUR_TRACE(("detours: pbTramp =%p, pbRemain=%p, pbDetour=%p, cbRestore=%u\n",
                           o->pTrampoline,
                           o->pTrampoline->pbRemain,
                           o->pTrampoline->pbDetour,
@@ -2427,7 +2427,7 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
                 pTrampoline->rAlign[n].obTrampoline == 0) {
                 break;
             }
-            DETOUR_TRACE((" %x/%x",
+            DETOUR_TRACE((" %u/%u",
                           pTrampoline->rAlign[n].obTarget,
                           pTrampoline->rAlign[n].obTrampoline
                           ));
@@ -2793,6 +2793,22 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 {
     return DetourVirtualProtectSameExecuteEx(GetCurrentProcess(),
                                              pAddress, nSize, dwNewProtect, pdwOldProtect);
+}
+
+BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right)
+{
+    return
+        left.Data1 == right.Data1 &&
+        left.Data2 == right.Data2 &&
+        left.Data3 == right.Data3 &&
+        left.Data4[0] == right.Data4[0] &&
+        left.Data4[1] == right.Data4[1] &&
+        left.Data4[2] == right.Data4[2] &&
+        left.Data4[3] == right.Data4[3] &&
+        left.Data4[4] == right.Data4[4] &&
+        left.Data4[5] == right.Data4[5] &&
+        left.Data4[6] == right.Data4[6] &&
+        left.Data4[7] == right.Data4[7];
 }
 
 //  End of File

@@ -11,7 +11,7 @@ ROOT = ..
 !include ..\samples\common.mak
 
 DEPS = $(LIBD)\detours.lib
-LIBS=$(LIBS) kernel32.lib
+LIBS=$(LIBS) kernel32.lib rpcrt4.lib
 CFLAGS=$(CFLAGS) /EHsc /DCATCH_CONFIG_NO_WINDOWS_SEH
 
 ##############################################################################
@@ -30,16 +30,22 @@ $(OBJD)\main.obj : main.cpp
 $(OBJD)\test_module_api.obj : test_module_api.cpp
 $(OBJD)\test_image_api.obj : test_image_api.cpp
 $(OBJD)\corruptor.obj : corruptor.cpp
+$(OBJD)\process_helpers.obj : process_helpers.cpp
+$(OBJD)\payload.obj : payload.cpp
 
 $(BIND)\unittests.exe : $(OBJD)\main.obj \
-   						$(OBJD)\test_module_api.obj \
-   						$(OBJD)\test_image_api.obj \
-						$(OBJD)\corruptor.obj $(DEPS)
+                        $(OBJD)\test_module_api.obj \
+                        $(OBJD)\test_image_api.obj \
+                        $(OBJD)\corruptor.obj \
+                        $(OBJD)\process_helpers.obj \
+                        $(OBJD)\payload.obj $(DEPS)
     cl $(CFLAGS) /Fe$@ /Fd$(@R).pdb \
-	   	$(OBJD)\main.obj \
-	   	$(OBJD)\test_module_api.obj \
-	   	$(OBJD)\test_image_api.obj \
-	   	$(OBJD)\corruptor.obj \
+        $(OBJD)\main.obj \
+        $(OBJD)\test_module_api.obj \
+        $(OBJD)\test_image_api.obj \
+        $(OBJD)\corruptor.obj \
+        $(OBJD)\process_helpers.obj \
+        $(OBJD)\payload.obj \
         /link $(LINKFLAGS) $(LIBS) /subsystem:console
 
 ##############################################################################
@@ -56,8 +62,8 @@ option:
 ##############################################################################
 
 test: all
-	@cls
-	$(BIND)\unittests.exe --reporter console --success --durations yes
+    @cls
+    $(BIND)\unittests.exe --reporter console --success --durations yes
 
 debug: all
     windbg -o $(BIND)\unittests.exe

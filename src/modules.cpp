@@ -23,8 +23,8 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 const GUID DETOUR_EXE_RESTORE_GUID = {
-    0x2ed7a3ff, 0x3339, 0x4a8d,
-    { 0x80, 0x5c, 0xd4, 0x98, 0x15, 0x3f, 0xc2, 0x8f }};
+    0xbda26f34, 0xbc82, 0x4829,
+    { 0x9e, 0x64, 0x74, 0x2c, 0x4, 0xc8, 0x4f, 0xa0 } };
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -165,7 +165,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     DETOUR_TRACE(("DetourFindFunction(%hs, %hs)\n", pszModule, pszFunction));
     PDETOUR_SYM_INFO pSymInfo = DetourLoadImageHlp();
     if (pSymInfo == NULL) {
-        DETOUR_TRACE(("DetourLoadImageHlp failed: %lx\n",
+        DETOUR_TRACE(("DetourLoadImageHlp failed: %lu\n",
                       GetLastError()));
         return NULL;
     }
@@ -174,7 +174,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                     (PCHAR)pszModule, NULL,
                                     (DWORD64)hModule, 0) == 0) {
         if (ERROR_SUCCESS != GetLastError()) {
-            DETOUR_TRACE(("SymLoadModule64(%p) failed: %lx\n",
+            DETOUR_TRACE(("SymLoadModule64(%p) failed: %lu\n",
                           pSymInfo->hProcess, GetLastError()));
             return NULL;
         }
@@ -186,7 +186,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     ZeroMemory(&modinfo, sizeof(modinfo));
     modinfo.SizeOfStruct = sizeof(modinfo);
     if (!pSymInfo->pfSymGetModuleInfo64(pSymInfo->hProcess, (DWORD64)hModule, &modinfo)) {
-        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %lx\n",
+        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %lu\n",
                       pSymInfo->hProcess, hModule, GetLastError()));
         return NULL;
     }
@@ -220,7 +220,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
 #endif
 
     if (!pSymInfo->pfSymFromName(pSymInfo->hProcess, szFullName, &symbol)) {
-        DETOUR_TRACE(("SymFromName(%hs) failed: %lx\n", szFullName, GetLastError()));
+        DETOUR_TRACE(("SymFromName(%hs) failed: %lu\n", szFullName, GetLastError()));
         return NULL;
     }
 
@@ -777,7 +777,7 @@ _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
 PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
                                _In_ REFGUID rguid,
-                               _Out_ DWORD *pcbData)
+                               _Out_opt_ DWORD *pcbData)
 {
     PBYTE pbData = NULL;
     if (pcbData) {
@@ -805,18 +805,7 @@ PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
         for (pbData = pbBeg; pbData < pbEnd;) {
             DETOUR_SECTION_RECORD *pSection = (DETOUR_SECTION_RECORD *)pbData;
 
-            if (pSection->guid.Data1 == rguid.Data1 &&
-                pSection->guid.Data2 == rguid.Data2 &&
-                pSection->guid.Data3 == rguid.Data3 &&
-                pSection->guid.Data4[0] == rguid.Data4[0] &&
-                pSection->guid.Data4[1] == rguid.Data4[1] &&
-                pSection->guid.Data4[2] == rguid.Data4[2] &&
-                pSection->guid.Data4[3] == rguid.Data4[3] &&
-                pSection->guid.Data4[4] == rguid.Data4[4] &&
-                pSection->guid.Data4[5] == rguid.Data4[5] &&
-                pSection->guid.Data4[6] == rguid.Data4[6] &&
-                pSection->guid.Data4[7] == rguid.Data4[7]) {
-
+            if (DetourAreSameGuid(pSection->guid, rguid)) {
                 if (pcbData) {
                     *pcbData = pSection->cbBytes - sizeof(*pSection);
                 }
@@ -840,7 +829,7 @@ _Writable_bytes_(*pcbData)
 _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
 PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
-                                 _Out_ DWORD * pcbData)
+                                 _Out_opt_ DWORD *pcbData)
 {
     for (HMODULE hMod = NULL; (hMod = DetourEnumerateModules(hMod)) != NULL;) {
         PVOID pvData;
@@ -852,6 +841,24 @@ PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
     }
     SetLastError(ERROR_MOD_NOT_FOUND);
     return NULL;
+}
+
+BOOL WINAPI DetourFreePayload(_In_ PVOID pvData)
+{
+    BOOL fSucceeded = FALSE;
+
+    // If you have any doubts about the following code, please refer to the comments in DetourCopyPayloadToProcess.
+    HMODULE hModule = DetourGetContainingModule(pvData);
+    DETOUR_ASSERT(hModule != NULL);
+    if (hModule != NULL) {
+        fSucceeded = VirtualFree(hModule, 0, MEM_RELEASE);
+        DETOUR_ASSERT(fSucceeded);
+        if (fSucceeded) {
+            hModule = NULL;
+        }
+    }
+
+    return fSucceeded;
 }
 
 BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
@@ -899,6 +906,11 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
             VirtualProtect(pder->pinh, pder->cbinh, dwPermInh, &dwIgnore);
         }
         VirtualProtect(pder->pidh, pder->cbidh, dwPermIdh, &dwIgnore);
+    }
+    // Delete the payload after successful recovery to prevent repeated restore
+    if (fSucceeded) {
+        DetourFreePayload(pder);
+        pder = NULL;
     }
     return fSucceeded;
 }

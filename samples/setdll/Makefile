@@ -16,7 +16,7 @@ all: dirs \
 !IF $(DETOURS_SOURCE_BROWSING)==1
     $(OBJD)\setdll.bsc \
 !ENDIF
-	option
+    option
 
 ##############################################################################
 

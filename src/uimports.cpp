@@ -35,7 +35,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     if (!ReadProcessMemory(hProcess, pbModule, &idh, sizeof(idh), &cbRead)
         || cbRead < sizeof(idh)) {
 
-        DETOUR_TRACE(("ReadProcessMemory(idh@%p..%p) failed: %lx\n",
+        DETOUR_TRACE(("ReadProcessMemory(idh@%p..%p) failed: %lu\n",
                       pbModule, pbModule + sizeof(idh), GetLastError()));
 
       finish:
@@ -51,7 +51,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 
     if (!ReadProcessMemory(hProcess, pbModule + idh.e_lfanew, &inh, sizeof(inh), &cbRead)
         || cbRead < sizeof(inh)) {
-        DETOUR_TRACE(("ReadProcessMemory(inh@%p..%p) failed: %lx\n",
+        DETOUR_TRACE(("ReadProcessMemory(inh@%p..%p) failed: %lu\n",
                       pbModule + idh.e_lfanew,
                       pbModule + idh.e_lfanew + sizeof(inh),
                       GetLastError()));
@@ -82,14 +82,14 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                                sizeof(ish), &cbRead)
             || cbRead < sizeof(ish)) {
 
-            DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %lx\n",
+            DETOUR_TRACE(("ReadProcessMemory(ish@%p..%p) failed: %lu\n",
                           pbModule + dwSec + sizeof(ish) * i,
                           pbModule + dwSec + sizeof(ish) * (i + 1),
                           GetLastError()));
             goto finish;
         }
 
-        DETOUR_TRACE(("ish[%lx] : va=%08lx sr=%lx\n", i, ish.VirtualAddress, ish.SizeOfRawData));
+        DETOUR_TRACE(("ish[%lu] : va=%08lx sr=%lu\n", i, ish.VirtualAddress, ish.SizeOfRawData));
         
         // If the linker didn't suggest an IAT in the data directories, the
         // loader will look for the section of the import directory to be used
@@ -117,7 +117,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
         do {
             IMAGE_IMPORT_DESCRIPTOR ImageImport;
             if (!ReadProcessMemory(hProcess, pImageImport, &ImageImport, sizeof(ImageImport), NULL)) {
-                DETOUR_TRACE(("ReadProcessMemory failed: %lx\n", GetLastError()));
+                DETOUR_TRACE(("ReadProcessMemory failed: %lu\n", GetLastError()));
                 goto finish;
             }
             inh.IMPORT_DIRECTORY.Size += sizeof(IMAGE_IMPORT_DESCRIPTOR);
@@ -222,7 +222,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                                nOldDlls * sizeof(IMAGE_IMPORT_DESCRIPTOR), &cbRead)
             || cbRead < nOldDlls * sizeof(IMAGE_IMPORT_DESCRIPTOR)) {
 
-            DETOUR_TRACE(("ReadProcessMemory(imports) failed: %lx\n", GetLastError()));
+            DETOUR_TRACE(("ReadProcessMemory(imports) failed: %lu\n", GetLastError()));
             goto finish;
         }
     }
@@ -230,7 +230,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     for (n = 0; n < nDlls; n++) {
         HRESULT hrRet = StringCchCopyA((char*)pbNew + obStr, cbNew - obStr, plpDlls[n]);
         if (FAILED(hrRet)) {
-            DETOUR_TRACE(("StringCchCopyA failed: %lx\n", GetLastError()));
+            DETOUR_TRACE(("StringCchCopyA failed: %08lx\n", hrRet));
             goto finish;
         }
 
@@ -239,7 +239,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                                      cbNew - obStr,
                                      DETOURS_STRINGIFY(DETOURS_BITS_XX));
         if (FAILED(hrRet)) {
-            DETOUR_TRACE(("ReplaceOptionalSizeA failed: %lx\n", GetLastError()));
+            DETOUR_TRACE(("ReplaceOptionalSizeA failed: %08lx\n", hrRet));
             goto finish;
         }
 
@@ -248,7 +248,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
       
         // We need 2 thunks for the import table and 2 thunks for the IAT.
         // One for an ordinal import and one to mark the end of the list.
-	  pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
+        pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
         pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
         pt[1].u1.Ordinal = 0;
 
@@ -281,7 +281,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 #endif
 
     if (!WriteProcessMemory(hProcess, pbNewIid, pbNew, obStr, NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(iid) failed: %lx\n", GetLastError()));
+        DETOUR_TRACE(("WriteProcessMemory(iid) failed: %lu\n", GetLastError()));
         goto finish;
     }
 
@@ -306,20 +306,20 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     //
     if (!DetourVirtualProtectSameExecuteEx(hProcess, pbModule, inh.OptionalHeader.SizeOfHeaders,
                                            PAGE_EXECUTE_READWRITE, &dwProtect)) {
-        DETOUR_TRACE(("VirtualProtectEx(inh) write failed: %lx\n", GetLastError()));
+        DETOUR_TRACE(("VirtualProtectEx(inh) write failed: %lu\n", GetLastError()));
         goto finish;
     }
 
     inh.OptionalHeader.CheckSum = 0;
 
     if (!WriteProcessMemory(hProcess, pbModule, &idh, sizeof(idh), NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(idh) failed: %lx\n", GetLastError()));
+        DETOUR_TRACE(("WriteProcessMemory(idh) failed: %lu\n", GetLastError()));
         goto finish;
     }
     DETOUR_TRACE(("WriteProcessMemory(idh:%p..%p)\n", pbModule, pbModule + sizeof(idh)));
 
     if (!WriteProcessMemory(hProcess, pbModule + idh.e_lfanew, &inh, sizeof(inh), NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(inh) failed: %lx\n", GetLastError()));
+        DETOUR_TRACE(("WriteProcessMemory(inh) failed: %lu\n", GetLastError()));
         goto finish;
     }
     DETOUR_TRACE(("WriteProcessMemory(inh:%p..%p)\n",
@@ -328,7 +328,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 
     if (!VirtualProtectEx(hProcess, pbModule, inh.OptionalHeader.SizeOfHeaders,
                           dwProtect, &dwProtect)) {
-        DETOUR_TRACE(("VirtualProtectEx(idh) restore failed: %lx\n", GetLastError()));
+        DETOUR_TRACE(("VirtualProtectEx(idh) restore failed: %lu\n", GetLastError()));
         goto finish;
     }
 
