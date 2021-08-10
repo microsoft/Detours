@@ -279,7 +279,7 @@ class CDetourDis
     PBYTE CopyVex2(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyVex3(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyVexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc);
-    PBYTE CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p);
+    PBYTE CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p, BYTE fp16 = 0);
     PBYTE CopyEvex(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyXop(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
 
@@ -745,7 +745,7 @@ PBYTE CDetourDis::CopyFF(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     return pbOut;
 }
 
-PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p)
+PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p, BYTE fp16)
 // m is first instead of last in the hopes of pbDst/pbSrc being
 // passed along efficiently in the registers they were already in.
 {
@@ -762,10 +762,13 @@ PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p)
 
     REFCOPYENTRY pEntry;
 
-    switch (m) {
+    // see https://software.intel.com/content/www/us/en/develop/download/intel-avx512-fp16-architecture-specification.html
+    switch (m | fp16) {
     default: return Invalid(&ceInvalid, pbDst, pbSrc);
     case 1:  pEntry = &s_rceCopyTable0F[pbSrc[0]];
              return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
+    case 5:  // fallthrough
+    case 6:  // fallthrough
     case 2:  return CopyBytes(&ceF38, pbDst, pbSrc);
     case 3:  return CopyBytes(&ceF3A, pbDst, pbSrc);
     }
@@ -859,7 +862,9 @@ PBYTE CDetourDis::CopyEvex(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
 
     static const COPYENTRY ceInvalid = /* 62 */ ENTRY_Invalid;
 
-    if ((p0 & 0x0C) != 0)
+    // This could also be handled by default in CopyVexEvexCommon
+    // if 4u changed to 4|8.
+    if (p0 & 8u)
         return Invalid(&ceInvalid, pbDst, pbSrc);
 
     BYTE const p1 = pbSrc[2];
@@ -876,7 +881,7 @@ PBYTE CDetourDis::CopyEvex(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
     m_bRaxOverride |= !!(p1 & 0x80); // w
 #endif
 
-    return CopyVexEvexCommon(p0 & 3u, pbDst + 4, pbSrc + 4, p1 & 3u);
+    return CopyVexEvexCommon(p0 & 3u, pbDst + 4, pbSrc + 4, p1 & 3u, p0 & 4u);
 }
 
 PBYTE CDetourDis::CopyXop(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
