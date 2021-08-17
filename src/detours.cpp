@@ -2098,6 +2098,12 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
             delete o;
             o = NULL;
         }
+        if (ppRealDetour != NULL) {
+            *ppRealDetour = NULL;
+        }
+        if (ppRealTarget != NULL) {
+            *ppRealTarget = NULL;
+        }
         s_ppPendingError = ppPointer;
         return error;
     }
