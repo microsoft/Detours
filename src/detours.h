@@ -48,7 +48,9 @@
 #include <intsafe.h>
 #pragma warning(pop)
 #endif
-#include <crtdbg.h>
+
+#include <new.h>
+#include <stdlib.h>
 
 // Allow Detours to cleanly compile with the MingW toolchain.
 //
@@ -552,11 +554,20 @@ typedef VOID * PDETOUR_LOADED_BINARY;
 //////////////////////////////////////////////////////////// Transaction APIs.
 //
 LONG WINAPI DetourTransactionBegin(VOID);
+LONG WINAPI DetourTransactionBeginEx(_In_opt_ BOOL fWait /*= TRUE*/);
 LONG WINAPI DetourTransactionAbort(VOID);
 LONG WINAPI DetourTransactionCommit(VOID);
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
+// DetourUpdateThread is no longer recommended to be called by users, please use DetourUpdateAllOtherThreads for safer HOOK
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
+
+// After calling DetourUpdateAllOtherThreads, you should call DetourTransactionCommit(Ex) or DetourTransactionAbort as soon as possible.
+// In addition to the DetourAttach(Ex)\DetourDetach(Ex) call, other user operations should not be included between them,
+// because other user operations may cause CRT lock competition, and at this time CRT lock may be owned by other threads.
+// Other threads have been suspended at this time, so that may cause deadlock problems
+LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_opt_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject /*= TRUE*/);
+BOOL WINAPI DetourUpdateAllOtherThreads();
 
 LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour);
@@ -984,17 +995,10 @@ PDETOUR_SYM_INFO DetourLoadImageHlp(VOID);
 #endif
 #define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS 1
 
+void DetourAssert(const char* expr, const char* filename, unsigned lineno);
+#define Detour_Assert(_Expression) (void)( (!!(_Expression)) || (DetourAssert(#_Expression, __FILE__, __LINE__), 0) )
 #ifdef _DEBUG
-
-int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int linenumber, const char* FunctionName, const char* msg);
-
-#define DETOUR_ASSERT_EXPR_WITH_FUNCTION(expr, msg) \
-    (void) ((expr) || \
-    (1 != Detour_AssertExprWithFunctionName(_CRT_ASSERT, __FILE__, __LINE__,__FUNCTION__, msg)) || \
-    (_CrtDbgBreak(), 0))
-
-#define DETOUR_ASSERT(expr) DETOUR_ASSERT_EXPR_WITH_FUNCTION((expr), #expr)
-
+#define DETOUR_ASSERT(expr) Detour_Assert(expr)
 #else// _DEBUG
 #define DETOUR_ASSERT(expr)
 #endif// _DEBUG
@@ -1211,6 +1215,375 @@ BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right);
 #ifdef __cplusplus
 }
 #endif // __cplusplus
+
+//////////////////////////////////////////////////////////// Memory management APIs.
+// use these APIs can avoid Use-after-free, Double-free and Over-bound-access memory errors.
+struct DetourMemory
+{
+private:
+    DWORD_PTR dwpHead;
+    size_t nObjectSize;
+    // T object;
+    // DWORD_PTR dwpTail[];
+private:
+    DetourMemory(size_t nObjectSize, BOOL bOnlyForGetNeedAllocateSize)
+    {
+        dwpHead = 0;
+        this->nObjectSize = nObjectSize;
+        if (!bOnlyForGetNeedAllocateSize) {
+            Fill();
+        }
+    }
+private:
+    size_t GetNeedAllocateSize() const
+    {
+        size_t nNeedAllocedSize = sizeof(DetourMemory) + nObjectSize;
+        return nNeedAllocedSize;
+    }
+private:
+    PBYTE GetStructPtr() const
+    {
+        PBYTE pStruct = (PBYTE)this;
+        return pStruct;
+    }
+    size_t GetStructSize() const
+    {
+        PBYTE pStruct = GetStructPtr();
+        size_t nStructSize = DetourMemSize(pStruct);
+        Detour_Assert(nStructSize);
+        return nStructSize;
+    }
+    PBYTE GetHeadPtr() const
+    {
+        PBYTE pHead = (PBYTE)&dwpHead;
+        return pHead;
+    }
+    size_t GetHeadSize() const
+    {
+        size_t nHeadSize = sizeof(dwpHead);
+        return nHeadSize;
+    }
+public:
+    PBYTE GetObjectPtr()
+    {
+        PBYTE pStruct = GetStructPtr();
+        PBYTE pObject = pStruct + sizeof(DetourMemory);
+        return pObject;
+    }
+    size_t GetObjectSize() const
+    {
+        return nObjectSize;
+    }
+private:
+    PBYTE GetTailPtr()
+    {
+        PBYTE pObject = GetObjectPtr();
+        PBYTE pTail = pObject + nObjectSize;
+        return pTail;
+    }
+    size_t GetTailSize() const
+    {
+        size_t nTailSize = 0;
+        size_t nStructSize = GetStructSize();
+        if (nStructSize) {
+            nTailSize = nStructSize - sizeof(DetourMemory) - nObjectSize;
+            // nTailSize equal to 0 is allowed
+        }
+        return nTailSize;
+    }
+private:
+    BOOL ValidateOrFillFlagPart_Internal(PBYTE pFlagPart, size_t nFlagPartSize, const DWORD_PTR dwpFlagPart_Per, BOOL bValidate)
+    {
+        BOOL bIsValid = TRUE;
+        DWORD_PTR* dwpFlagPart_Ptr = (DWORD_PTR*)pFlagPart;
+        size_t dwpFlagPart_Size = nFlagPartSize / sizeof(dwpFlagPart_Per);
+        for (size_t i = 0; i < dwpFlagPart_Size; i++) {
+            if (bValidate) {
+                if (dwpFlagPart_Ptr[i] != dwpFlagPart_Per) {
+                    bIsValid = FALSE;
+                    Detour_Assert(bIsValid);
+                    break;
+                }
+            }
+            else {
+                dwpFlagPart_Ptr[i] = dwpFlagPart_Per;
+            }
+        }
+        return bIsValid;
+    }
+    BOOL ValidateOrFillFlagPart_Head(BOOL bValidate)
+    {
+        PBYTE pFlagPart = GetHeadPtr();
+        size_t nFlagPartSize = GetHeadSize();
+        const DWORD_PTR dwpFlagPart_Per = *(DWORD_PTR*)"HeadPart";
+        BOOL bIsValid = ValidateOrFillFlagPart_Internal(pFlagPart, nFlagPartSize, dwpFlagPart_Per, bValidate);
+        Detour_Assert(bIsValid);
+        return bIsValid;
+    }
+    BOOL ValidateOrFillFlagPart_Tail(BOOL bValidate)
+    {
+        PBYTE pFlagPart = GetTailPtr();
+        size_t nFlagPartSize = GetTailSize();
+        const DWORD_PTR dwpFlagPart_Per = *(DWORD_PTR*)"TailPart";
+        BOOL bIsValid = ValidateOrFillFlagPart_Internal(pFlagPart, nFlagPartSize, dwpFlagPart_Per, bValidate);
+        return bIsValid;
+    }
+    BOOL Fill()
+    {
+#ifdef __ENABLE_DETOUR_MEMORY_VALIDATE__
+        return ValidateOrFillFlagPart_Head(FALSE) && ValidateOrFillFlagPart_Tail(FALSE);
+#else
+        return TRUE;
+#endif
+    }
+    BOOL Validate()
+    {
+#ifdef __ENABLE_DETOUR_MEMORY_VALIDATE__
+        return ValidateOrFillFlagPart_Head(TRUE) && ValidateOrFillFlagPart_Tail(TRUE);
+#else
+        return TRUE;
+#endif
+    }
+private:
+    static inline PVOID DetourMemAlloc(size_t size)
+    {
+        PVOID pDetourMemBlock = VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+        return pDetourMemBlock;
+    }
+    static inline PVOID DetourMemReAlloc(PVOID pDetourMemBlock_Old, size_t size_New)
+    {
+        PVOID pDetourMemBlock_New = VirtualAlloc(pDetourMemBlock_Old, size_New, MEM_COMMIT, PAGE_READWRITE);
+        if (pDetourMemBlock_New == NULL) {
+            pDetourMemBlock_New = VirtualAlloc(NULL, size_New, MEM_COMMIT, PAGE_READWRITE);
+        }
+        return pDetourMemBlock_New;
+    }
+    static inline size_t DetourMemSize(PVOID pDetourMemBlock)
+    {
+        MEMORY_BASIC_INFORMATION mbi;
+        mbi.RegionSize = 0;
+        BOOL bResult = VirtualQuery(pDetourMemBlock, &mbi, sizeof(mbi)) == sizeof(mbi);
+        Detour_Assert(bResult);
+        if (bResult) {
+            bResult = mbi.BaseAddress == mbi.AllocationBase;
+            Detour_Assert(bResult);
+            if (!bResult) {
+                mbi.RegionSize = 0;
+            }
+        }
+        return mbi.RegionSize;
+    }
+    static inline BOOL DetourMemFree(PVOID pDetourMemBlock)
+    {
+        BOOL bResult = VirtualFree(pDetourMemBlock, 0, MEM_RELEASE);
+        Detour_Assert(bResult);
+        return bResult;
+    }
+public:
+    static DetourMemory* Create(size_t nObjectSize)
+    {
+        DetourMemory m(nObjectSize, TRUE);
+        DetourMemory* pm = (DetourMemory*)DetourMemAlloc(m.GetNeedAllocateSize());
+        if (pm) {
+            ::new(pm) DetourMemory(m.GetObjectSize(), FALSE);
+        }
+        return pm;
+    }
+    static DetourMemory* ReCreate(DetourMemory* pm_Old, size_t nObjectSize_New)
+    {
+        DetourMemory m(nObjectSize_New, TRUE);
+        DetourMemory* pm_New = (DetourMemory*)DetourMemReAlloc(pm_Old, m.GetNeedAllocateSize());
+        if (pm_New) {
+            ::new(pm_New) DetourMemory(m.GetObjectSize(), FALSE);
+        }
+        return pm_New;
+    }
+    static BOOL Destroy(DetourMemory*& pm)
+    {
+        BOOL bResult = FALSE;
+        if (pm) {
+            bResult = DetourMemFree((PVOID)pm);
+            if (bResult) {
+                pm = NULL;
+            }
+        }
+        return bResult;
+    }
+public:
+    static DetourMemory* FromObjectPtr(PBYTE p)
+    {
+        DetourMemory* pm = NULL;
+        if (p) {
+            pm = (DetourMemory*)(p - sizeof(DetourMemory));
+            if (!pm->Validate()) {
+                pm = NULL;
+            }
+        }
+        return pm;
+    }
+};
+
+inline PVOID __cdecl DetourObjectByteArray_Alloc(size_t size)
+{
+    DetourMemory* pm = DetourMemory::Create(size);
+    BYTE* p = NULL;
+    if (pm) {
+        p = pm->GetObjectPtr();
+    }
+    return p;
+}
+inline void __cdecl DetourObjectByteArray_Free(PVOID p)
+{
+    DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+    if (pm) {
+        DetourMemory::Destroy(pm);
+    }
+}
+inline size_t __cdecl DetourObjectByteArray_Size(PVOID p)
+{
+    size_t size = 0;
+    DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+    Detour_Assert(pm);
+    if (pm) {
+        size = pm->GetObjectSize();
+    }
+    return size;
+}
+inline PVOID __cdecl DetourObjectByteArray_ReAlloc(PVOID p_Old, size_t size_New)
+{
+    if (p_Old == NULL) {
+        return DetourObjectByteArray_Alloc(size_New);
+    }
+
+    if (size_New == 0) {
+        DetourObjectByteArray_Free(p_Old);
+        return NULL;
+    }
+
+    DetourMemory* pm_Old = DetourMemory::FromObjectPtr((PBYTE)p_Old);
+    if (pm_Old == NULL) {
+        // p_Old is a invalid memory block! 
+        return NULL;
+    }
+    DetourMemory* pm_New = DetourMemory::ReCreate(pm_Old, size_New);
+    BYTE* p_New = NULL;
+    if (pm_New) {
+        p_New = pm_New->GetObjectPtr();
+        if (p_New != p_Old) {
+            size_t copy_size = __min(pm_Old->GetObjectSize(), pm_New->GetObjectSize());
+            memcpy(p_New, p_Old, copy_size);
+            DetourObjectByteArray_Free(p_Old);
+            p_Old = NULL;
+        }
+    }
+
+    return p_New;
+}
+
+template<class T>
+T* DetourCreateObject()
+{
+    T* p = (T*)DetourObjectByteArray_Alloc(sizeof(T));
+    if (p) {
+        ::new(p) T;
+        // Revalidate DetourMemory object after call its constructor
+        DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+        if (pm == NULL) {
+            // overwrite error
+            Detour_Assert(pm);
+            p = NULL;
+        }
+    }
+    return p;
+}
+template<class T, class P1>
+T* DetourCreateObject(P1 p1)
+{
+    T* p = (T*)DetourObjectByteArray_Alloc(sizeof(T));
+    if (p) {
+        ::new(p) T(p1);
+        // Revalidate DetourMemory object after call its constructor
+        DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+        if (pm == NULL) {
+            // overwrite error
+            Detour_Assert(pm);
+            p = NULL;
+        }
+    }
+    return p;
+}
+template<class T, class P1, class P2>
+T* DetourCreateObject(P1 p1, P2 p2)
+{
+    T* p = (T*)DetourObjectByteArray_Alloc(sizeof(T));
+    if (p) {
+        ::new(p) T(p1, p2);
+        // Revalidate DetourMemory object after call its constructor
+        DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+        if (pm == NULL) {
+            // overwrite error
+            Detour_Assert(pm);
+            p = NULL;
+        }
+    }
+    return p;
+}
+template<class T>
+void DetourDestroyObject(T*& p)
+{
+    DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+    if (pm) {
+        size_t MemSize = pm->GetObjectSize();
+        Detour_Assert(MemSize == sizeof(T));
+        if (MemSize != sizeof(T)) {
+            return;
+        }
+
+        p->~T();
+        // validate and release DetourMemory object after call their destructor
+        DetourObjectByteArray_Free((PVOID)p);
+        p = NULL;
+    }
+}
+template<class T>
+T* DetourCreateObjectArray(size_t size)
+{
+    T* p = (T*)DetourObjectByteArray_Alloc(sizeof(T) * size);
+    if (p) {
+        for (size_t i = 0; i < size; i++) {
+            ::new(&p[i]) T;
+        }
+        // Revalidate DetourMemory object after call their constructor
+        DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+        if (pm == NULL) {
+            // overwrite error
+            Detour_Assert(pm);
+            p = NULL;
+        }
+    }
+    return p;
+}
+template<class T>
+void DetourDestroyObjectArray(T*& p)
+{
+    DetourMemory* pm = DetourMemory::FromObjectPtr((PBYTE)p);
+    if (pm) {
+        size_t MemSize = pm->GetObjectSize();
+        Detour_Assert(MemSize % sizeof(T) == 0);
+        if (MemSize % sizeof(T) != 0) {
+            return;
+        }
+
+        size_t _Size = MemSize / sizeof(T);
+        // _Size equal to 0 is allowed
+        for (size_t i = 0; i < _Size; i++) {
+            (&p[i])->~T();
+        }
+        // validate and release DetourMemory object after call their destructor
+        DetourObjectByteArray_Free((PVOID)p);
+        p = NULL;
+    }
+}
 
 //////////////////////////////////////////////////////////////////////////////
 
