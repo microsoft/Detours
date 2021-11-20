@@ -1551,8 +1551,6 @@ struct DetourOperation
     ULONG               dwPerm;
 };
 
-static HANDLE				s_hHeap = NULL;
-
 static BOOL                 s_fIgnoreTooSmall       = FALSE;
 static BOOL                 s_fRetainRegions        = FALSE;
 
@@ -2165,7 +2163,7 @@ BOOL WINAPI DetourUpdateAllOtherThreads()
                             HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION | THREAD_SET_CONTEXT, FALSE, threadId);
                             if (hThread) {
                                 LONG error = DetourUpdateThreadEx(hThread, TRUE);
-                                DETOUR_ASSERT(error == NO_ERROR);
+                                DETOUR_ASSERT(error == NO_ERROR || error == ERROR_ACCESS_DENIED);
                                 if (error) {
                                     DETOUR_TRACE(("DetourUpdateThreadEx failed, error=%ld\n", error));
                                     // Reset s_nPendingError so that subsequent threads can continue to try to call the DetourUpdateThreadEx function
