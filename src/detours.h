@@ -56,6 +56,7 @@
 #define __try
 #define __except(x) if (0)
 #include <strsafe.h>
+#include <intsafe.h>
 #endif
 
 // From winerror.h, as this error isn't found in some SDKs:
