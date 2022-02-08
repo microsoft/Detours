@@ -834,6 +834,28 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
                                          _In_reads_(nDlls) LPCSTR *rlpDlls,
                                          _In_ DWORD nDlls);
 
+BOOL WINAPI DetourUpdateProcessWithDllEx2(_In_ HANDLE hProcess,
+                                          _In_ HMODULE hImage,
+                                          _In_ BOOL bIs32Bit,
+                                          _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                          _In_reads_opt_(nDlls) DWORD* pdwOrdinals,
+                                          _In_ DWORD nDlls);
+
+BOOL WINAPI DetourInjectProcessWithDll(_In_ HANDLE hProcess,
+                                       _In_ LPCSTR pszDllName,
+                                       _In_ DWORD dwOrdinal);
+
+BOOL WINAPI DetourUpdateDllWithDll(_In_ HANDLE hProcess,
+                                   _In_ HMODULE hImage,
+                                   _In_reads_(nDlls) LPCSTR* rlpDlls,
+                                   _In_reads_opt_(nDlls) DWORD* pdwOrdinals,
+                                   _In_ DWORD nDlls);
+
+BOOL WINAPI DetourInjectDllWithDll(_In_ HANDLE hProcess,
+                                   _In_ HMODULE hImage,
+                                   _In_ LPCSTR pszDllName,
+                                   _In_ DWORD dwOrdinal);
+
 BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
                                        _In_ REFGUID rguid,
                                        _In_reads_bytes_(cbData) LPCVOID pvData,

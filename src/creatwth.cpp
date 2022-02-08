@@ -674,9 +674,10 @@ static BOOL IsWow64ProcessHelper(HANDLE hProcess,
 
 //////////////////////////////////////////////////////////////////////////////
 //
-BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
-                                       _In_reads_(nDlls) LPCSTR *rlpDlls,
-                                       _In_ DWORD nDlls)
+BOOL WINAPI DetourUpdateProcessWithDllWithOrdinals(_In_ HANDLE hProcess,
+                                                   _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                                   _In_reads_opt_(nDlls) DWORD* pdwOrdinals,
+                                                   _In_ DWORD nDlls)
 {
     // Find the next memory region that contains a mapped PE image.
     //
@@ -740,17 +741,35 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 
     DETOUR_TRACE(("    32BitProcess=%d\n", bIs32BitProcess));
 
-    return DetourUpdateProcessWithDllEx(hProcess,
-                                        hModule,
-                                        bIs32BitProcess,
-                                        rlpDlls,
-                                        nDlls);
+    return DetourUpdateProcessWithDllEx2(hProcess,
+                                         hModule,
+                                         bIs32BitProcess,
+                                         rlpDlls,
+                                         pdwOrdinals,
+                                         nDlls);
+}
+
+BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
+                                       _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                       _In_ DWORD nDlls)
+{
+    return DetourUpdateProcessWithDllWithOrdinals(hProcess, rlpDlls, NULL, nDlls);
 }
 
 BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
                                          _In_ HMODULE hModule,
                                          _In_ BOOL bIs32BitProcess,
                                          _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                         _In_ DWORD nDlls)
+{
+    return DetourUpdateProcessWithDllEx2(hProcess, hModule, bIs32BitProcess, rlpDlls, NULL, nDlls);
+}
+
+BOOL WINAPI DetourUpdateProcessWithDllEx2(_In_ HANDLE hProcess,
+                                         _In_ HMODULE hModule,
+                                         _In_ BOOL bIs32BitProcess,
+                                         _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                          _In_reads_opt_(nDlls) DWORD* pdwOrdinals,
                                          _In_ DWORD nDlls)
 {
     // Find the next memory region that contains a mapped PE image.
@@ -820,7 +839,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
 #if defined(DETOURS_32BIT)
     if (bIs32BitProcess) {
         // 32-bit native or 32-bit managed process on any platform.
-        if (!UpdateImports32(hProcess, hModule, rlpDlls, nDlls)) {
+        if (!UpdateImports32(hProcess, hModule, rlpDlls, pdwOrdinals, nDlls)) {
             return FALSE;
         }
     }
@@ -842,7 +861,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
     }
     else {
         // 64-bit native or 64-bit managed process on any platform.
-        if (!UpdateImports64(hProcess, hModule, rlpDlls, nDlls)) {
+        if (!UpdateImports64(hProcess, hModule, rlpDlls, pdwOrdinals, nDlls)) {
             return FALSE;
         }
     }
@@ -892,6 +911,144 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         return FALSE;
     }
     return TRUE;
+}
+
+BOOL WINAPI DetourInjectProcessWithDll(_In_ HANDLE hProcess,
+                                       _In_ LPCSTR pszDllName,
+                                       _In_ DWORD dwOrdinal)
+{
+    LPCSTR rlpDlls[2];
+    DWORD rdwOrdinals[2];
+    DWORD nDlls = 0;
+
+    if (pszDllName != NULL) {
+        rdwOrdinals[nDlls] = dwOrdinal;
+        rlpDlls[nDlls++] = pszDllName;
+    }
+
+    return DetourUpdateProcessWithDllWithOrdinals(hProcess, rlpDlls, rdwOrdinals, nDlls);
+}
+
+BOOL WINAPI DetourUpdateDllWithDll(_In_ HANDLE hProcess,
+                                   _In_ HMODULE hImage,
+                                   _In_reads_(nDlls) LPCSTR* rlpDlls,
+                                   _In_reads_opt_(nDlls) DWORD* pdwOrdinals,
+                                   _In_ DWORD nDlls)
+{
+    if (hImage == NULL) {
+        SetLastError(ERROR_INVALID_OPERATION);
+        return FALSE;
+    }
+
+    // Find the next memory region that contains a mapped PE image.
+    //
+    WORD mach32Bit = 0;
+    WORD mach64Bit = 0;
+    WORD exe32Bit = 0;
+    HMODULE hLast = NULL;
+
+    for (;;) {
+        IMAGE_NT_HEADERS32 inh;
+
+        if ((hLast = EnumerateModulesInProcess(hProcess, hLast, &inh, NULL)) == NULL) {
+            break;
+        }
+
+        DETOUR_TRACE(("%p  machine=%04x magic=%04x\n",
+            hLast, inh.FileHeader.Machine, inh.OptionalHeader.Magic));
+
+        if ((inh.FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
+            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+                exe32Bit = inh.FileHeader.Machine;
+            }
+            DETOUR_TRACE(("%p  Found EXE\n", hLast));
+        }
+        else {
+            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC && inh.FileHeader.Machine != 0) {
+                mach32Bit = inh.FileHeader.Machine;
+            }
+            else if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC && inh.FileHeader.Machine != 0) {
+                mach64Bit = inh.FileHeader.Machine;
+            }
+        }
+    }
+    DETOUR_TRACE(("    mach32Bit=%04x mach64Bit=%04x\n", mach32Bit, mach64Bit));
+
+#if DETOURS_32BIT
+    // It appears that the injection can happen on
+    // WinXP x64 and Win2k3 x64 before any 32-bit dlls are loaded
+    // into the process, so mach32Bit will be 0 even though the
+    // process is a valid 32-bit process.  mach64Bit will not be 0,
+    // because the wow64 dlls are 64-bit.
+    if (mach32Bit == 0) {
+        mach32Bit = exe32Bit;
+    }
+
+    if (mach32Bit == 0 && mach64Bit != 0) {
+        // 64-bit native or 64-bit managed process.
+        //
+        // Can't detour a 64-bit process with 32-bit code.
+        // Note: This happens for 32-bit PE binaries containing only
+        // managed code that have been marked as 64-bit ready.
+        //
+        SetLastError(ERROR_INVALID_HANDLE);
+        return FALSE;
+    }
+    else if (mach32Bit != 0) {
+        // 32-bit native or 32-bit managed process on any platform.
+        if (!UpdateImports32(hProcess, hImage, rlpDlls, pdwOrdinals, nDlls)) {
+            return FALSE;
+        }
+    }
+    else {
+        SetLastError(ERROR_INVALID_HANDLE);
+        return FALSE;
+    }
+#endif // DETOURS_32BIT
+
+#if DETOURS_64BIT
+    if (exe32Bit != 0 && mach32Bit == 0) {
+        DETOUR_EXE_RESTORE der;
+        // Try to convert the 32-bit managed binary to a 64-bit managed binary.
+        if (!UpdateFrom32To64(hProcess, hImage, mach64Bit, der)) {
+            return FALSE;
+        }
+
+        // 64-bit process from 32-bit managed binary.
+        if (!UpdateImports64(hProcess, hImage, rlpDlls, pdwOrdinals, nDlls)) {
+            return FALSE;
+        }
+    }
+    else if (mach64Bit != 0) {
+        // 64-bit native or 64-bit managed process on any platform.
+        if (!UpdateImports64(hProcess, hImage, rlpDlls, pdwOrdinals, nDlls)) {
+            return FALSE;
+        }
+    }
+    else {
+        SetLastError(ERROR_INVALID_HANDLE);
+        return FALSE;
+    }
+#endif // DETOURS_64BIT
+
+    return TRUE;
+}
+
+BOOL WINAPI DetourInjectDllWithDll(_In_ HANDLE hProcess,
+                                   _In_ HMODULE hImage,
+                                   _In_ LPCSTR pszDllName,
+                                   _In_ DWORD dwOrdinal)
+{
+    LPCSTR rlpDlls[2];
+    DWORD rdwOrdinals[2];
+    DWORD nDlls = 0;
+
+    if (pszDllName != NULL) {
+        rdwOrdinals[nDlls] = dwOrdinal;
+        rlpDlls[nDlls++] = pszDllName;
+    }
+
+    return DetourUpdateDllWithDll(hProcess, hImage, rlpDlls, rdwOrdinals, nDlls);
 }
 
 //////////////////////////////////////////////////////////////////////////////

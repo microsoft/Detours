@@ -18,6 +18,7 @@
 static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                               HMODULE hModule,
                               __in_ecount(nDlls) LPCSTR *plpDlls,
+                              __in_ecount_opt(nDlls) DWORD* pdwOrdinals,
                               DWORD nDlls)
 {
     BOOL fSucceeded = FALSE;
@@ -245,13 +246,13 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
         // We need 2 thunks for the import table and 2 thunks for the IAT.
         // One for an ordinal import and one to mark the end of the list.
         pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
-        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
+        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + (pdwOrdinals ? pdwOrdinals[n] : 1);
         pt[1].u1.Ordinal = 0;
 
         nOffset = obTab + (sizeof(IMAGE_THUNK_DATAXX) * ((4 * n) + 2));
         piid[n].FirstThunk = obBase + nOffset;
         pt = ((IMAGE_THUNK_DATAXX*)(pbNew + nOffset));
-        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + 1;
+        pt[0].u1.Ordinal = IMAGE_ORDINAL_FLAG_XX + (pdwOrdinals ? pdwOrdinals[n] : 1);
         pt[1].u1.Ordinal = 0;
         piid[n].TimeDateStamp = 0;
         piid[n].ForwarderChain = 0;
