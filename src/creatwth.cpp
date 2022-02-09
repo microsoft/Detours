@@ -776,7 +776,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx2(_In_ HANDLE hProcess,
     //
     BOOL bIs32BitExe = FALSE;
 
-    DETOUR_TRACE(("DetourUpdateProcessWithDllEx(%p,%p,dlls=%lu)\n", hProcess, hModule, nDlls));
+    DETOUR_TRACE(("DetourUpdateProcessWithDllEx2(%p,%p,dlls=%lu)\n", hProcess, hModule, nDlls));
 
     IMAGE_NT_HEADERS32 inh;
 
@@ -940,6 +940,8 @@ BOOL WINAPI DetourUpdateDllWithDll(_In_ HANDLE hProcess,
         return FALSE;
     }
 
+    DETOUR_TRACE(("DetourUpdateDllWithDll(%p,%p,dlls=%lu)\n", hProcess, hImage, nDlls));
+
     // Find the next memory region that contains a mapped PE image.
     //
     WORD mach32Bit = 0;
@@ -954,14 +956,14 @@ BOOL WINAPI DetourUpdateDllWithDll(_In_ HANDLE hProcess,
             break;
         }
 
-        DETOUR_TRACE(("%p  machine=%04x magic=%04x\n",
+        DETOUR_TRACE(("Module:%p  machine=%04x magic=%04x\n",
             hLast, inh.FileHeader.Machine, inh.OptionalHeader.Magic));
 
         if ((inh.FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
             if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
                 exe32Bit = inh.FileHeader.Machine;
             }
-            DETOUR_TRACE(("%p  Found EXE\n", hLast));
+            DETOUR_TRACE(("Module:%p  Found EXE\n", hLast));
         }
         else {
             if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC && inh.FileHeader.Machine != 0) {
