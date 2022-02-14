@@ -122,13 +122,31 @@ struct _DETOUR_TRAMPOLINE
     _DETOUR_ALIGN   rAlign[8];      // instruction alignment array.
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
+    BYTE            rbContext[20];  // context callback code (calls context function w/ void* param)
+    PBYTE           pbContext;      // first instruction of context callback code (rbSetContext) if used
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 72);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 96);
 
 enum {
     SIZE_OF_JMP = 5
 };
+
+inline PBYTE detour_gen_context_callback(PBYTE pbCode, PF_DETOUR_INVOKE_CONTEXT_CALLBACK pfContextCallback, PVOID pContextParam)
+{
+    PBYTE pbJmpSrc = pbCode + 15;
+
+    *pbCode++ = 0x68;   // push param
+    *((INT32*&)pbCode)++ = (INT32)(pContextParam);
+
+    *pbCode++ = 0x68;   // push return address
+    *((INT32*&)pbCode)++ = (INT32)(pbJmpSrc);
+
+    *pbCode++ = 0xE9;   // jmp +imm32  (jmp fnSetContext)
+    *((INT32*&)pbCode)++ = (INT32)((PBYTE)pfContextCallback - pbJmpSrc);
+
+    return pbCode;
+}
 
 inline PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE pbJmpVal)
 {
@@ -334,13 +352,66 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbRemain;       // first instruction after moved code. [free list]
     PBYTE           pbDetour;       // first instruction of detour function.
     BYTE            rbCodeIn[8];    // jmp [pbDetour]
+    BYTE            rbContext[53];  // context callback code (calls context function w/ void* param)
+    PBYTE           pbContext;      // first instruction of context callback code (rbSetContext) if used
+    PF_DETOUR_INVOKE_CONTEXT_CALLBACK pfContextCallback;    // context callback used as indirect jmp in rbContext
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 96);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 168);
 
 enum {
     SIZE_OF_JMP = 5
 };
+
+inline PBYTE detour_gen_context_callback(PBYTE pbCode, PF_DETOUR_INVOKE_CONTEXT_CALLBACK* ppfContextCallback, PVOID pContextParam)
+{
+    PBYTE pbJmpSrc = pbCode + 37;
+
+    // Backup volatile registers that are used to pass __fastcall params.
+    // If the set context function performed floating point operations, 
+    // registers XMM0, XMM1, XMM2, and XMM3 would also have to be backed 
+    // up and restored. In the attempt to keep this code generation as simple 
+    // as possible, floating point operations in the set context function isn't 
+    // currently supported.
+    *pbCode++ = 0x51;   // push rcx (backup rcx)
+    *pbCode++ = 0x52;   // push rdx (backup rdx)
+    *pbCode++ = 0x41;   // push r8 (backup r8)
+    *pbCode++ = 0x50;
+    *pbCode++ = 0x41;   // push r9 (backup r9)
+    *pbCode++ = 0x51;
+
+    *pbCode++ = 0x48;   // sub rsp,20h (required by x64 __fastcall)
+    *pbCode++ = 0x83;
+    *pbCode++ = 0xEC;
+    *pbCode++ = 0x20;
+
+    *pbCode++ = 0x48;   // mov rcx, imm64 (return address)
+    *pbCode++ = 0xB9;
+    *((INT64*&)pbCode)++ = (INT64)(pbJmpSrc);
+    *pbCode++ = 0x51;   // push rcx (return address)
+
+    *pbCode++ = 0x48;   // mov rcx,imm64 (param)
+    *pbCode++ = 0xB9;
+    *((INT64*&)pbCode)++ = (INT64)(pContextParam);
+
+    *pbCode++ = 0xFF;   // jmp [+imm32] (pfContextCallback)
+    *pbCode++ = 0x25;
+    *((INT32*&)pbCode)++ = (INT32)((PBYTE)ppfContextCallback - pbJmpSrc);
+
+    *pbCode++ = 0x48;   // add rsp,20h (required by x64 __fastcall)
+    *pbCode++ = 0x83;
+    *pbCode++ = 0xC4;
+    *pbCode++ = 0x20;
+
+    *pbCode++ = 0x41;   // pop r9 (restore r9)
+    *pbCode++ = 0x59;
+    *pbCode++ = 0x41;   // pop r8 (restore r8)
+    *pbCode++ = 0x58;
+    *pbCode++ = 0x5A;   // pop rdx (restore rdx)
+    *pbCode++ = 0x59;   // pop rcx (restore rcx)
+
+    return pbCode;
+}
 
 inline PBYTE detour_gen_jmp_immediate(PBYTE pbCode, PBYTE pbJmpVal)
 {
@@ -1747,7 +1818,8 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_IA64
 
 #ifdef DETOURS_X64
-            detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, &o->pTrampoline->pbDetour);
+            PBYTE* pbDetour = o->pTrampoline->pbContext ? &o->pTrampoline->pbContext : &o->pTrampoline->pbDetour;
+            detour_gen_jmp_indirect(o->pTrampoline->rbCodeIn, pbDetour);
             PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, o->pTrampoline->rbCodeIn);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = o->pTrampoline->rbCode;
@@ -1755,7 +1827,8 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 #endif // DETOURS_X64
 
 #ifdef DETOURS_X86
-            PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, o->pTrampoline->pbDetour);
+            PBYTE pbDetour = o->pTrampoline->pbContext ? o->pTrampoline->pbContext : o->pTrampoline->pbDetour;
+            PBYTE pbCode = detour_gen_jmp_immediate(o->pbTarget, pbDetour);
             pbCode = detour_gen_brk(pbCode, o->pTrampoline->pbRemain);
             *o->ppbPointer = o->pTrampoline->rbCode;
             UNREFERENCED_PARAMETER(pbCode);
@@ -1991,7 +2064,7 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
 LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour)
 {
-    return DetourAttachEx(ppPointer, pDetour, NULL, NULL, NULL);
+    return DetourAttachWithContextCallback(ppPointer, pDetour, NULL, NULL, NULL, NULL, NULL);
 }
 
 LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
@@ -1999,6 +2072,17 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
                            _Out_opt_ PDETOUR_TRAMPOLINE *ppRealTrampoline,
                            _Out_opt_ PVOID *ppRealTarget,
                            _Out_opt_ PVOID *ppRealDetour)
+{
+    return DetourAttachWithContextCallback(ppPointer, pDetour, ppRealTrampoline, ppRealTarget, ppRealDetour, NULL, NULL);
+}
+
+LONG WINAPI DetourAttachWithContextCallback(_Inout_ PVOID *ppPointer,
+                                            _In_ PVOID pDetour,
+                                            _Out_opt_ PDETOUR_TRAMPOLINE *ppRealTrampoline,
+                                            _Out_opt_ PVOID *ppRealTarget,
+                                            _Out_opt_ PVOID *ppRealDetour,
+                                            _In_opt_ PF_DETOUR_INVOKE_CONTEXT_CALLBACK pfContextCallback,
+                                            _In_opt_ PVOID pContextParam)
 {
     LONG error = NO_ERROR;
 
@@ -2252,6 +2336,12 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
 
     pTrampoline->pbRemain = pbTarget + cbTarget;
     pTrampoline->pbDetour = (PBYTE)pDetour;
+#if defined(DETOURS_X64) || defined(DETOURS_X86)
+    pTrampoline->pbContext = NULL;
+#else
+    UNREFERENCED_PARAMETER(pfContextCallback);
+    UNREFERENCED_PARAMETER(pContextParam);
+#endif
 
 #ifdef DETOURS_IA64
     pTrampoline->ppldDetour = ppldDetour;
@@ -2297,11 +2387,29 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
 #ifdef DETOURS_X64
     pbTrampoline = detour_gen_jmp_indirect(pbTrampoline, &pTrampoline->pbRemain);
     pbTrampoline = detour_gen_brk(pbTrampoline, pbPool);
+    if (pfContextCallback)
+    {
+        PBYTE set_context = pTrampoline->rbContext;
+        pTrampoline->pfContextCallback = pfContextCallback;
+
+        set_context = detour_gen_context_callback(set_context, &pTrampoline->pfContextCallback, pContextParam);
+        set_context = detour_gen_jmp_indirect(set_context, &pTrampoline->pbDetour);
+        set_context = detour_gen_brk(set_context, pTrampoline->rbContext + sizeof(pTrampoline->rbContext));
+        pTrampoline->pbContext = pTrampoline->rbContext;
+    }
 #endif // DETOURS_X64
 
 #ifdef DETOURS_X86
     pbTrampoline = detour_gen_jmp_immediate(pbTrampoline, pTrampoline->pbRemain);
     pbTrampoline = detour_gen_brk(pbTrampoline, pbPool);
+    if (pfContextCallback)
+    {
+        PBYTE set_context = pTrampoline->rbContext;
+        set_context = detour_gen_context_callback(set_context, pfContextCallback, pContextParam);
+        set_context = detour_gen_jmp_immediate(set_context, pTrampoline->pbDetour);
+        set_context = detour_gen_brk(set_context, pTrampoline->rbContext + sizeof(pTrampoline->rbContext));
+        pTrampoline->pbContext = pTrampoline->rbContext;
+    }
 #endif // DETOURS_X86
 
 #ifdef DETOURS_ARM
