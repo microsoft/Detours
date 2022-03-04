@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2019, windows-2016]
+        os: [windows-2019, windows-2022]
         arch: [x86, x64, x64_arm, x64_arm64]
         conf: [Release, Debug]
 
@@ -41,21 +41,21 @@ jobs:
           languages: cpp
           config-file: ./.github/codeql/codeql-config.yml
 
-      - name: Build Detours for ${{ matrix.arch }} on ${{ matrix.os }} 
+      - name: Build Detours for ${{ matrix.arch }} on ${{ matrix.os }}
         env:
           # Tell detours what process to target
           DETOURS_TARGET_PROCESSOR: ${{ env.VSCMD_ARG_TGT_ARCH }}
           DETOURS_CONFIG: ${{ matrix.conf }}
         run: nmake
 
-      - name: Run unit tests for ${{ matrix.arch }} on ${{ matrix.os }} 
+      - name: Run unit tests for ${{ matrix.arch }} on ${{ matrix.os }}
         id: run-unit-tests
         env:
           DETOURS_CONFIG: ${{ matrix.conf }}
         run: cd tests && nmake test
         if: ${{ matrix.arch == 'x86' || matrix.arch == 'x64' }}
 
-      - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }} 
+      - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }}
         uses: actions/upload-artifact@v2
         with:
           name: artifacts-${{ matrix.os }}
