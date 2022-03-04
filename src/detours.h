@@ -952,10 +952,10 @@ typedef DWORD (NTAPI *PF_SymSetOptions)(_In_ DWORD SymOptions);
 typedef DWORD (NTAPI *PF_SymGetOptions)(VOID);
 typedef DWORD64 (NTAPI *PF_SymLoadModule64)(_In_ HANDLE hProcess,
                                             _In_opt_ HANDLE hFile,
-                                            _In_ LPSTR ImageName,
+                                            _In_opt_ LPSTR ImageName,
                                             _In_opt_ LPSTR ModuleName,
                                             _In_ DWORD64 BaseOfDll,
-                                            _In_opt_ DWORD SizeOfDll);
+                                            _In_ DWORD SizeOfDll);
 typedef BOOL (NTAPI *PF_SymGetModuleInfo64)(_In_ HANDLE hProcess,
                                             _In_ DWORD64 qwAddr,
                                             _Out_ PIMAGEHLP_MODULE64 ModuleInfo);
