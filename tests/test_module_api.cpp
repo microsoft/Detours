@@ -241,7 +241,7 @@ TEST_CASE("DetourEnumerateModules", "[module]")
         auto mod = DetourEnumerateModules(nullptr);
 
         REQUIRE( GetLastError() == NO_ERROR );
-        REQUIRE( mod == reinterpret_cast<HMODULE>(&__ImageBase) );
+        REQUIRE( mod != NULL );
     }
 
     SECTION("Passing stack, results in module")
