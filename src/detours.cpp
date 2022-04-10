@@ -1524,6 +1524,28 @@ struct DetourThread
 {
     DetourThread *      pNext;
     HANDLE              hThread;
+    BOOL                fCloseThreadHandleOnDestroy;
+
+    DetourThread()
+    {
+        pNext = NULL;
+        hThread = NULL;
+        fCloseThreadHandleOnDestroy = FALSE;
+    }
+
+    DetourThread(const DetourThread&) = delete;
+    DetourThread& operator= (const DetourThread&) = delete;
+
+    ~DetourThread()
+    {
+        if (hThread) {
+            if (fCloseThreadHandleOnDestroy) {
+                CloseHandle(hThread);
+            }
+
+            hThread = NULL;
+        }
+    }
 };
 
 struct DetourOperation
@@ -1947,6 +1969,11 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
 
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
 {
+    return DetourUpdateThreadEx(hThread, FALSE);
+}
+
+LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandleOnDestroy)
+{
     LONG error;
 
     // If any of the pending operations failed, then we don't need to do this.
@@ -1980,10 +2007,55 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     }
 
     t->hThread = hThread;
+    t->fCloseThreadHandleOnDestroy = fCloseThreadHandleOnDestroy;
     t->pNext = s_pPendingThreads;
     s_pPendingThreads = t;
 
     return NO_ERROR;
+}
+
+#ifndef NT_SUCCESS
+#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+#endif
+
+#define STATUS_NO_MORE_ENTRIES 0x8000001A
+
+typedef NTSTATUS(NTAPI *_NtGetNextThread)(
+    _In_ HANDLE ProcessHandle,
+    _In_ HANDLE ThreadHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ ULONG HandleAttributes,
+    _In_ ULONG Flags,
+    _Out_ PHANDLE NewThreadHandle
+);
+
+LONG WINAPI DetourUpdateAllOtherThreads()
+{
+    _NtGetNextThread NtGetNextThread = (_NtGetNextThread)GetProcAddress(GetModuleHandle(TEXT("ntdll.dll")), "NtGetNextThread");
+    if (!NtGetNextThread) {
+        DETOUR_TRACE("Failed to determine NtGetNextThread address.\r\n");
+        return GetLastError();
+    }
+
+    DWORD currentThreadId = GetCurrentThreadId();
+
+    HANDLE hThread = NULL;
+    for (;;) {
+        NTSTATUS status = NtGetNextThread(GetCurrentProcess(), hThread, THREAD_QUERY_LIMITED_INFORMATION | THREAD_SUSPEND_RESUME, 0, 0, &hThread);
+
+        if (!NT_SUCCESS(status)) {
+            if (status != STATUS_NO_MORE_ENTRIES) {
+                DETOUR_TRACE("Failed to enumerate process threads.\r\n");
+                return ERROR_FUNCTION_FAILED;
+            }
+
+            return NO_ERROR;
+        }
+
+        if (currentThreadId != GetThreadId(hThread)) {
+            DetourUpdateThreadEx(hThread, TRUE);
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////// Transacted APIs.
