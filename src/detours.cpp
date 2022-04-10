@@ -1601,6 +1601,12 @@ _Benign_race_end_
     s_pPendingThreads = NULL;
     s_ppPendingError = NULL;
 
+    if (!HeapLock(GetProcessHeap())) {
+        s_nPendingError = GetLastError();
+
+        return s_nPendingError;
+    }
+
     // Make sure the trampoline pages are writable.
     s_nPendingError = detour_writable_trampoline_regions();
 
@@ -1645,10 +1651,19 @@ LONG WINAPI DetourTransactionAbort()
         delete t;
         t = n;
     }
+
+    // s_nPendingError should not be overwritten as DetourTransactionCommitEx relies on it.
+    LONG nReportedError = NO_ERROR;
+
+    if (!HeapUnlock(GetProcessHeap())) {
+        // This may mask a preceding error but we can't do anything about it as we can report a single error.
+        s_nPendingError = nReportedError = GetLastError();
+    }
+
     s_pPendingThreads = NULL;
     s_nPendingThreadId = 0;
 
-    return NO_ERROR;
+    return nReportedError;
 }
 
 LONG WINAPI DetourTransactionCommit()
@@ -1935,6 +1950,11 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
         delete t;
         t = n;
     }
+
+    if (!HeapUnlock(GetProcessHeap())) {
+        s_nPendingError = GetLastError();
+    }
+
     s_pPendingThreads = NULL;
     s_nPendingThreadId = 0;
 
