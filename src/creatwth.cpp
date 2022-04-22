@@ -640,8 +640,31 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     return TRUE;
 }
 
-static BOOL UpdateFrom32To64IfAble(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTORE& der)
+static BOOL UpdateManagedBinaryFrom32To64(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTORE& der)
 {
+    if (!der.pclr                       // Native binary
+        || (der.clr.Flags & COMIMAGE_FLAGS_ILONLY) == 0     // Or mixed-mode MSIL
+        || (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) != 0) {  // Or 32BIT Required MSIL
+
+        SetLastError(ERROR_INVALID_HANDLE);
+        return FALSE;
+    }
+
+    if (!UpdateFrom32To64(hProcess, hModule,
+#if defined(DETOURS_X64)
+        IMAGE_FILE_MACHINE_AMD64,
+#elif defined(DETOURS_IA64)
+        IMAGE_FILE_MACHINE_IA64,
+#elif defined(DETOURS_ARM64)
+        IMAGE_FILE_MACHINE_ARM64,
+#else
+#error Must define one of DETOURS_X64 or DETOURS_IA64 or DETOURS_ARM64 on 64-bit.
+#endif
+        der)) {
+        return FALSE;
+    }
+
+    return TRUE;
 }
 #endif // DETOURS_64BIT
 
@@ -766,6 +789,44 @@ static BOOL Is32BitModule(_In_ HANDLE hProcess,
     return TRUE;
 }
 
+static BOOL UpdateCLRHeader(HANDLE hProcess, DETOUR_EXE_RESTORE& der)
+{
+    if (der.pclr != NULL) {
+        DETOUR_CLR_HEADER clr;
+        CopyMemory(&clr, &der.clr, sizeof(clr));
+        clr.Flags &= ~COMIMAGE_FLAGS_ILONLY;    // Clear the IL_ONLY flag.
+
+        DWORD dwProtect;
+        if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {
+            DETOUR_TRACE(("VirtualProtectEx(clr) write failed: %lu\n", GetLastError()));
+            return FALSE;
+        }
+
+        if (!WriteProcessMemory(hProcess, der.pclr, &clr, sizeof(clr), NULL)) {
+            DETOUR_TRACE(("WriteProcessMemory(clr) failed: %lu\n", GetLastError()));
+            return FALSE;
+        }
+
+        if (!VirtualProtectEx(hProcess, der.pclr, sizeof(clr), dwProtect, &dwProtect)) {
+            DETOUR_TRACE(("VirtualProtectEx(clr) restore failed: %lu\n", GetLastError()));
+            return FALSE;
+        }
+        DETOUR_TRACE(("CLR: %p..%p\n", der.pclr, der.pclr + der.cbclr));
+
+#if DETOURS_64BIT
+        if (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) { // Is the 32BIT Required Flag set?
+            // X64 never gets here because the process appears as a WOW64 process.
+            // However, on IA64, it doesn't appear to be a WOW process.
+            DETOUR_TRACE(("CLR Requires 32-bit\n"));
+            SetLastError(ERROR_INVALID_HANDLE);
+            return FALSE;
+        }
+#endif // DETOURS_64BIT
+    }
+
+    return TRUE;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //
 BOOL WINAPI DetourUpdateProcessWithDllWithOrdinals(_In_ HANDLE hProcess,
@@ -778,8 +839,7 @@ BOOL WINAPI DetourUpdateProcessWithDllWithOrdinals(_In_ HANDLE hProcess,
 
     DETOUR_TRACE(("DetourUpdateProcessWithDll(%p,dlls=%lu)\n", hProcess, nDlls));
 
-    if (!Is32BitProcess(hProcess, hModule, bIs32BitProcess))
-    {
+    if (!Is32BitProcess(hProcess, hModule, bIs32BitProcess)) {
         return FALSE;
     }
 
@@ -822,8 +882,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx2(_In_ HANDLE hProcess,
 
     DETOUR_TRACE(("DetourUpdateProcessWithDllEx2(%p,%p,dlls=%lu)\n", hProcess, hModule, nDlls));
 
-    if (!Is32BitModule(hProcess, hModule, bIs32BitExe))
-    {
+    if (!Is32BitModule(hProcess, hModule, bIs32BitExe)) {
         return FALSE;
     }
 
@@ -845,25 +904,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx2(_In_ HANDLE hProcess,
 #if defined(DETOURS_64BIT)
     // Try to convert a neutral 32-bit managed binary to a 64-bit managed binary.
     if (bIs32BitExe && !bIs32BitProcess) {
-        if (!der.pclr                       // Native binary
-            || (der.clr.Flags & COMIMAGE_FLAGS_ILONLY) == 0     // Or mixed-mode MSIL
-            || (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) != 0) {  // Or 32BIT Required MSIL
-
-            SetLastError(ERROR_INVALID_HANDLE);
-            return FALSE;
-        }
-
-        if (!UpdateFrom32To64(hProcess, hModule,
-#if defined(DETOURS_X64)
-                              IMAGE_FILE_MACHINE_AMD64,
-#elif defined(DETOURS_IA64)
-                              IMAGE_FILE_MACHINE_IA64,
-#elif defined(DETOURS_ARM64)
-                              IMAGE_FILE_MACHINE_ARM64,
-#else
-#error Must define one of DETOURS_X64 or DETOURS_IA64 or DETOURS_ARM64 on 64-bit.
-#endif
-                              der)) {
+        if (!UpdateManagedBinaryFrom32To64(hProcess, hModule, der)) {
             return FALSE;
         }
         bIs32BitExe = FALSE;
@@ -907,37 +948,8 @@ BOOL WINAPI DetourUpdateProcessWithDllEx2(_In_ HANDLE hProcess,
 
     /////////////////////////////////////////////////// Update the CLR header.
     //
-    if (der.pclr != NULL) {
-        DETOUR_CLR_HEADER clr;
-        CopyMemory(&clr, &der.clr, sizeof(clr));
-        clr.Flags &= ~COMIMAGE_FLAGS_ILONLY;    // Clear the IL_ONLY flag.
-
-        DWORD dwProtect;
-        if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {
-            DETOUR_TRACE(("VirtualProtectEx(clr) write failed: %lu\n", GetLastError()));
-            return FALSE;
-        }
-
-        if (!WriteProcessMemory(hProcess, der.pclr, &clr, sizeof(clr), NULL)) {
-            DETOUR_TRACE(("WriteProcessMemory(clr) failed: %lu\n", GetLastError()));
-            return FALSE;
-        }
-
-        if (!VirtualProtectEx(hProcess, der.pclr, sizeof(clr), dwProtect, &dwProtect)) {
-            DETOUR_TRACE(("VirtualProtectEx(clr) restore failed: %lu\n", GetLastError()));
-            return FALSE;
-        }
-        DETOUR_TRACE(("CLR: %p..%p\n", der.pclr, der.pclr + der.cbclr));
-
-#if DETOURS_64BIT
-        if (der.clr.Flags & COMIMAGE_FLAGS_32BITREQUIRED) { // Is the 32BIT Required Flag set?
-            // X64 never gets here because the process appears as a WOW64 process.
-            // However, on IA64, it doesn't appear to be a WOW process.
-            DETOUR_TRACE(("CLR Requires 32-bit\n"));
-            SetLastError(ERROR_INVALID_HANDLE);
-            return FALSE;
-        }
-#endif // DETOURS_64BIT
+    if (!UpdateCLRHeader(hProcess, der)) {
+        return FALSE;
     }
 
     //////////////////////////////// Save the undo data to the target process.
@@ -980,19 +992,20 @@ BOOL WINAPI DetourUpdateDllWithDll(_In_ HANDLE hProcess,
 
     BOOL bIs32BitProcess;
     HMODULE hExeModule;
-    BOOL bIs32BitExe;
 
-    if (!Is32BitProcess(hProcess, hExeModule, bIs32BitProcess))
-    {
+    if (!Is32BitProcess(hProcess, hExeModule, bIs32BitProcess)) {
         return FALSE;
     }
 
-    if (!Is32BitModule(hProcess, hExeModule, bIs32BitExe))
-    {
+    DETOUR_TRACE(("    32BitProcess=%d\n", bIs32BitProcess));
+
+    // Read the image headers.
+    //
+    DETOUR_EXE_RESTORE der;
+
+    if (!RecordExeRestore(hProcess, hImage, der)) {
         return FALSE;
     }
-
-    DETOUR_TRACE(("    mach32Bit=%04x mach64Bit=%04x\n", mach32Bit, mach64Bit));
 
 #if defined(DETOURS_32BIT)
     if (bIs32BitProcess) {
@@ -1012,31 +1025,32 @@ BOOL WINAPI DetourUpdateDllWithDll(_In_ HANDLE hProcess,
         return FALSE;
     }
 #elif defined(DETOURS_64BIT)
-    if (bIs32BitExe && !bIs32BitProcess) {
-        DETOUR_EXE_RESTORE der;
-        // Try to convert the 32-bit managed binary to a 64-bit managed binary.
-        if (!UpdateFrom32To64(hProcess, hImage, mach64Bit, der)) {
-            return FALSE;
-        }
-
-        // 64-bit process from 32-bit managed binary.
-        if (!UpdateImports64(hProcess, hImage, rlpDlls, pdwOrdinals, nDlls)) {
-            return FALSE;
-        }
-    }
-    else if (mach64Bit != 0) {
-        // 64-bit native or 64-bit managed process on any platform.
-        if (!UpdateImports64(hProcess, hImage, rlpDlls, pdwOrdinals, nDlls)) {
-            return FALSE;
-        }
-    }
-    else {
+    if (bIs32BitProcess) {
         SetLastError(ERROR_INVALID_HANDLE);
+        return FALSE;
+    }
+
+    BOOL bIs32BitModule = FALSE;
+    if (!Is32BitModule(hProcess, hImage, bIs32BitModule)) {
+        return FALSE;
+    }
+
+    // Try to convert the 32-bit managed binary to a 64-bit managed binary.
+    if (bIs32BitModule && !UpdateManagedBinaryFrom32To64(hProcess, hImage, der)) {
+        return FALSE;
+    }
+
+    // 64-bit native or 64-bit managed process on any platform.
+    if (!UpdateImports64(hProcess, hImage, rlpDlls, pdwOrdinals, nDlls)) {
         return FALSE;
     }
 #else
 #pragma Must define one of DETOURS_32BIT or DETOURS_64BIT.
 #endif
+
+    if (!UpdateCLRHeader(hProcess, der)) {
+        return FALSE;
+    }
 
     return TRUE;
 }
