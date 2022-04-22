@@ -639,6 +639,10 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
 
     return TRUE;
 }
+
+static BOOL UpdateFrom32To64IfAble(HANDLE hProcess, HMODULE hModule, DETOUR_EXE_RESTORE& der)
+{
+}
 #endif // DETOURS_64BIT
 
 typedef BOOL(WINAPI *LPFN_ISWOW64PROCESS)(HANDLE, PBOOL);
@@ -672,22 +676,17 @@ static BOOL IsWow64ProcessHelper(HANDLE hProcess,
 #endif
 }
 
-//////////////////////////////////////////////////////////////////////////////
-//
-BOOL WINAPI DetourUpdateProcessWithDllWithOrdinals(_In_ HANDLE hProcess,
-                                                   _In_reads_(nDlls) LPCSTR *rlpDlls,
-                                                   _In_reads_opt_(nDlls) DWORD* pdwOrdinals,
-                                                   _In_ DWORD nDlls)
+static BOOL Is32BitProcess(_In_ HANDLE hProcess,
+                           _Out_ HMODULE& hExeModule,
+                           _Out_ BOOL& bIs32BitProcess)
 {
-    // Find the next memory region that contains a mapped PE image.
-    //
-    BOOL bIs32BitProcess;
-    BOOL bIs64BitOS = FALSE;
-    HMODULE hModule = NULL;
+    hExeModule = NULL;
+    bIs32BitProcess = FALSE;
+
     HMODULE hLast = NULL;
 
-    DETOUR_TRACE(("DetourUpdateProcessWithDll(%p,dlls=%lu)\n", hProcess, nDlls));
-
+    // Find the next memory region that contains a mapped PE image.
+    //
     for (;;) {
         IMAGE_NT_HEADERS32 inh;
 
@@ -696,15 +695,15 @@ BOOL WINAPI DetourUpdateProcessWithDllWithOrdinals(_In_ HANDLE hProcess,
         }
 
         DETOUR_TRACE(("%p  machine=%04x magic=%04x\n",
-                      hLast, inh.FileHeader.Machine, inh.OptionalHeader.Magic));
+            hLast, inh.FileHeader.Machine, inh.OptionalHeader.Magic));
 
         if ((inh.FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
-            hModule = hLast;
+            hExeModule = hLast;
             DETOUR_TRACE(("%p  Found EXE\n", hLast));
         }
     }
 
-    if (hModule == NULL) {
+    if (hExeModule == NULL) {
         SetLastError(ERROR_INVALID_OPERATION);
         return FALSE;
     }
@@ -717,6 +716,8 @@ BOOL WINAPI DetourUpdateProcessWithDllWithOrdinals(_In_ HANDLE hProcess,
     //   we're running under Wow64. If so, it implies that the operating system
     //   is 64bit.
     //
+    BOOL bIs64BitOS = FALSE;
+
 #ifdef _WIN64
     bIs64BitOS = TRUE;
 #else
@@ -735,8 +736,51 @@ BOOL WINAPI DetourUpdateProcessWithDllWithOrdinals(_In_ HANDLE hProcess,
         if (!IsWow64ProcessHelper(hProcess, &bIs32BitProcess)) {
             return FALSE;
         }
-    } else {
+    }
+    else {
         bIs32BitProcess = TRUE;
+    }
+
+    return TRUE;
+}
+
+static BOOL Is32BitModule(_In_ HANDLE hProcess,
+                          _In_ HMODULE hModule,
+                          _Out_ BOOL& bIs32BitModule)
+{
+    bIs32BitModule = FALSE;
+
+    IMAGE_NT_HEADERS32 inh;
+
+    if (hModule == NULL || !LoadNtHeaderFromProcess(hProcess, hModule, &inh)) {
+        SetLastError(ERROR_INVALID_OPERATION);
+        return FALSE;
+    }
+
+    if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC
+        && inh.FileHeader.Machine != 0) {
+
+        bIs32BitModule = TRUE;
+    }
+
+    return TRUE;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//
+BOOL WINAPI DetourUpdateProcessWithDllWithOrdinals(_In_ HANDLE hProcess,
+                                                   _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                                   _In_reads_opt_(nDlls) DWORD* pdwOrdinals,
+                                                   _In_ DWORD nDlls)
+{
+    BOOL bIs32BitProcess;
+    HMODULE hModule = NULL;
+
+    DETOUR_TRACE(("DetourUpdateProcessWithDll(%p,dlls=%lu)\n", hProcess, nDlls));
+
+    if (!Is32BitProcess(hProcess, hModule, bIs32BitProcess))
+    {
+        return FALSE;
     }
 
     DETOUR_TRACE(("    32BitProcess=%d\n", bIs32BitProcess));
@@ -778,17 +822,9 @@ BOOL WINAPI DetourUpdateProcessWithDllEx2(_In_ HANDLE hProcess,
 
     DETOUR_TRACE(("DetourUpdateProcessWithDllEx2(%p,%p,dlls=%lu)\n", hProcess, hModule, nDlls));
 
-    IMAGE_NT_HEADERS32 inh;
-
-    if (hModule == NULL || !LoadNtHeaderFromProcess(hProcess, hModule, &inh)) {
-        SetLastError(ERROR_INVALID_OPERATION);
+    if (!Is32BitModule(hProcess, hModule, bIs32BitExe))
+    {
         return FALSE;
-    }
-
-    if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC
-        && inh.FileHeader.Machine != 0) {
-
-        bIs32BitExe = TRUE;
     }
 
     DETOUR_TRACE(("    32BitExe=%d\n", bIs32BitExe));
@@ -942,74 +978,41 @@ BOOL WINAPI DetourUpdateDllWithDll(_In_ HANDLE hProcess,
 
     DETOUR_TRACE(("DetourUpdateDllWithDll(%p,%p,dlls=%lu)\n", hProcess, hImage, nDlls));
 
-    // Find the next memory region that contains a mapped PE image.
-    //
-    WORD mach32Bit = 0;
-    WORD mach64Bit = 0;
-    WORD exe32Bit = 0;
-    HMODULE hLast = NULL;
+    BOOL bIs32BitProcess;
+    HMODULE hExeModule;
+    BOOL bIs32BitExe;
 
-    for (;;) {
-        IMAGE_NT_HEADERS32 inh;
-
-        if ((hLast = EnumerateModulesInProcess(hProcess, hLast, &inh, NULL)) == NULL) {
-            break;
-        }
-
-        DETOUR_TRACE(("Module:%p  machine=%04x magic=%04x\n",
-            hLast, inh.FileHeader.Machine, inh.OptionalHeader.Magic));
-
-        if ((inh.FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
-            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
-                exe32Bit = inh.FileHeader.Machine;
-            }
-            DETOUR_TRACE(("Module:%p  Found EXE\n", hLast));
-        }
-        else {
-            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC && inh.FileHeader.Machine != 0) {
-                mach32Bit = inh.FileHeader.Machine;
-            }
-            else if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC && inh.FileHeader.Machine != 0) {
-                mach64Bit = inh.FileHeader.Machine;
-            }
-        }
-    }
-    DETOUR_TRACE(("    mach32Bit=%04x mach64Bit=%04x\n", mach32Bit, mach64Bit));
-
-#if DETOURS_32BIT
-    // It appears that the injection can happen on
-    // WinXP x64 and Win2k3 x64 before any 32-bit dlls are loaded
-    // into the process, so mach32Bit will be 0 even though the
-    // process is a valid 32-bit process.  mach64Bit will not be 0,
-    // because the wow64 dlls are 64-bit.
-    if (mach32Bit == 0) {
-        mach32Bit = exe32Bit;
-    }
-
-    if (mach32Bit == 0 && mach64Bit != 0) {
-        // 64-bit native or 64-bit managed process.
-        //
-        // Can't detour a 64-bit process with 32-bit code.
-        // Note: This happens for 32-bit PE binaries containing only
-        // managed code that have been marked as 64-bit ready.
-        //
-        SetLastError(ERROR_INVALID_HANDLE);
+    if (!Is32BitProcess(hProcess, hExeModule, bIs32BitProcess))
+    {
         return FALSE;
     }
-    else if (mach32Bit != 0) {
+
+    if (!Is32BitModule(hProcess, hExeModule, bIs32BitExe))
+    {
+        return FALSE;
+    }
+
+    DETOUR_TRACE(("    mach32Bit=%04x mach64Bit=%04x\n", mach32Bit, mach64Bit));
+
+#if defined(DETOURS_32BIT)
+    if (bIs32BitProcess) {
         // 32-bit native or 32-bit managed process on any platform.
         if (!UpdateImports32(hProcess, hImage, rlpDlls, pdwOrdinals, nDlls)) {
             return FALSE;
         }
     }
     else {
+        // 64-bit native or 64-bit managed process.
+        //
+        // Can't detour a 64-bit process with 32-bit code.
+        // Note: This happens for 32-bit PE binaries containing only
+        // manage code that have been marked as 64-bit ready.
+        //
         SetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
-#endif // DETOURS_32BIT
-
-#if DETOURS_64BIT
-    if (exe32Bit != 0 && mach32Bit == 0) {
+#elif defined(DETOURS_64BIT)
+    if (bIs32BitExe && !bIs32BitProcess) {
         DETOUR_EXE_RESTORE der;
         // Try to convert the 32-bit managed binary to a 64-bit managed binary.
         if (!UpdateFrom32To64(hProcess, hImage, mach64Bit, der)) {
@@ -1031,7 +1034,9 @@ BOOL WINAPI DetourUpdateDllWithDll(_In_ HANDLE hProcess,
         SetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
-#endif // DETOURS_64BIT
+#else
+#pragma Must define one of DETOURS_32BIT or DETOURS_64BIT.
+#endif
 
     return TRUE;
 }
