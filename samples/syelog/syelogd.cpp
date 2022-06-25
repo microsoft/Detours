@@ -183,7 +183,7 @@ PCLIENT CreatePipeConnection(HANDLE hCompletionPort)
 
     if (!ConnectNamedPipe(hPipe, pClient)) {
         DWORD dwLastErr = GetLastError();
-        //client already connected while call this fun
+        //Handle race between multiple client connections
         //example: multi thread or client request at alomst same time.
         if (ERROR_PIPE_CONNECTED == dwLastErr)  
         {
