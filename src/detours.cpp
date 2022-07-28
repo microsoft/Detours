@@ -20,6 +20,27 @@
 
 //////////////////////////////////////////////////////////////////////////////
 //
+
+#ifdef _DEBUG
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int linenumber, const char* FunctionName, const char* msg)
+{
+    int nRet = 0;
+    DWORD dwLastError = GetLastError();
+    CHAR szModuleNameWithFunctionName[MAX_PATH * 2];
+    szModuleNameWithFunctionName[0] = 0;
+    GetModuleFileNameA((HMODULE)&__ImageBase, szModuleNameWithFunctionName, ARRAYSIZE(szModuleNameWithFunctionName));
+    StringCchCatNA(szModuleNameWithFunctionName, ARRAYSIZE(szModuleNameWithFunctionName), ",", ARRAYSIZE(szModuleNameWithFunctionName) - strlen(szModuleNameWithFunctionName) - 1);
+    StringCchCatNA(szModuleNameWithFunctionName, ARRAYSIZE(szModuleNameWithFunctionName), FunctionName, ARRAYSIZE(szModuleNameWithFunctionName) - strlen(szModuleNameWithFunctionName) - 1);
+    SetLastError(dwLastError);
+    nRet = _CrtDbgReport(reportType, filename, linenumber, szModuleNameWithFunctionName, msg);
+    SetLastError(dwLastError);
+    return nRet;
+}
+#endif// _DEBUG
+
+//////////////////////////////////////////////////////////////////////////////
+//
 struct _DETOUR_ALIGN
 {
     BYTE    obTarget        : 3;
@@ -1374,6 +1395,12 @@ PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
     return pbNewlyAllocated;
 }
 
+BOOL WINAPI DetourIsFunctionImported(_In_ PBYTE pbCode,
+                                     _In_ PBYTE pbAddress)
+{
+    return detour_is_imported(pbCode, pbAddress);
+}
+
 static PDETOUR_TRAMPOLINE detour_alloc_trampoline(PBYTE pbTarget)
 {
     // We have to place trampolines within +/- 2GB of target.
@@ -1416,7 +1443,8 @@ static PDETOUR_TRAMPOLINE detour_alloc_trampoline(PBYTE pbTarget)
     // We need to allocate a new region.
 
     // Round pbTarget down to 64KB block.
-    pbTarget = pbTarget - (PtrToUlong(pbTarget) & 0xffff);
+    // /RTCc RuntimeChecks breaks PtrToUlong.
+    pbTarget = pbTarget - (ULONG)((ULONG_PTR)pbTarget & 0xffff);
 
     PVOID pbNewlyAllocated =
         detour_alloc_trampoline_allocate_new(pbTarget, pLo, pHi);
@@ -2076,6 +2104,12 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
         if (o != NULL) {
             delete o;
             o = NULL;
+        }
+        if (ppRealDetour != NULL) {
+            *ppRealDetour = NULL;
+        }
+        if (ppRealTarget != NULL) {
+            *ppRealTarget = NULL;
         }
         s_ppPendingError = ppPointer;
         return error;

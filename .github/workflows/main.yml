@@ -20,13 +20,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2019, windows-2016]
+        os: [windows-2019, windows-2022]
         arch: [x86, x64, x64_arm, x64_arm64]
         conf: [Release, Debug]
 
     steps:
       - name: Clone Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       # Setup build environment variables using vcvarsall.bat.
       - name: Configure MSCV Compiler for ${{ matrix.arch }}
@@ -35,28 +35,28 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Initialize CodeQL for C++
-        uses: github/codeql-action/init@v1
+        uses: github/codeql-action/init@v2
         if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
         with:
           languages: cpp
           config-file: ./.github/codeql/codeql-config.yml
 
-      - name: Build Detours for ${{ matrix.arch }} on ${{ matrix.os }} 
+      - name: Build Detours for ${{ matrix.arch }} on ${{ matrix.os }}
         env:
           # Tell detours what process to target
           DETOURS_TARGET_PROCESSOR: ${{ env.VSCMD_ARG_TGT_ARCH }}
           DETOURS_CONFIG: ${{ matrix.conf }}
         run: nmake
 
-      - name: Run unit tests for ${{ matrix.arch }} on ${{ matrix.os }} 
+      - name: Run unit tests for ${{ matrix.arch }} on ${{ matrix.os }}
         id: run-unit-tests
         env:
           DETOURS_CONFIG: ${{ matrix.conf }}
         run: cd tests && nmake test
         if: ${{ matrix.arch == 'x86' || matrix.arch == 'x64' }}
 
-      - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }} 
-        uses: actions/upload-artifact@v2
+      - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }}
+        uses: actions/upload-artifact@v3
         with:
           name: artifacts-${{ matrix.os }}
           path: |
@@ -65,5 +65,5 @@ jobs:
             include/
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v1
+        uses: github/codeql-action/analyze@v2
         if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
