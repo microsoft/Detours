@@ -1610,7 +1610,7 @@ LONG WINAPI DetourTransactionBegin()
     return DetourTransactionBeginEx(FALSE);
 }
 
-LONG WINAPI DetourTransactionBeginEx(_In_opt_ BOOL fWait)
+LONG WINAPI DetourTransactionBeginEx(_In_ BOOL fWait)
 {
     // Only one transaction is allowed at a time.
 _Benign_race_begin_
@@ -1986,7 +1986,7 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     return DetourUpdateThreadEx(hThread, FALSE);
 }
 
-LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_opt_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject)
+LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject)
 {
     LONG error;
 

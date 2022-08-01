@@ -559,7 +559,7 @@ typedef VOID * PDETOUR_LOADED_BINARY;
 //////////////////////////////////////////////////////////// Transaction APIs.
 //
 LONG WINAPI DetourTransactionBegin(VOID);
-LONG WINAPI DetourTransactionBeginEx(_In_opt_ BOOL fWait /*= TRUE*/);
+LONG WINAPI DetourTransactionBeginEx(_In_ BOOL fWait /*= TRUE*/);
 LONG WINAPI DetourTransactionAbort(VOID);
 LONG WINAPI DetourTransactionCommit(VOID);
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
@@ -571,7 +571,7 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
 // In addition to the DetourAttach(Ex)\DetourDetach(Ex) call, other user operations should not be included between them,
 // because other user operations may cause CRT lock competition, and at this time CRT lock may be owned by other threads.
 // Other threads have been suspended at this time, so that may cause deadlock problems
-LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_opt_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject /*= TRUE*/);
+LONG WINAPI DetourUpdateThreadEx(_In_ HANDLE hThread, _In_ BOOL fCloseThreadHandleOnDestroyDetourThreadObject /*= TRUE*/);
 BOOL WINAPI DetourUpdateAllOtherThreads();
 
 LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
