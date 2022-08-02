@@ -39,3 +39,8 @@ obj.*
 /bin.*
 *.vcxproj.FileListAbsolute.txt
 *.vcxprojAssemblyReference.cache
+/InjectTest/ChrisHelpers.cpp
+/InjectTest/ChrisHelpers.h
+/InjectTest/x64/Debug/vc143.idb
+/InjectTest/x64/Debug/InjectTest.ilk
+/DetourOutputDebugString/x64/DebugMDd/DetourOutputDebugString.pch

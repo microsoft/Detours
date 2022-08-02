@@ -1,0 +1,2 @@
+#define DETOUROUTPUTDEBUGSTRING_API __declspec(dllexport)
+#define DETOUROUTPUTDEBUGSTRING_API __declspec(dllimport)
