@@ -6,7 +6,7 @@
 //
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
-#define _WIN32_WINNT        0x0400
+#define _WIN32_WINNT        0x0501
 #define WIN32
 #define NT
 
