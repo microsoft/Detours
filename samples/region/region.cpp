@@ -13,7 +13,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 //
-static LONG dwSlept = 0;
 static DWORD (WINAPI * TrueSleepEx)(DWORD dwMilliseconds, BOOL bAlertable) = SleepEx;
 
 DWORD WINAPI LoudSleepEx(DWORD dwMilliseconds, BOOL bAlertable)
@@ -22,7 +21,7 @@ DWORD WINAPI LoudSleepEx(DWORD dwMilliseconds, BOOL bAlertable)
     DWORD ret = TrueSleepEx(dwMilliseconds, bAlertable);
     DWORD dwEnd = GetTickCount();
 
-    printf("Slept %u ticks.\n", dwEnd - dwBeg);
+    printf("Slept %lu ticks.\n", dwEnd - dwBeg);
     return ret;
 }
 
@@ -38,12 +37,12 @@ PVOID AttachAndDetach(DWORD dwMilliseconds)
     DetourAttach(&(PVOID&)TrueSleepEx, LoudSleepEx);
     error = DetourTransactionCommit();
 
-    printf("Attach: %d, Trampoline: %p\n", error, TrueSleepEx);
+    printf("Attach: %ld, Trampoline: %p\n", error, TrueSleepEx);
 
     trampoline = TrueSleepEx;
 
     printf("\n");
-    printf("Sleep(%u)\n", dwMilliseconds);
+    printf("Sleep(%lu)\n", dwMilliseconds);
     Sleep(dwMilliseconds);
     printf("\n");
 

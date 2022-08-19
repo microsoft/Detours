@@ -21,6 +21,8 @@ all:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\simple"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
+    cd "$(MAKEDIR)\simple_safe"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\slept"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\setdll"
@@ -89,12 +91,16 @@ all:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\dynamic_alloc"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
+    cd "$(MAKEDIR)\payload"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)"
 
 clean:
     cd "$(MAKEDIR)\syelog"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\simple"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
+    cd "$(MAKEDIR)\simple_safe"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\slept"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
@@ -151,6 +157,8 @@ clean:
     cd "$(MAKEDIR)\impmunge"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\dynamic_alloc"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
+    cd "$(MAKEDIR)\payload"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)"
     -rmdir lib32 2>nul
@@ -162,6 +170,8 @@ realclean:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\simple"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
+    cd "$(MAKEDIR)\simple_safe"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\slept"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\setdll"
@@ -218,6 +228,8 @@ realclean:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\dynamic_alloc"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
+    cd "$(MAKEDIR)\payload"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)"
     -rmdir lib32 2>nul
     -rmdir lib64 2>nul
@@ -227,6 +239,8 @@ test:
     cd "$(MAKEDIR)\syelog"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
     cd "$(MAKEDIR)\simple"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
+    cd "$(MAKEDIR)\simple_safe"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
 !IF "$(DETOURS_TARGET_PROCESSOR)" != "ARM64"
     cd "$(MAKEDIR)\slept"
@@ -300,6 +314,8 @@ test:
     cd "$(MAKEDIR)\impmunge"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
     cd "$(MAKEDIR)\dynamic_alloc"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
+    cd "$(MAKEDIR)\payload"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
     cd "$(MAKEDIR)"
 

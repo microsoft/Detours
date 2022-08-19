@@ -23,8 +23,8 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 const GUID DETOUR_EXE_RESTORE_GUID = {
-    0x2ed7a3ff, 0x3339, 0x4a8d,
-    { 0x80, 0x5c, 0xd4, 0x98, 0x15, 0x3f, 0xc2, 0x8f }};
+    0xbda26f34, 0xbc82, 0x4829,
+    { 0x9e, 0x64, 0x74, 0x2c, 0x4, 0xc8, 0x4f, 0xa0 } };
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -142,6 +142,11 @@ PDETOUR_SYM_INFO DetourLoadImageHlp(VOID)
 PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                 _In_ LPCSTR pszFunction)
 {
+    if (pszFunction == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+
     /////////////////////////////////////////////// First, try GetProcAddress.
     //
 #pragma prefast(suppress:28752, "We don't do the unicode conversion for LoadLibraryExA.")
@@ -160,7 +165,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     DETOUR_TRACE(("DetourFindFunction(%hs, %hs)\n", pszModule, pszFunction));
     PDETOUR_SYM_INFO pSymInfo = DetourLoadImageHlp();
     if (pSymInfo == NULL) {
-        DETOUR_TRACE(("DetourLoadImageHlp failed: %d\n",
+        DETOUR_TRACE(("DetourLoadImageHlp failed: %lu\n",
                       GetLastError()));
         return NULL;
     }
@@ -169,7 +174,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                     (PCHAR)pszModule, NULL,
                                     (DWORD64)hModule, 0) == 0) {
         if (ERROR_SUCCESS != GetLastError()) {
-            DETOUR_TRACE(("SymLoadModule64(%p) failed: %d\n",
+            DETOUR_TRACE(("SymLoadModule64(%p) failed: %lu\n",
                           pSymInfo->hProcess, GetLastError()));
             return NULL;
         }
@@ -181,24 +186,24 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     ZeroMemory(&modinfo, sizeof(modinfo));
     modinfo.SizeOfStruct = sizeof(modinfo);
     if (!pSymInfo->pfSymGetModuleInfo64(pSymInfo->hProcess, (DWORD64)hModule, &modinfo)) {
-        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %d\n",
+        DETOUR_TRACE(("SymGetModuleInfo64(%p, %p) failed: %lu\n",
                       pSymInfo->hProcess, hModule, GetLastError()));
         return NULL;
     }
 
     hrRet = StringCchCopyA(szFullName, sizeof(szFullName)/sizeof(CHAR), modinfo.ModuleName);
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCopyA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCopyA failed: %08lx\n", hrRet));
         return NULL;
     }
     hrRet = StringCchCatA(szFullName, sizeof(szFullName)/sizeof(CHAR), "!");
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCatA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCatA failed: %08lx\n", hrRet));
         return NULL;
     }
     hrRet = StringCchCatA(szFullName, sizeof(szFullName)/sizeof(CHAR), pszFunction);
     if (FAILED(hrRet)) {
-        DETOUR_TRACE(("StringCchCatA failed: %08x\n", hrRet));
+        DETOUR_TRACE(("StringCchCatA failed: %08lx\n", hrRet));
         return NULL;
     }
 
@@ -215,7 +220,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
 #endif
 
     if (!pSymInfo->pfSymFromName(pSymInfo->hProcess, szFullName, &symbol)) {
-        DETOUR_TRACE(("SymFromName(%hs) failed: %d\n", szFullName, GetLastError()));
+        DETOUR_TRACE(("SymFromName(%hs) failed: %lu\n", szFullName, GetLastError()));
         return NULL;
     }
 
@@ -277,6 +282,7 @@ HMODULE WINAPI DetourEnumerateModules(_In_opt_ HMODULE hModuleLast)
                 continue;
             }
 
+            SetLastError(NO_ERROR);
             return (HMODULE)pDosHeader;
         }
 #pragma prefast(suppress:28940, "A bad pointer means this probably isn't a PE header.")
@@ -340,7 +346,7 @@ PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule)
             }
 
             SetLastError(NO_ERROR);
-            return GetProcAddress(hClr, "_CorExeMain");
+            return (PVOID)GetProcAddress(hClr, "_CorExeMain");
         }
 
         SetLastError(NO_ERROR);
@@ -456,6 +462,11 @@ BOOL WINAPI DetourEnumerateExports(_In_ HMODULE hModule,
                                    _In_opt_ PVOID pContext,
                                    _In_ PF_DETOUR_ENUMERATE_EXPORT_CALLBACK pfExport)
 {
+    if (pfExport == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
     PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)hModule;
     if (hModule == NULL) {
         pDosHeader = (PIMAGE_DOS_HEADER)GetModuleHandleW(NULL);
@@ -658,6 +669,11 @@ BOOL WINAPI DetourEnumerateImports(_In_opt_ HMODULE hModule,
                                    _In_opt_ PF_DETOUR_IMPORT_FILE_CALLBACK pfImportFile,
                                    _In_opt_ PF_DETOUR_IMPORT_FUNC_CALLBACK pfImportFunc)
 {
+    if (pfImportFile == NULL || pfImportFunc == NULL) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
     _DETOUR_ENUMERATE_IMPORTS_THUNK_CONTEXT const context = { pContext, pfImportFunc };
 
     return DetourEnumerateImportsEx(hModule,
@@ -761,7 +777,7 @@ _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
 PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
                                _In_ REFGUID rguid,
-                               _Out_ DWORD *pcbData)
+                               _Out_opt_ DWORD *pcbData)
 {
     PBYTE pbData = NULL;
     if (pcbData) {
@@ -789,23 +805,12 @@ PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
         for (pbData = pbBeg; pbData < pbEnd;) {
             DETOUR_SECTION_RECORD *pSection = (DETOUR_SECTION_RECORD *)pbData;
 
-            if (pSection->guid.Data1 == rguid.Data1 &&
-                pSection->guid.Data2 == rguid.Data2 &&
-                pSection->guid.Data3 == rguid.Data3 &&
-                pSection->guid.Data4[0] == rguid.Data4[0] &&
-                pSection->guid.Data4[1] == rguid.Data4[1] &&
-                pSection->guid.Data4[2] == rguid.Data4[2] &&
-                pSection->guid.Data4[3] == rguid.Data4[3] &&
-                pSection->guid.Data4[4] == rguid.Data4[4] &&
-                pSection->guid.Data4[5] == rguid.Data4[5] &&
-                pSection->guid.Data4[6] == rguid.Data4[6] &&
-                pSection->guid.Data4[7] == rguid.Data4[7]) {
-
+            if (DetourAreSameGuid(pSection->guid, rguid)) {
                 if (pcbData) {
                     *pcbData = pSection->cbBytes - sizeof(*pSection);
-                    SetLastError(NO_ERROR);
-                    return (PBYTE)(pSection + 1);
                 }
+                SetLastError(NO_ERROR);
+                return (PBYTE)(pSection + 1);
             }
 
             pbData = (PBYTE)pSection + pSection->cbBytes;
@@ -824,7 +829,7 @@ _Writable_bytes_(*pcbData)
 _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
 PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
-                                 _Out_ DWORD * pcbData)
+                                 _Out_opt_ DWORD *pcbData)
 {
     for (HMODULE hMod = NULL; (hMod = DetourEnumerateModules(hMod)) != NULL;) {
         PVOID pvData;
@@ -836,6 +841,24 @@ PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
     }
     SetLastError(ERROR_MOD_NOT_FOUND);
     return NULL;
+}
+
+BOOL WINAPI DetourFreePayload(_In_ PVOID pvData)
+{
+    BOOL fSucceeded = FALSE;
+
+    // If you have any doubts about the following code, please refer to the comments in DetourCopyPayloadToProcess.
+    HMODULE hModule = DetourGetContainingModule(pvData);
+    DETOUR_ASSERT(hModule != NULL);
+    if (hModule != NULL) {
+        fSucceeded = VirtualFree(hModule, 0, MEM_RELEASE);
+        DETOUR_ASSERT(fSucceeded);
+        if (fSucceeded) {
+            hModule = NULL;
+        }
+    }
+
+    return fSucceeded;
 }
 
 BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
@@ -883,6 +906,11 @@ BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
             VirtualProtect(pder->pinh, pder->cbinh, dwPermInh, &dwIgnore);
         }
         VirtualProtect(pder->pidh, pder->cbidh, dwPermIdh, &dwIgnore);
+    }
+    // Delete the payload after successful recovery to prevent repeated restore
+    if (fSucceeded) {
+        DetourFreePayload(pder);
+        pder = NULL;
     }
     return fSucceeded;
 }

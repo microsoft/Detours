@@ -48,9 +48,9 @@ HRESULT STDMETHODCALLTYPE MineIStreamWrite(IStream * This,
         pcbWritten = &cbWritten;
     }
 
-    printf("commem:   %p->IStreamWrite(pv=%p, cb=%d)\n", This, pv, cb);
+    printf("commem:   %p->IStreamWrite(pv=%p, cb=%ld)\n", This, pv, cb);
     hr = RealIStreamWrite(This, pv, cb, pcbWritten);
-    printf("commem:   %p->IStreamWrite -> %08x (pcbWritten=%d)\n", This, hr, *pcbWritten);
+    printf("commem:   %p->IStreamWrite -> %08lx (pcbWritten=%ld)\n", This, hr, *pcbWritten);
 
     return hr;
 }

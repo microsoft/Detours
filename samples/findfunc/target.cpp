@@ -13,7 +13,7 @@
 
 extern "C" DWORD WINAPI Hidden(DWORD dwCount)
 {
-    printf("target.dll:     Hidden(%d) -> %d.\n", dwCount, dwCount + 1);
+    printf("target.dll:     Hidden(%ld) -> %ld.\n", dwCount, dwCount + 1);
     return dwCount + 1;
 }
 
@@ -22,9 +22,9 @@ static DWORD (WINAPI * SelfHidden)(DWORD dwCount) = Hidden;
 
 DWORD WINAPI Target(DWORD dwCount)
 {
-    printf("target.dll:   Target  (%d) -> %d.\n", dwCount, dwCount + 100);
+    printf("target.dll:   Target  (%ld) -> %ld.\n", dwCount, dwCount + 100);
     dwCount = SelfHidden(dwCount + 100);
-    printf("target.dll:   Target  (.....) -> %d.\n", dwCount);
+    printf("target.dll:   Target  (.....) -> %ld.\n", dwCount);
     return dwCount;
 }
 

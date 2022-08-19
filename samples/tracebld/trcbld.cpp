@@ -7,7 +7,7 @@
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
 
-#define _WIN32_WINNT        0x0500
+#define _WIN32_WINNT        0x0501
 #define WIN32
 #define NT
 
@@ -59,10 +59,6 @@ static TBLOG_PAYLOAD s_ChildPayload;
 static CRITICAL_SECTION s_csChildPayload;
 static DWORD s_nTraceProcessId = 0;
 static LONG s_nChildCnt = 0;
-static PWCHAR s_pwEnvironment = NULL;
-static DWORD s_cwEnvironment = NULL;
-static PCHAR s_pbEnvironment = NULL;
-static DWORD s_cbEnvironment = NULL;
 
 static CRITICAL_SECTION s_csPipe;                       // Guards access to hPipe.
 static HANDLE           s_hPipe = INVALID_HANDLE_VALUE;

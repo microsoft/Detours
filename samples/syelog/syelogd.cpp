@@ -50,6 +50,7 @@ LONGLONG    s_llStartTime = 0;
 LONGLONG    s_llLastTime = 0;
 
 BOOL LogMessageV(BYTE nSeverity, PCHAR pszMsg, ...);
+VOID AcceptAndCreatePipeConnection(PCLIENT pClient, HANDLE hCompletionPort);
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -58,7 +59,7 @@ VOID MyErrExit(PCSTR pszMsg)
     DWORD error = GetLastError();
 
     LogMessageV(SYELOG_SEVERITY_FATAL, "Error %d in %s.", error, pszMsg);
-    fprintf(stderr, "SYELOGD: Error %d in %s.\n", error, pszMsg);
+    fprintf(stderr, "SYELOGD: Error %ld in %s.\n", error, pszMsg);
     fflush(stderr);
     exit(1);
 }
@@ -93,7 +94,7 @@ static PCSTR FileTimeToString(PCHAR pszBuffer, DWORD cbBuffer, FILETIME ftTime)
         ul.LowPart = ftTime.dwLowDateTime;
         ul.HighPart = ftTime.dwHighDateTime;
 
-        ULONG64 delta = ul.QuadPart - s_llLastTime;
+        LONG64 delta = ul.QuadPart - s_llLastTime;
         s_llLastTime = ul.QuadPart;
         delta /= 10000;
 
@@ -181,8 +182,14 @@ PCLIENT CreatePipeConnection(HANDLE hCompletionPort)
     }
 
     if (!ConnectNamedPipe(hPipe, pClient)) {
-        if (GetLastError() != ERROR_IO_PENDING &&
-            GetLastError() != ERROR_PIPE_LISTENING) {
+        DWORD dwLastErr = GetLastError();
+        //Handle race between multiple client connections
+        //example: multi thread or client request at alomst same time.
+        if (ERROR_PIPE_CONNECTED == dwLastErr)  
+        {
+            AcceptAndCreatePipeConnection(pClient, hCompletionPort);
+        } else if ( dwLastErr != ERROR_IO_PENDING &&
+            dwLastErr != ERROR_PIPE_LISTENING) {
             MyErrExit("ConnectNamedPipe");
         }
     }
@@ -191,6 +198,25 @@ PCLIENT CreatePipeConnection(HANDLE hCompletionPort)
                     "ConnectNamedPipe accepted immediately.");
     }
     return pClient;
+}
+
+VOID AcceptAndCreatePipeConnection(PCLIENT pClient, HANDLE hCompletionPort) {
+    DWORD nBytes = 0;
+    InterlockedIncrement(&s_nActiveClients);
+    pClient->fAwaitingAccept = FALSE;
+    BOOL b = ReadFile(pClient->hPipe,
+        &pClient->Message,
+        sizeof(pClient->Message),
+        &nBytes,
+        pClient);
+    if (!b) {
+        if (GetLastError() != ERROR_IO_PENDING) {
+            LogMessageV(SYELOG_SEVERITY_ERROR,
+                "ReadFile failed %d.", GetLastError());
+        }
+    }
+
+    CreatePipeConnection(hCompletionPort);
 }
 
 BOOL LogMessageV(BYTE nSeverity, PCHAR pszMsg, ...)
@@ -352,22 +378,7 @@ DWORD WINAPI WorkerThread(LPVOID pvVoid)
         }
 
         if (pClient->fAwaitingAccept) {
-            InterlockedIncrement(&s_nActiveClients);
-            pClient->fAwaitingAccept = FALSE;
-            b = ReadFile(pClient->hPipe,
-                         &pClient->Message,
-                         sizeof(pClient->Message),
-                         &nBytes,
-                         pClient);
-            if (!b) {
-                if (GetLastError() != ERROR_IO_PENDING) {
-                    LogMessageV(SYELOG_SEVERITY_ERROR,
-                                "ReadFile failed %d.", GetLastError());
-                    continue;
-                }
-            }
-
-            CreatePipeConnection(hCompletionPort);
+            AcceptAndCreatePipeConnection(pClient, hCompletionPort);
         }
         else {
             if (nBytes < offsetof(SYELOG_MESSAGE, szMessage)) {
@@ -501,7 +512,7 @@ DWORD main(int argc, char **argv)
                                      FILE_FLAG_SEQUENTIAL_SCAN,
                                      NULL);
             if (s_hOutFile == INVALID_HANDLE_VALUE) {
-                printf("SYELOGD: Error opening output file: %s: %d\n\n",
+                printf("SYELOGD: Error opening output file: %s: %ld\n\n",
                        argv[arg], GetLastError());
                 fNeedHelp = TRUE;
                 break;
