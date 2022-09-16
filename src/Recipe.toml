@@ -1,6 +1,6 @@
 Name = "Detours"
 Language = "C++|0.1"
-Version = "4.0.2"
+Version = "4.0.3"
 Interface = "Detours.cpp"
 Source = [
 	"creatwth.cpp",

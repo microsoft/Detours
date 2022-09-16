@@ -7,9 +7,21 @@
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
 
-#pragma once
-#ifndef _DETOURS_H_
-#define _DETOURS_H_
+// Allow multiple includes to break internal and types apart
+// This is a breaking change that will not work with the old header based includes
+// To support modules and headers we will need to re-organize this header
+#ifdef SOUP_BUILD
+#ifndef SOUP_MODULE
+// Allow for inverted checks to default on
+#define SOUP_INTERNAL
+#else
+#undef SOUP_INTERNAL
+#endif
+#else
+// #pragma once
+// #ifndef _DETOURS_H_
+// #define _DETOURS_H_
+#endif
 
 #define DETOURS_VERSION     0x4c0c1   // 0xMAJORcMINORcPATCH
 
@@ -17,6 +29,7 @@
 //
 
 #ifdef DETOURS_INTERNAL
+#ifndef SOUP_MODULE
 
 #define _CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS 1
 #define _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE 1
@@ -69,10 +82,12 @@
 //
 #define ERROR_DYNAMIC_CODE_BLOCKED       1655L
 
+#endif // SOUP_MODULE
 #endif // DETOURS_INTERNAL
 
 //////////////////////////////////////////////////////////////////////////////
 //
+#ifndef SOUP_MODULE
 
 #undef DETOURS_X64
 #undef DETOURS_X86
@@ -119,20 +134,28 @@
 //#define DETOURS_OPTION_BITS 32
 #endif
 
+#endif // SOUP_MODULE
+
 /////////////////////////////////////////////////////////////// Helper Macros.
 //
+#ifndef SOUP_MODULE
 #define DETOURS_STRINGIFY_(x)    #x
 #define DETOURS_STRINGIFY(x)    DETOURS_STRINGIFY_(x)
 
 #define VER_DETOURS_BITS    DETOURS_STRINGIFY(DETOURS_BITS)
 
+#endif // SOUP_MODULE
+
 //////////////////////////////////////////////////////////////////////////////
 //
+#ifndef SOUP_MODULE
 
 #if (_MSC_VER < 1299) && !defined(__MINGW32__)
 typedef LONG LONG_PTR;
 typedef ULONG ULONG_PTR;
 #endif
+
+#endif // SOUP_MODULE
 
 ///////////////////////////////////////////////// SAL 2.0 Annotations w/o SAL.
 //
@@ -330,6 +353,7 @@ typedef ULONG ULONG_PTR;
 //
 #ifndef GUID_DEFINED
 #define GUID_DEFINED
+#ifndef SOUP_INTERNAL
 typedef struct  _GUID
 {
     DWORD Data1;
@@ -337,6 +361,7 @@ typedef struct  _GUID
     WORD Data3;
     BYTE Data4[ 8 ];
 } GUID;
+#endif // SOUP_INTERNAL
 
 #ifdef INITGUID
 #define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
@@ -377,11 +402,13 @@ extern "C" {
 #define DETOUR_INSTRUCTION_TARGET_DYNAMIC       ((PVOID)(LONG_PTR)-1)
 #define DETOUR_SECTION_HEADER_SIGNATURE         0x00727444   // "Dtr\0"
 
+#ifndef SOUP_INTERNAL
 extern const GUID DETOUR_EXE_RESTORE_GUID;
 extern const GUID DETOUR_EXE_HELPER_GUID;
 
 #define DETOUR_TRAMPOLINE_SIGNATURE             0x21727444  // Dtr!
 typedef struct _DETOUR_TRAMPOLINE DETOUR_TRAMPOLINE, *PDETOUR_TRAMPOLINE;
+#endif // SOUP_INTERNAL
 
 #ifndef DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS
 #define DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS      32
@@ -389,6 +416,7 @@ typedef struct _DETOUR_TRAMPOLINE DETOUR_TRAMPOLINE, *PDETOUR_TRAMPOLINE;
 
 /////////////////////////////////////////////////////////// Binary Structures.
 //
+#ifndef SOUP_INTERNAL
 #pragma pack(push, 8)
 typedef struct _DETOUR_SECTION_HEADER
 {
@@ -487,6 +515,7 @@ typedef struct _DETOUR_EXE_HELPER
 } DETOUR_EXE_HELPER, *PDETOUR_EXE_HELPER;
 
 #pragma pack(pop)
+#endif // SOUP_INTERNAL
 
 #define DETOUR_SECTION_HEADER_DECLARE(cbSectionSize) \
 { \
@@ -508,6 +537,7 @@ typedef struct _DETOUR_EXE_HELPER
 
 ///////////////////////////////////////////////////////////// Binary Typedefs.
 //
+#ifndef SOUP_INTERNAL
 typedef BOOL (CALLBACK *PF_DETOUR_BINARY_BYWAY_CALLBACK)(
     _In_opt_ PVOID pContext,
     _In_opt_ LPCSTR pszFile,
@@ -553,9 +583,11 @@ typedef BOOL (CALLBACK *PF_DETOUR_IMPORT_FUNC_CALLBACK_EX)(_In_opt_ PVOID pConte
 
 typedef VOID * PDETOUR_BINARY;
 typedef VOID * PDETOUR_LOADED_BINARY;
+#endif // SOUP_INTERNAL
 
 //////////////////////////////////////////////////////////// Transaction APIs.
 //
+#ifndef SOUP_INTERNAL
 LONG WINAPI DetourTransactionBegin(VOID);
 LONG WINAPI DetourTransactionAbort(VOID);
 LONG WINAPI DetourTransactionCommit(VOID);
@@ -579,9 +611,11 @@ BOOL WINAPI DetourSetIgnoreTooSmall(_In_ BOOL fIgnore);
 BOOL WINAPI DetourSetRetainRegions(_In_ BOOL fRetain);
 PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound);
 PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
+#endif // SOUP_INTERNAL
 
 ////////////////////////////////////////////////////////////// Code Functions.
 //
+#ifndef SOUP_INTERNAL
 PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                 _In_ LPCSTR pszFunction);
 PVOID WINAPI DetourCodeFromPointer(_In_ PVOID pPointer,
@@ -597,9 +631,11 @@ PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
                                                   _Out_ PDWORD pcbAllocatedSize);
 BOOL WINAPI DetourIsFunctionImported(_In_ PBYTE pbCode,
                                      _In_ PBYTE pbAddress);
+#endif // SOUP_INTERNAL
 
 ///////////////////////////////////////////////////// Loaded Binary Functions.
 //
+#ifndef SOUP_INTERNAL
 HMODULE WINAPI DetourGetContainingModule(_In_ PVOID pvAddr);
 HMODULE WINAPI DetourEnumerateModules(_In_opt_ HMODULE hModuleLast);
 PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule);
@@ -633,9 +669,11 @@ PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
 DWORD WINAPI DetourGetSizeOfPayloads(_In_opt_ HMODULE hModule);
 
 BOOL WINAPI DetourFreePayload(_In_ PVOID pvData);
+#endif // SOUP_INTERNAL
+
 ///////////////////////////////////////////////// Persistent Binary Functions.
 //
-
+#ifndef SOUP_INTERNAL
 PDETOUR_BINARY WINAPI DetourBinaryOpen(_In_ HANDLE hFile);
 
 _Writable_bytes_(*pcbData)
@@ -668,9 +706,11 @@ BOOL WINAPI DetourBinaryEditImports(_In_ PDETOUR_BINARY pBinary,
                                     _In_opt_ PF_DETOUR_BINARY_COMMIT_CALLBACK pfCommit);
 BOOL WINAPI DetourBinaryWrite(_In_ PDETOUR_BINARY pBinary, _In_ HANDLE hFile);
 BOOL WINAPI DetourBinaryClose(_In_ PDETOUR_BINARY pBinary);
+#endif // SOUP_INTERNAL
 
 /////////////////////////////////////////////////// Create Process & Load Dll.
 //
+#ifndef SOUP_INTERNAL
 _Success_(return != NULL)
 PVOID WINAPI DetourFindRemotePayload(_In_ HANDLE hProcess,
                                      _In_ REFGUID rguid,
@@ -858,6 +898,7 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
                                         _In_ HINSTANCE,
                                         _In_ LPSTR,
                                         _In_ INT);
+#endif // SOUP_INTERNAL
 
 //
 //////////////////////////////////////////////////////////////////////////////
@@ -868,7 +909,11 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 /////////////////////////////////////////////////// Type-safe overloads for C++
 //
 #if __cplusplus >= 201103L || _MSVC_LANG >= 201103L
+#ifndef SOUP_MODULE
 #include <type_traits>
+#endif // SOUP_MODULE
+
+#ifndef SOUP_INTERNAL
 
 template<typename T>
 struct DetoursIsFunctionPointer : std::false_type {};
@@ -915,7 +960,10 @@ LONG DetourDetach(_Inout_ T *ppPointer,
         reinterpret_cast<void*>(pDetour));
 }
 
+#endif // SOUP_INTERNAL
+
 #endif // __cplusplus >= 201103L || _MSVC_LANG >= 201103L
+
 //
 //////////////////////////////////////////////////////////////////////////////
 
@@ -930,7 +978,10 @@ LONG DetourDetach(_Inout_ T *ppPointer,
 //////////////////////////////////////////////////////////////////////////////
 //
 #if (_MSC_VER < 1299) && !defined(__GNUC__)
+#ifndef SOUP_MODULE
 #include <imagehlp.h>
+#endif // SOUP_MODULE
+#ifndef SOUP_INTERNAL
 typedef IMAGEHLP_MODULE IMAGEHLP_MODULE64;
 typedef PIMAGEHLP_MODULE PIMAGEHLP_MODULE64;
 typedef IMAGEHLP_SYMBOL SYMBOL_INFO;
@@ -941,14 +992,18 @@ LONG InterlockedCompareExchange(_Inout_ LONG *ptr, _In_ LONG nval, _In_ LONG ova
 {
     return (LONG)::InterlockedCompareExchange((PVOID*)ptr, (PVOID)nval, (PVOID)oval);
 }
+#endif // SOUP_INTERNAL
 #else
+#ifndef SOUP_MODULE
 #pragma warning(push)
 #pragma warning(disable:4091) // empty typedef
 #include <dbghelp.h>
 #pragma warning(pop)
+#endif // SOUP_MODULE
 #endif
 
 #ifdef IMAGEAPI // defined by DBGHELP.H
+#ifndef SOUP_INTERNAL
 typedef LPAPI_VERSION (NTAPI *PF_ImagehlpApiVersionEx)(_In_ LPAPI_VERSION AppVersion);
 
 typedef BOOL (NTAPI *PF_SymInitialize)(_In_ HANDLE hProcess,
@@ -984,6 +1039,7 @@ typedef struct _DETOUR_SYM_INFO
 
 PDETOUR_SYM_INFO DetourLoadImageHlp(VOID);
 
+#endif // SOUP_INTERNAL
 #endif // IMAGEAPI
 
 #if defined(_INC_STDIO) && !defined(_CRT_STDIO_ARBITRARY_WIDE_SPECIFIERS)
@@ -993,7 +1049,11 @@ PDETOUR_SYM_INFO DetourLoadImageHlp(VOID);
 
 #ifdef _DEBUG
 
+#ifndef SOUP_INTERNAL
+
 int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int linenumber, const char* FunctionName, const char* msg);
+
+#endif // SOUP_INTERNAL
 
 #define DETOUR_ASSERT_EXPR_WITH_FUNCTION(expr, msg) \
     (void) ((expr) || \
@@ -1010,8 +1070,10 @@ int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int 
 #if DETOUR_DEBUG
 #define DETOUR_TRACE(x) printf x
 #define DETOUR_BREAK()  __debugbreak()
+#ifndef SOUP_MODULE
 #include <stdio.h>
 #include <limits.h>
+#endif // SOUP_MODULE
 #else
 #define DETOUR_TRACE(x)
 #define DETOUR_BREAK()
@@ -1035,6 +1097,8 @@ int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int 
 #define DETOUR_IA64_INSTRUCTION2_OFFSET (DETOUR_IA64_TEMPLATE_SIZE + DETOUR_IA64_INSTRUCTION_SIZE + DETOUR_IA64_INSTRUCTION_SIZE)
 
 C_ASSERT(DETOUR_IA64_TEMPLATE_SIZE + DETOUR_IA64_INSTRUCTIONS_PER_BUNDLE * DETOUR_IA64_INSTRUCTION_SIZE == 128);
+
+#ifndef SOUP_INTERNAL
 
 __declspec(align(16)) struct DETOUR_IA64_BUNDLE
 {
@@ -1162,6 +1226,9 @@ __declspec(align(16)) struct DETOUR_IA64_BUNDLE
 
     UINT    Copy(_Out_ DETOUR_IA64_BUNDLE *pDst, _Inout_opt_ DETOUR_IA64_BUNDLE* pBundleExtra = NULL) const;
 };
+
+#endif // SOUP_MODULE
+
 #endif // DETOURS_IA64
 
 #ifdef DETOURS_ARM
@@ -1228,6 +1295,6 @@ BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right);
 #endif // DETOURS_INTERNAL
 #endif // __cplusplus
 
-#endif // _DETOURS_H_
+//#endif // _DETOURS_H_
 //
 ////////////////////////////////////////////////////////////////  End of File.
