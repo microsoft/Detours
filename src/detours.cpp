@@ -363,14 +363,14 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbDetour;       // first instruction of detour function.
     BYTE            rbCodeIn[8];    // jmp [pbDetour]
 #ifdef DETOURS_SUPPORT_CONTEXT_CALLBACK
-    BYTE            rbContext[53];  // context callback code (calls context function w/ void* param)
+    BYTE            rbContext[42];  // context callback code (calls context function w/ void* param)
     PBYTE           pbContext;      // first instruction of context callback code (rbSetContext) if used
     PF_DETOUR_INVOKE_CONTEXT_CALLBACK pfContextCallback;    // context callback used as indirect jmp in rbContext
 #endif // DETOURS_SUPPORT_CONTEXT_CALLBACK
 };
 
 #ifdef DETOURS_SUPPORT_CONTEXT_CALLBACK
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 168);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 160);
 #else
 C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 96);
 #endif // DETOURS_SUPPORT_CONTEXT_CALLBACK
@@ -383,7 +383,7 @@ enum {
 
 inline PBYTE detour_gen_context_callback(PBYTE pbCode, PF_DETOUR_INVOKE_CONTEXT_CALLBACK* ppfContextCallback, PVOID pContextParam)
 {
-    PBYTE pbJmpSrc = pbCode + 37;
+    PBYTE pbJmpSrc = pbCode + 26;
 
     // Backup volatile registers that are used to pass __fastcall params.
     // If the set context function performed floating point operations, 
@@ -403,17 +403,12 @@ inline PBYTE detour_gen_context_callback(PBYTE pbCode, PF_DETOUR_INVOKE_CONTEXT_
     *pbCode++ = 0xEC;
     *pbCode++ = 0x20;
 
-    *pbCode++ = 0x48;   // mov rcx, imm64 (return address)
-    *pbCode++ = 0xB9;
-    *((INT64*&)pbCode)++ = (INT64)(pbJmpSrc);
-    *pbCode++ = 0x51;   // push rcx (return address)
-
     *pbCode++ = 0x48;   // mov rcx,imm64 (param)
     *pbCode++ = 0xB9;
     *((INT64*&)pbCode)++ = (INT64)(pContextParam);
 
-    *pbCode++ = 0xFF;   // jmp [+imm32] (pfContextCallback)
-    *pbCode++ = 0x25;
+    *pbCode++ = 0xFF;   // call [+imm32] (pfContextCallback)
+    *pbCode++ = 0x15;
     *((INT32*&)pbCode)++ = (INT32)((PBYTE)ppfContextCallback - pbJmpSrc);
 
     *pbCode++ = 0x48;   // add rsp,20h (required by x64 __fastcall)
