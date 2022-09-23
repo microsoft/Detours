@@ -34,6 +34,10 @@ CFLAGS=$(CFLAGS) /D_USING_V110_SDK71_
 CFLAGS=$(CFLAGS) /analyze
 !endif
 
+!if defined(DETOURS_SUPPORT_CONTEXT_CALLBACK)
+CFLAGS=$(CFLAGS) /DDETOURS_SUPPORT_CONTEXT_CALLBACK
+!endif
+
 OBJS = \
     $(OBJD)\detours.obj     \
     $(OBJD)\modules.obj     \
