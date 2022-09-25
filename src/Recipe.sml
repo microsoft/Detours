@@ -1,6 +1,6 @@
 Name: "Detours"
 Language: "C++|0.1"
-Version: "4.0.4"
+Version: "4.0.9"
 Interface: "Detours.cpp"
 Source: [
 	"creatwth.cpp"

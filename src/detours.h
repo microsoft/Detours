@@ -14,10 +14,12 @@
 #ifndef SOUP_MODULE
 // Allow for inverted checks to default on
 #define SOUP_INTERNAL
+#define SOUP_EXPORT export
 #else
 #undef SOUP_INTERNAL
 #endif
 #else
+#define SOUP_EXPORT
 // #pragma once
 // #ifndef _DETOURS_H_
 // #define _DETOURS_H_
@@ -393,7 +395,9 @@ typedef struct  _GUID
 //////////////////////////////////////////////////////////////////////////////
 
 #ifdef __cplusplus
+#ifndef SOUP_BUILD
 extern "C" {
+#endif
 #endif // __cplusplus
 
 /////////////////////////////////////////////////// Instruction Target Macros.
@@ -588,67 +592,67 @@ typedef VOID * PDETOUR_LOADED_BINARY;
 //////////////////////////////////////////////////////////// Transaction APIs.
 //
 #ifndef SOUP_INTERNAL
-LONG WINAPI DetourTransactionBegin(VOID);
-LONG WINAPI DetourTransactionAbort(VOID);
-LONG WINAPI DetourTransactionCommit(VOID);
-LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
+SOUP_EXPORT LONG WINAPI DetourTransactionBegin(VOID);
+SOUP_EXPORT LONG WINAPI DetourTransactionAbort(VOID);
+SOUP_EXPORT LONG WINAPI DetourTransactionCommit(VOID);
+SOUP_EXPORT LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
-LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
+SOUP_EXPORT LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
 
-LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
+SOUP_EXPORT LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour);
 
-LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
+SOUP_EXPORT LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
                            _In_ PVOID pDetour,
                            _Out_opt_ PDETOUR_TRAMPOLINE *ppRealTrampoline,
                            _Out_opt_ PVOID *ppRealTarget,
                            _Out_opt_ PVOID *ppRealDetour);
 
-LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
+SOUP_EXPORT LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour);
 
-BOOL WINAPI DetourSetIgnoreTooSmall(_In_ BOOL fIgnore);
-BOOL WINAPI DetourSetRetainRegions(_In_ BOOL fRetain);
-PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound);
-PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
+SOUP_EXPORT BOOL WINAPI DetourSetIgnoreTooSmall(_In_ BOOL fIgnore);
+SOUP_EXPORT BOOL WINAPI DetourSetRetainRegions(_In_ BOOL fRetain);
+SOUP_EXPORT PVOID WINAPI DetourSetSystemRegionLowerBound(_In_ PVOID pSystemRegionLowerBound);
+SOUP_EXPORT PVOID WINAPI DetourSetSystemRegionUpperBound(_In_ PVOID pSystemRegionUpperBound);
 #endif // SOUP_INTERNAL
 
 ////////////////////////////////////////////////////////////// Code Functions.
 //
 #ifndef SOUP_INTERNAL
-PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
+SOUP_EXPORT PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
                                 _In_ LPCSTR pszFunction);
-PVOID WINAPI DetourCodeFromPointer(_In_ PVOID pPointer,
+SOUP_EXPORT PVOID WINAPI DetourCodeFromPointer(_In_ PVOID pPointer,
                                    _Out_opt_ PVOID *ppGlobals);
-PVOID WINAPI DetourCopyInstruction(_In_opt_ PVOID pDst,
+SOUP_EXPORT PVOID WINAPI DetourCopyInstruction(_In_opt_ PVOID pDst,
                                    _Inout_opt_ PVOID *ppDstPool,
                                    _In_ PVOID pSrc,
                                    _Out_opt_ PVOID *ppTarget,
                                    _Out_opt_ LONG *plExtra);
-BOOL WINAPI DetourSetCodeModule(_In_ HMODULE hModule,
+SOUP_EXPORT BOOL WINAPI DetourSetCodeModule(_In_ HMODULE hModule,
                                 _In_ BOOL fLimitReferencesToModule);
-PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
+SOUP_EXPORT PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
                                                   _Out_ PDWORD pcbAllocatedSize);
-BOOL WINAPI DetourIsFunctionImported(_In_ PBYTE pbCode,
+SOUP_EXPORT BOOL WINAPI DetourIsFunctionImported(_In_ PBYTE pbCode,
                                      _In_ PBYTE pbAddress);
 #endif // SOUP_INTERNAL
 
 ///////////////////////////////////////////////////// Loaded Binary Functions.
 //
 #ifndef SOUP_INTERNAL
-HMODULE WINAPI DetourGetContainingModule(_In_ PVOID pvAddr);
-HMODULE WINAPI DetourEnumerateModules(_In_opt_ HMODULE hModuleLast);
-PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule);
-ULONG WINAPI DetourGetModuleSize(_In_opt_ HMODULE hModule);
-BOOL WINAPI DetourEnumerateExports(_In_ HMODULE hModule,
+SOUP_EXPORT HMODULE WINAPI DetourGetContainingModule(_In_ PVOID pvAddr);
+SOUP_EXPORT HMODULE WINAPI DetourEnumerateModules(_In_opt_ HMODULE hModuleLast);
+SOUP_EXPORT PVOID WINAPI DetourGetEntryPoint(_In_opt_ HMODULE hModule);
+SOUP_EXPORT ULONG WINAPI DetourGetModuleSize(_In_opt_ HMODULE hModule);
+SOUP_EXPORT BOOL WINAPI DetourEnumerateExports(_In_ HMODULE hModule,
                                    _In_opt_ PVOID pContext,
                                    _In_ PF_DETOUR_ENUMERATE_EXPORT_CALLBACK pfExport);
-BOOL WINAPI DetourEnumerateImports(_In_opt_ HMODULE hModule,
+SOUP_EXPORT BOOL WINAPI DetourEnumerateImports(_In_opt_ HMODULE hModule,
                                    _In_opt_ PVOID pContext,
                                    _In_opt_ PF_DETOUR_IMPORT_FILE_CALLBACK pfImportFile,
                                    _In_opt_ PF_DETOUR_IMPORT_FUNC_CALLBACK pfImportFunc);
 
-BOOL WINAPI DetourEnumerateImportsEx(_In_opt_ HMODULE hModule,
+SOUP_EXPORT BOOL WINAPI DetourEnumerateImportsEx(_In_opt_ HMODULE hModule,
                                      _In_opt_ PVOID pContext,
                                      _In_opt_ PF_DETOUR_IMPORT_FILE_CALLBACK pfImportFile,
                                      _In_opt_ PF_DETOUR_IMPORT_FUNC_CALLBACK_EX pfImportFuncEx);
@@ -656,19 +660,19 @@ BOOL WINAPI DetourEnumerateImportsEx(_In_opt_ HMODULE hModule,
 _Writable_bytes_(*pcbData)
 _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
-PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
+SOUP_EXPORT PVOID WINAPI DetourFindPayload(_In_opt_ HMODULE hModule,
                                _In_ REFGUID rguid,
                                _Out_opt_ DWORD *pcbData);
 
 _Writable_bytes_(*pcbData)
 _Readable_bytes_(*pcbData)
 _Success_(return != NULL)
-PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
+SOUP_EXPORT PVOID WINAPI DetourFindPayloadEx(_In_ REFGUID rguid,
                                  _Out_opt_ DWORD *pcbData);
 
-DWORD WINAPI DetourGetSizeOfPayloads(_In_opt_ HMODULE hModule);
+SOUP_EXPORT DWORD WINAPI DetourGetSizeOfPayloads(_In_opt_ HMODULE hModule);
 
-BOOL WINAPI DetourFreePayload(_In_ PVOID pvData);
+SOUP_EXPORT BOOL WINAPI DetourFreePayload(_In_ PVOID pvData);
 #endif // SOUP_INTERNAL
 
 ///////////////////////////////////////////////// Persistent Binary Functions.
@@ -740,7 +744,7 @@ typedef BOOL (WINAPI *PDETOUR_CREATE_PROCESS_ROUTINEW)(
     _In_ LPSTARTUPINFOW lpStartupInfo,
     _Out_ LPPROCESS_INFORMATION lpProcessInformation);
 
-BOOL WINAPI DetourCreateProcessWithDllA(_In_opt_ LPCSTR lpApplicationName,
+SOUP_EXPORT BOOL WINAPI DetourCreateProcessWithDllA(_In_opt_ LPCSTR lpApplicationName,
                                         _Inout_opt_ LPSTR lpCommandLine,
                                         _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
                                         _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
@@ -753,7 +757,7 @@ BOOL WINAPI DetourCreateProcessWithDllA(_In_opt_ LPCSTR lpApplicationName,
                                         _In_ LPCSTR lpDllName,
                                         _In_opt_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
 
-BOOL WINAPI DetourCreateProcessWithDllW(_In_opt_ LPCWSTR lpApplicationName,
+SOUP_EXPORT BOOL WINAPI DetourCreateProcessWithDllW(_In_opt_ LPCWSTR lpApplicationName,
                                         _Inout_opt_ LPWSTR lpCommandLine,
                                         _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
                                         _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
@@ -774,7 +778,7 @@ BOOL WINAPI DetourCreateProcessWithDllW(_In_opt_ LPCWSTR lpApplicationName,
 #define PDETOUR_CREATE_PROCESS_ROUTINE  PDETOUR_CREATE_PROCESS_ROUTINEA
 #endif // !UNICODE
 
-BOOL WINAPI DetourCreateProcessWithDllExA(_In_opt_ LPCSTR lpApplicationName,
+SOUP_EXPORT BOOL WINAPI DetourCreateProcessWithDllExA(_In_opt_ LPCSTR lpApplicationName,
                                           _Inout_opt_ LPSTR lpCommandLine,
                                           _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
                                           _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
@@ -787,7 +791,7 @@ BOOL WINAPI DetourCreateProcessWithDllExA(_In_opt_ LPCSTR lpApplicationName,
                                           _In_ LPCSTR lpDllName,
                                           _In_opt_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
 
-BOOL WINAPI DetourCreateProcessWithDllExW(_In_opt_ LPCWSTR lpApplicationName,
+SOUP_EXPORT BOOL WINAPI DetourCreateProcessWithDllExW(_In_opt_ LPCWSTR lpApplicationName,
                                           _Inout_opt_  LPWSTR lpCommandLine,
                                           _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
                                           _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
@@ -806,7 +810,7 @@ BOOL WINAPI DetourCreateProcessWithDllExW(_In_opt_ LPCWSTR lpApplicationName,
 #define DetourCreateProcessWithDllEx    DetourCreateProcessWithDllExA
 #endif // !UNICODE
 
-BOOL WINAPI DetourCreateProcessWithDllsA(_In_opt_ LPCSTR lpApplicationName,
+SOUP_EXPORT BOOL WINAPI DetourCreateProcessWithDllsA(_In_opt_ LPCSTR lpApplicationName,
                                          _Inout_opt_ LPSTR lpCommandLine,
                                          _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
                                          _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
@@ -820,7 +824,7 @@ BOOL WINAPI DetourCreateProcessWithDllsA(_In_opt_ LPCSTR lpApplicationName,
                                          _In_reads_(nDlls) LPCSTR *rlpDlls,
                                          _In_opt_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
 
-BOOL WINAPI DetourCreateProcessWithDllsW(_In_opt_ LPCWSTR lpApplicationName,
+SOUP_EXPORT BOOL WINAPI DetourCreateProcessWithDllsW(_In_opt_ LPCWSTR lpApplicationName,
                                          _Inout_opt_ LPWSTR lpCommandLine,
                                          _In_opt_ LPSECURITY_ATTRIBUTES lpProcessAttributes,
                                          _In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
@@ -840,11 +844,11 @@ BOOL WINAPI DetourCreateProcessWithDllsW(_In_opt_ LPCWSTR lpApplicationName,
 #define DetourCreateProcessWithDlls     DetourCreateProcessWithDllsA
 #endif // !UNICODE
 
-BOOL WINAPI DetourProcessViaHelperA(_In_ DWORD dwTargetPid,
+SOUP_EXPORT BOOL WINAPI DetourProcessViaHelperA(_In_ DWORD dwTargetPid,
                                     _In_ LPCSTR lpDllName,
                                     _In_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
 
-BOOL WINAPI DetourProcessViaHelperW(_In_ DWORD dwTargetPid,
+SOUP_EXPORT BOOL WINAPI DetourProcessViaHelperW(_In_ DWORD dwTargetPid,
                                     _In_ LPCSTR lpDllName,
                                     _In_ PDETOUR_CREATE_PROCESS_ROUTINEW pfCreateProcessW);
 
@@ -854,12 +858,12 @@ BOOL WINAPI DetourProcessViaHelperW(_In_ DWORD dwTargetPid,
 #define DetourProcessViaHelper          DetourProcessViaHelperA
 #endif // !UNICODE
 
-BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
+SOUP_EXPORT BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
                                         _In_ DWORD nDlls,
                                         _In_reads_(nDlls) LPCSTR *rlpDlls,
                                         _In_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
 
-BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
+SOUP_EXPORT BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
                                         _In_ DWORD nDlls,
                                         _In_reads_(nDlls) LPCSTR *rlpDlls,
                                         _In_ PDETOUR_CREATE_PROCESS_ROUTINEW pfCreateProcessW);
@@ -870,31 +874,31 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
 #define DetourProcessViaHelperDlls      DetourProcessViaHelperDllsA
 #endif // !UNICODE
 
-BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
+SOUP_EXPORT BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
                                        _In_reads_(nDlls) LPCSTR *rlpDlls,
                                        _In_ DWORD nDlls);
 
-BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
+SOUP_EXPORT BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
                                          _In_ HMODULE hImage,
                                          _In_ BOOL bIs32Bit,
                                          _In_reads_(nDlls) LPCSTR *rlpDlls,
                                          _In_ DWORD nDlls);
 
-BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
+SOUP_EXPORT BOOL WINAPI DetourCopyPayloadToProcess(_In_ HANDLE hProcess,
                                        _In_ REFGUID rguid,
                                        _In_reads_bytes_(cbData) LPCVOID pvData,
                                        _In_ DWORD cbData);
 _Success_(return != NULL)
-PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
+SOUP_EXPORT PVOID WINAPI DetourCopyPayloadToProcessEx(_In_ HANDLE hProcess,
                                           _In_ REFGUID rguid,
                                           _In_reads_bytes_(cbData) LPCVOID pvData,
                                           _In_ DWORD cbData);
 
-BOOL WINAPI DetourRestoreAfterWith(VOID);
-BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
+SOUP_EXPORT BOOL WINAPI DetourRestoreAfterWith(VOID);
+SOUP_EXPORT BOOL WINAPI DetourRestoreAfterWithEx(_In_reads_bytes_(cbData) PVOID pvData,
                                      _In_ DWORD cbData);
-BOOL WINAPI DetourIsHelperProcess(VOID);
-VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
+SOUP_EXPORT BOOL WINAPI DetourIsHelperProcess(VOID);
+SOUP_EXPORT VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
                                         _In_ HINSTANCE,
                                         _In_ LPSTR,
                                         _In_ INT);
@@ -903,7 +907,9 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 //
 //////////////////////////////////////////////////////////////////////////////
 #ifdef __cplusplus
+#ifndef SOUP_BUILD
 }
+#endif
 #endif // __cplusplus
 
 /////////////////////////////////////////////////// Type-safe overloads for C++
@@ -915,13 +921,13 @@ VOID CALLBACK DetourFinishHelperProcess(_In_ HWND,
 
 #ifndef SOUP_INTERNAL
 
-template<typename T>
+SOUP_EXPORT template<typename T>
 struct DetoursIsFunctionPointer : std::false_type {};
 
-template<typename T>
+SOUP_EXPORT template<typename T>
 struct DetoursIsFunctionPointer<T*> : std::is_function<typename std::remove_pointer<T>::type> {};
 
-template<
+SOUP_EXPORT template<
     typename T,
     typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
 LONG DetourAttach(_Inout_ T *ppPointer,
@@ -932,7 +938,7 @@ LONG DetourAttach(_Inout_ T *ppPointer,
         reinterpret_cast<void*>(pDetour));
 }
 
-template<
+SOUP_EXPORT template<
     typename T,
     typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
 LONG DetourAttachEx(_Inout_ T *ppPointer,
@@ -949,7 +955,7 @@ LONG DetourAttachEx(_Inout_ T *ppPointer,
         reinterpret_cast<void**>(ppRealDetour));
 }
 
-template<
+SOUP_EXPORT template<
     typename T,
     typename std::enable_if<DetoursIsFunctionPointer<T>::value, int>::type = 0>
 LONG DetourDetach(_Inout_ T *ppPointer,
@@ -1241,7 +1247,9 @@ __declspec(align(16)) struct DETOUR_IA64_BUNDLE
 //////////////////////////////////////////////////////////////////////////////
 
 #ifdef __cplusplus
+#ifndef SOUP_BUILD
 extern "C" {
+#endif
 #endif // __cplusplus
 
 #define DETOUR_OFFLINE_LIBRARY(x)                                       \
@@ -1267,6 +1275,8 @@ DETOUR_OFFLINE_LIBRARY(IA64)
 // Helpers for manipulating page protection.
 //
 
+#ifndef SOUP_INTERNAL
+
 _Success_(return != FALSE)
 BOOL WINAPI DetourVirtualProtectSameExecuteEx(_In_  HANDLE hProcess,
                                               _In_  PVOID pAddress,
@@ -1282,8 +1292,13 @@ BOOL WINAPI DetourVirtualProtectSameExecute(_In_  PVOID pAddress,
 
 // Detours must depend only on kernel32.lib, so we cannot use IsEqualGUID
 BOOL WINAPI DetourAreSameGuid(_In_ REFGUID left, _In_ REFGUID right);
+
+#endif
+
 #ifdef __cplusplus
+#ifndef SOUP_BUILD
 }
+#endif
 #endif // __cplusplus
 
 //////////////////////////////////////////////////////////////////////////////
