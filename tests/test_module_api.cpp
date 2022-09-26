@@ -241,7 +241,7 @@ TEST_CASE("DetourEnumerateModules", "[module]")
         auto mod = DetourEnumerateModules(nullptr);
 
         REQUIRE( GetLastError() == NO_ERROR );
-        REQUIRE( mod == reinterpret_cast<HMODULE>(&__ImageBase) );
+        REQUIRE( mod != NULL );
     }
 
     SECTION("Passing stack, results in module")
@@ -728,4 +728,29 @@ TEST_CASE("DetourRestoreAfterWithEx", "[module]")
     // TODO: Needs to be written.
 }
 
+// Define the import symbol so that we can get the address of the IAT entry for a static import
+#ifdef _X86_
+#pragma warning(disable:4483) // disable warning/error about __identifier(<string>)
+#define __imp_SetLastError      __identifier("_imp__SetLastError@4")
+#endif
+
+extern "C" extern void *__imp_SetLastError;
+
+TEST_CASE("DetourIsFunctionImported", "[module]")
+{
+    SECTION("Passing NULL code pointer, results in false")
+    {
+        REQUIRE(!DetourIsFunctionImported(NULL, reinterpret_cast<PBYTE>(&__imp_SetLastError)));
+    }
+    
+    SECTION("Passing NULL target, results in false")
+    {
+        REQUIRE(!DetourIsFunctionImported(reinterpret_cast<PBYTE>(&__ImageBase), NULL));
+    }
+    
+    SECTION("Passing imported function, results in true")
+    {
+        REQUIRE(DetourIsFunctionImported(reinterpret_cast<PBYTE>(&__ImageBase), reinterpret_cast<PBYTE>(&__imp_SetLastError)));
+    }
+}
 
