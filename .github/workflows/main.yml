@@ -3,8 +3,6 @@ name: CI-Build
 env:
   # Turn on msvc analysis during build, enable once warnings are clean.
   DETOURS_ANALYZE: true
-  # Enable feature for CI build
-  DETOURS_SUPPORT_CONTEXT_CALLBACK: true
 
   # Compile in parallel where possible.
   CL: /MP
@@ -25,6 +23,12 @@ jobs:
         os: [windows-2019, windows-2022]
         arch: [x86, x64, x64_arm, x64_arm64]
         conf: [Release, Debug]
+        callback: [false, true]
+        exclude:
+          - callback: true
+            arch: x64_arm
+          - callback: true
+            arch: x64_arm64
 
     steps:
       - name: Clone Repository
@@ -48,6 +52,7 @@ jobs:
           # Tell detours what process to target
           DETOURS_TARGET_PROCESSOR: ${{ env.VSCMD_ARG_TGT_ARCH }}
           DETOURS_CONFIG: ${{ matrix.conf }}
+          DETOURS_SUPPORT_CONTEXT_CALLBACK: ${{ matrix.callback }}
         run: nmake
 
       - name: Run unit tests for ${{ matrix.arch }} on ${{ matrix.os }}
