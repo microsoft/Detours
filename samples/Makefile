@@ -93,6 +93,8 @@ all:
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\payload"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
+    cd "$(MAKEDIR)\callback"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)"
 
 clean:
@@ -159,6 +161,8 @@ clean:
     cd "$(MAKEDIR)\dynamic_alloc"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\payload"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
+    cd "$(MAKEDIR)\callback"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)"
     -rmdir lib32 2>nul
@@ -229,6 +233,8 @@ realclean:
     cd "$(MAKEDIR)\dynamic_alloc"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\payload"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
+    cd "$(MAKEDIR)\callback"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)"
     -rmdir lib32 2>nul
@@ -316,6 +322,8 @@ test:
     cd "$(MAKEDIR)\dynamic_alloc"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
     cd "$(MAKEDIR)\payload"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
+    cd "$(MAKEDIR)\callback"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) test
     cd "$(MAKEDIR)"
 

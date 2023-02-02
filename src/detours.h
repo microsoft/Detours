@@ -551,6 +551,9 @@ typedef BOOL (CALLBACK *PF_DETOUR_IMPORT_FUNC_CALLBACK_EX)(_In_opt_ PVOID pConte
                                                            _In_opt_ LPCSTR pszFunc,
                                                            _In_opt_ PVOID* ppvFunc);
 
+typedef void(CALLBACK *PF_DETOUR_INVOKE_CONTEXT_CALLBACK)(
+    _In_opt_ PVOID pContext);
+
 typedef VOID * PDETOUR_BINARY;
 typedef VOID * PDETOUR_LOADED_BINARY;
 
@@ -571,6 +574,14 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
                            _Out_opt_ PDETOUR_TRAMPOLINE *ppRealTrampoline,
                            _Out_opt_ PVOID *ppRealTarget,
                            _Out_opt_ PVOID *ppRealDetour);
+
+LONG WINAPI DetourAttachWithContextCallback(_Inout_ PVOID *ppPointer,
+                                            _In_ PVOID pDetour,
+                                            _Out_opt_ PDETOUR_TRAMPOLINE *ppRealTrampoline,
+                                            _Out_opt_ PVOID *ppRealTarget,
+                                            _Out_opt_ PVOID *ppRealDetour,
+                                            _In_opt_ PF_DETOUR_INVOKE_CONTEXT_CALLBACK pfContextCallback,
+                                            _In_opt_ PVOID pContextParam);
 
 LONG WINAPI DetourDetach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour);
