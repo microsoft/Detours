@@ -1,0 +1,10 @@
+EXPORTS
+DetourUpdateProcessWithDll
+DetourUpdateProcessWithDllEx
+DetourCreateProcessWithDllA
+DetourCreateProcessWithDllW
+DetourIsHelperProcess
+DetourCreateProcessWithDllExA
+DetourCreateProcessWithDllExW
+DetourCreateProcessWithDllsA
+DetourCreateProcessWithDllsW

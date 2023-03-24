@@ -15,6 +15,8 @@ all:
     @if exist "$(MAKEDIR)\core\makefile" cd "$(MAKEDIR)\core" && $(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\src"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
+    cd "$(MAKEDIR)\libdetours"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\samples"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS)
     cd "$(MAKEDIR)\tests"
@@ -25,6 +27,8 @@ all:
 clean:
     cd "$(MAKEDIR)"
     @if exist "$(MAKEDIR)\core\makefile" cd "$(MAKEDIR)\core" && $(MAKE) /NOLOGO /$(MAKEFLAGS) clean
+    cd "$(MAKEDIR)\libdetours"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\src"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) clean
     cd "$(MAKEDIR)\samples"
@@ -38,6 +42,8 @@ realclean: clean
     cd "$(MAKEDIR)"
     @if exist "$(MAKEDIR)\core\makefile" cd "$(MAKEDIR)\core" && $(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\src"
+    @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
+    cd "$(MAKEDIR)\libdetours"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
     cd "$(MAKEDIR)\samples"
     @$(MAKE) /NOLOGO /$(MAKEFLAGS) realclean
