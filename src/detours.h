@@ -486,6 +486,12 @@ typedef struct _DETOUR_EXE_HELPER
     CHAR                rDlls[4];
 } DETOUR_EXE_HELPER, *PDETOUR_EXE_HELPER;
 
+typedef struct _DETOUR_THREAD_DATA
+{
+    _DETOUR_THREAD_DATA *   pNext;
+    HANDLE                  hThread;
+} DETOUR_THREAD_DATA, *PDETOUR_THREAD_DATA;
+
 #pragma pack(pop)
 
 #define DETOUR_SECTION_HEADER_DECLARE(cbSectionSize) \
@@ -562,6 +568,7 @@ LONG WINAPI DetourTransactionCommit(VOID);
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer);
 
 LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread);
+LONG WINAPI DetourUpdateThreadPreallocated(_In_ HANDLE hThread, _In_ DETOUR_THREAD_DATA *pData);
 
 LONG WINAPI DetourAttach(_Inout_ PVOID *ppPointer,
                          _In_ PVOID pDetour);
