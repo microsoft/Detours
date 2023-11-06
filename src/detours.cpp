@@ -2026,19 +2026,14 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
 #ifdef DETOURS_X64
     // Detouring a function should not break our ability to walk the call stack.
     // On X64 stack unwinding relies on RUNTIME_FUNCTION structures.
-    // These are typically found in the .pdata section of PE32+ images.
     // Require this.
+    // These are typically found in the .pdata section of PE32+ images.
     // Alternatively dynamic code can use either RtlAddFunctionTable or
     // RtlInstallFunctionTableCallback to register this information.
     // See https://learn.microsoft.com/en-us/cpp/build/exception-handling-x64
-    MEMORY_BASIC_INFORMATION mbi;
-    if (!VirtualQuery(pDetour, &mbi, sizeof(mbi))) {
-        DETOUR_TRACE(("invalid detour\n"));
-        DETOUR_BREAK();
-        return ERROR_INVALID_PARAMETER;
-    }
-    if (mbi.Type != MEM_IMAGE) {
-        DETOUR_TRACE(("detour must be MEM_IMAGE\n"));
+    DWORD64 imageBase;
+    if (NULL == RtlLookupFunctionEntry((DWORD64)pDetour, &imageBase, NULL)) {
+        DETOUR_TRACE(("detour must have entry in function table\n"));
         DETOUR_BREAK();
         return ERROR_INVALID_PARAMETER;
     }
