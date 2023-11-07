@@ -2028,8 +2028,8 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
     // On X64 stack unwinding relies on RUNTIME_FUNCTION structures.
     // Require this.
     // These are typically found in the .pdata section of PE32+ images.
-    // Alternatively dynamic code can use either RtlAddFunctionTable or
-    // RtlInstallFunctionTableCallback to register this information.
+    // Alternatively dynamic code should use RtlAddGrowableFunctionTable
+    // to register this information. This supports kernel stack walks.
     // See https://learn.microsoft.com/en-us/cpp/build/exception-handling-x64
     DWORD64 imageBase;
     if (NULL == RtlLookupFunctionEntry((DWORD64)pDetour, &imageBase, NULL)) {
