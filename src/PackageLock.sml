@@ -1,19 +1,19 @@
-Version: 4
+Version: 5
 Closures: {
 	Root: {
-		"C++": [
-			{ Name: "Detours", Version: "./", Build: "Build0", Tool: "Tool0" }
-		]
+		'C++': {
+			Detours: { Version: '../src', Build: 'Build0', Tool: 'Tool0' }
+		}
 	}
 	Build0: {
-		Wren: [
-			{ Name: "Soup.Cpp", Version: "0.8.2" }
-		]
+		Wren: {
+			'mwasplund|Soup.Cpp': { Version: '0.12.0' }
+		}
 	}
 	Tool0: {
-		"C++": [
-			{ Name: "copy", Version: "1.0.0" }
-			{ Name: "mkdir", Version: "1.0.0" }
-		]
+		'C++': {
+			'mwasplund|copy': { Version: '1.0.0' }
+			'mwasplund|mkdir': { Version: '1.0.0' }
+		}
 	}
 }

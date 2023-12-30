@@ -1,14 +1,14 @@
-Name: "Detours"
-Language: "C++|0.1"
-Version: "4.0.11"
+Name: 'Detours'
+Language: 'C++|0'
+Version: '4.0.12'
 
 TargetSystems: [
-	"Win32"
+	'Win32'
 ]
 
-Interface: "detours.cpp"
+Interface: 'detours.cpp'
 Source: [
-	"creatwth.cpp"
-	"disasm.cpp"
-	"modules.cpp"
+	'creatwth.cpp'
+	'disasm.cpp'
+	'modules.cpp'
 ]
