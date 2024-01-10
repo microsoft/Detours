@@ -1,5 +1,9 @@
 name: CI-Build
 
+permissions:
+  # disable extraneous permissions.
+  {}
+
 env:
   # Turn on msvc analysis during build, enable once warnings are clean.
   DETOURS_ANALYZE: true
