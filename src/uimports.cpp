@@ -306,6 +306,8 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
         goto finish;
     }
 
+    inh.OptionalHeader.CheckSum = 0;
+
     if (!WriteProcessMemory(hProcess, pbModule, &idh, sizeof(idh), NULL)) {
         DETOUR_TRACE(("WriteProcessMemory(idh) failed: %lu\n", GetLastError()));
         goto finish;
