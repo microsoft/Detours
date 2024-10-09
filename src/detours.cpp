@@ -156,6 +156,8 @@ inline PBYTE detour_gen_brk(PBYTE pbCode, PBYTE pbLimit)
 
 inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
 {
+    PBYTE pbCodeOriginal;
+
     if (pbCode == NULL) {
         return NULL;
     }
@@ -179,6 +181,7 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
         PBYTE pbNew = pbCode + 2 + *(CHAR *)&pbCode[1];
         DETOUR_TRACE(("%p->%p: skipped over short jump.\n", pbCode, pbNew));
         pbCode = pbNew;
+        pbCodeOriginal = pbCode;
 
         // First, skip over the import vector if there is one.
         if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [imm32]
@@ -195,6 +198,23 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
             pbNew = pbCode + 5 + *(UNALIGNED INT32 *)&pbCode[1];
             DETOUR_TRACE(("%p->%p: skipped over long jump.\n", pbCode, pbNew));
             pbCode = pbNew;
+
+            // Patches applied by the OS will jump through an HPAT page to get
+            // the target function in the patch image. The jump is always performed
+            // to the target function found at the current instruction pointer +
+            // PAGE_SIZE - 6 (size of jump).
+            // If this is an OS patch, we want to detour at the point of the target function
+            // padding in the base image. Ideally, we would detour at the target function, but
+            // since it's patched it begins with a short jump (to padding) which isn't long
+            // enough to hold the detour code bytes.
+            if (pbCode[0] == 0xff &&
+                pbCode[1] == 0x25 &&
+                *(UNALIGNED INT32 *)&pbCode[2] == (UNALIGNED INT32)(pbCode + 0x1000)) {   // jmp [rip+PAGE_SIZE-6]
+
+                DETOUR_TRACE(("%p->%p: OS patch encountered, reset back to long jump 5 bytes prior to target function. \n", pbCode, pbCodeOriginal));
+                pbCode = pbCodeOriginal;
+            }
+
         }
     }
     return pbCode;
@@ -369,6 +389,8 @@ inline PBYTE detour_gen_brk(PBYTE pbCode, PBYTE pbLimit)
 
 inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
 {
+    PBYTE pbCodeOriginal;
+
     if (pbCode == NULL) {
         return NULL;
     }
@@ -392,6 +414,7 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
         PBYTE pbNew = pbCode + 2 + *(CHAR *)&pbCode[1];
         DETOUR_TRACE(("%p->%p: skipped over short jump.\n", pbCode, pbNew));
         pbCode = pbNew;
+        pbCodeOriginal = pbCode;
 
         // First, skip over the import vector if there is one.
         if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [+imm32]
@@ -408,6 +431,21 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
             pbNew = pbCode + 5 + *(UNALIGNED INT32 *)&pbCode[1];
             DETOUR_TRACE(("%p->%p: skipped over long jump.\n", pbCode, pbNew));
             pbCode = pbNew;
+
+            // Patches applied by the OS will jump through an HPAT page to get
+            // the target function in the patch image. The jump is always performed
+            // to the target function found at the current instruction pointer +
+            // PAGE_SIZE - 6 (size of jump).
+            // If this is an OS patch, we want to detour at the point of the target function
+            // in the base image. Since we need 5 bytes to perform the jump, detour at the
+            // point of the long jump instead of the short jump at the start of the target.
+            if (pbCode[0] == 0xff &&
+                pbCode[1] == 0x25 &&
+                *(UNALIGNED INT32 *)&pbCode[2] == 0xFFA) {   // jmp [rip+PAGE_SIZE-6]
+
+                DETOUR_TRACE(("%p->%p: OS patch encountered, reset back to long jump 5 bytes prior to target function. \n", pbCode, pbCodeOriginal));
+                pbCode = pbCodeOriginal;
+            }
         }
     }
     return pbCode;
@@ -1151,9 +1189,45 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
     *ppUpper = (PDETOUR_TRAMPOLINE)hi;
 }
 
+inline BOOL detour_is_code_os_patched(PBYTE pbCode)
+{
+    // Identify whether the provided code pointer is a OS patch jump.
+    // We can do this by checking if a branch (b <imm26>) is present, and if so,
+    // it must be jumping to an HPAT page containing ldr <reg> [PC+PAGE_SIZE-4], br <reg>.
+    ULONG Opcode = fetch_opcode(pbCode);
+
+    if ((Opcode & 0xfc000000) != 0x14000000) {
+        return FALSE;
+    }
+    // The branch must be jumping forward if it's going into the HPAT.
+    // Check that the sign bit is cleared.
+    if ((Opcode & 0x2000000) != 0) {
+        return FALSE;
+    }
+    ULONG Delta = (ULONG)((Opcode & 0x1FFFFFF) * 4);
+    PBYTE BranchTarget = pbCode + Delta;
+
+    // Now inspect the opcodes of the code we jumped to in order to determine if it's HPAT.
+    ULONG HpatOpcode1 = fetch_opcode(BranchTarget);
+    ULONG HpatOpcode2 = fetch_opcode(BranchTarget + 4);
+
+    if (HpatOpcode1 != 0x58008010) {    // ldr <reg> [PC+PAGE_SIZE]
+        return FALSE;
+    }
+    if (HpatOpcode2 != 0xd61f0200) {    // br <reg>
+        return FALSE;
+    }
+    return TRUE;
+}
+
 inline BOOL detour_does_code_end_function(PBYTE pbCode)
 {
     ULONG Opcode = fetch_opcode(pbCode);
+    // When the OS has patched a function entry point, it will incorrectly
+    // appear as though the function is just a single branch instruction.
+    if (detour_is_code_os_patched(pbCode)) {
+        return FALSE;
+    }
     if ((Opcode & 0xfffffc1f) == 0xd65f0000 ||      // br <reg>
         (Opcode & 0xfc000000) == 0x14000000) {      // b <imm26>
         return TRUE;
