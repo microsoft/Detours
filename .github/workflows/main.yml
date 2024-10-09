@@ -35,7 +35,7 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Initialize CodeQL for C++
-        uses: github/codeql-action/init@v1
+        uses: github/codeql-action/init@v2
         if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
         with:
           languages: cpp
@@ -65,5 +65,5 @@ jobs:
             include/
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v1
+        uses: github/codeql-action/analyze@v2
         if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}

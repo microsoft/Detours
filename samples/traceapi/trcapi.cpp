@@ -7,7 +7,7 @@
 //  Copyright (c) Microsoft Corporation.  All rights reserved.
 //
 #undef WIN32_LEAN_AND_MEAN
-#define _WIN32_WINNT        0x400
+#define _WIN32_WINNT        0x0501
 #define WIN32
 #define NT
 #define _WINSOCK_DEPRECATED_NO_WARNINGS

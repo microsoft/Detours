@@ -383,6 +383,10 @@ extern const GUID DETOUR_EXE_HELPER_GUID;
 #define DETOUR_TRAMPOLINE_SIGNATURE             0x21727444  // Dtr!
 typedef struct _DETOUR_TRAMPOLINE DETOUR_TRAMPOLINE, *PDETOUR_TRAMPOLINE;
 
+#ifndef DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS
+#define DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS      32
+#endif // !DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS
+
 /////////////////////////////////////////////////////////// Binary Structures.
 //
 #pragma pack(push, 8)
@@ -454,9 +458,9 @@ typedef struct _DETOUR_EXE_RESTORE
 #endif
 #ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC    // some environments do not have this
         BYTE                raw[sizeof(IMAGE_NT_HEADERS64) +
-                                sizeof(IMAGE_SECTION_HEADER) * 32];
+                                sizeof(IMAGE_SECTION_HEADER) * DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS];
 #else
-        BYTE                raw[0x108 + sizeof(IMAGE_SECTION_HEADER) * 32];
+        BYTE                raw[0x108 + sizeof(IMAGE_SECTION_HEADER) * DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS];
 #endif
     };
     DETOUR_CLR_HEADER   clr;
@@ -591,6 +595,8 @@ BOOL WINAPI DetourSetCodeModule(_In_ HMODULE hModule,
                                 _In_ BOOL fLimitReferencesToModule);
 PVOID WINAPI DetourAllocateRegionWithinJumpBounds(_In_ LPCVOID pbTarget,
                                                   _Out_ PDWORD pcbAllocatedSize);
+BOOL WINAPI DetourIsFunctionImported(_In_ PBYTE pbCode,
+                                     _In_ PBYTE pbAddress);
 
 ///////////////////////////////////////////////////// Loaded Binary Functions.
 //
