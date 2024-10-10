@@ -1580,8 +1580,10 @@ static BOOL detour_is_region_empty(PDETOUR_REGION pRegion)
     return TRUE;
 }
 
-static void detour_free_unused_trampoline_regions()
+static PDETOUR_REGION detour_splice_unused_trampoline_regions()
 {
+    PDETOUR_REGION pRegionsToFree = NULL;
+
     PDETOUR_REGION *ppRegionBase = &s_pRegions;
     PDETOUR_REGION pRegion = s_pRegions;
 
@@ -1589,7 +1591,10 @@ static void detour_free_unused_trampoline_regions()
         if (detour_is_region_empty(pRegion)) {
             *ppRegionBase = pRegion->pNext;
 
-            VirtualFree(pRegion, 0, MEM_RELEASE);
+            // Move pRegion to the pRegionsToFree list.
+            pRegion->pNext = pRegionsToFree;
+            pRegionsToFree = pRegion;
+
             s_pRegion = NULL;
         }
         else {
@@ -1597,16 +1602,12 @@ static void detour_free_unused_trampoline_regions()
         }
         pRegion = *ppRegionBase;
     }
+
+    return pRegionsToFree;
 }
 
 ///////////////////////////////////////////////////////// Transaction Structs.
 //
-struct DetourThread
-{
-    DetourThread *      pNext;
-    HANDLE              hThread;
-};
-
 struct DetourOperation
 {
     DetourOperation *   pNext;
@@ -1623,7 +1624,8 @@ static BOOL                 s_fRetainRegions        = FALSE;
 static LONG                 s_nPendingThreadId      = 0; // Thread owning pending transaction.
 static LONG                 s_nPendingError         = NO_ERROR;
 static PVOID *              s_ppPendingError        = NULL;
-static DetourThread *       s_pPendingThreads       = NULL;
+static DETOUR_THREAD_DATA * s_pPendingThreads       = NULL;
+static DETOUR_THREAD_DATA * s_pUnownedPendingThreads = NULL; // Pending threads where the user allocated the DETOUR_THREAD_DATA instead of us.
 static DetourOperation *    s_pPendingOperations    = NULL;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1680,6 +1682,7 @@ _Benign_race_end_
 
     s_pPendingOperations = NULL;
     s_pPendingThreads = NULL;
+    s_pUnownedPendingThreads = NULL;
     s_ppPendingError = NULL;
 
     // Make sure the trampoline pages are writable.
@@ -1695,7 +1698,7 @@ LONG WINAPI DetourTransactionAbort()
     }
 
     // Restore all of the page permissions.
-    for (DetourOperation *o = s_pPendingOperations; o != NULL;) {
+    for (DetourOperation *o = s_pPendingOperations; o != NULL; o = o->pNext) {
         // We don't care if this fails, because the code is still accessible.
         DWORD dwOld;
         VirtualProtect(o->pbTarget, o->pTrampoline->cbRestore,
@@ -1707,26 +1710,36 @@ LONG WINAPI DetourTransactionAbort()
                 o->pTrampoline = NULL;
             }
         }
-
-        DetourOperation *n = o->pNext;
-        delete o;
-        o = n;
     }
-    s_pPendingOperations = NULL;
 
     // Make sure the trampoline pages are no longer writable.
     detour_runnable_trampoline_regions();
 
     // Resume any suspended threads.
-    for (DetourThread *t = s_pPendingThreads; t != NULL;) {
+    for (DETOUR_THREAD_DATA *t = s_pUnownedPendingThreads; t != NULL; t = t->pNext) {
         // There is nothing we can do if this fails.
         ResumeThread(t->hThread);
+    }
+    for (DETOUR_THREAD_DATA *t = s_pPendingThreads; t != NULL; t = t->pNext) {
+        // There is nothing we can do if this fails.
+        ResumeThread(t->hThread);
+    }
 
-        DetourThread *n = t->pNext;
+    // Free all memory we allocated with new. This needs to occur after resuming threads to avoid deadlocks.
+    for (DetourOperation *o = s_pPendingOperations; o != NULL;) {
+        DetourOperation *n = o->pNext;
+        delete o;
+        o = n;
+    }
+    for (DETOUR_THREAD_DATA *t = s_pPendingThreads; t != NULL;) {
+        DETOUR_THREAD_DATA *n = t->pNext;
         delete t;
         t = n;
     }
+
+    s_pPendingOperations = NULL;
     s_pPendingThreads = NULL;
+    s_pUnownedPendingThreads = NULL;
     s_nPendingThreadId = 0;
 
     return NO_ERROR;
@@ -1757,6 +1770,74 @@ static LONG detour_align_from_target(PDETOUR_TRAMPOLINE pTrampoline, LONG obTarg
     return 0;
 }
 
+static void detour_move_thread_instruction_pointer_if_needed(HANDLE hThread)
+{
+    CONTEXT cxt;
+    cxt.ContextFlags = CONTEXT_CONTROL;
+
+#undef DETOURS_EIP
+
+#ifdef DETOURS_X86
+#define DETOURS_EIP         Eip
+#endif // DETOURS_X86
+
+#ifdef DETOURS_X64
+#define DETOURS_EIP         Rip
+#endif // DETOURS_X64
+
+#ifdef DETOURS_IA64
+#define DETOURS_EIP         StIIP
+#endif // DETOURS_IA64
+
+#ifdef DETOURS_ARM
+#define DETOURS_EIP         Pc
+#endif // DETOURS_ARM
+
+#ifdef DETOURS_ARM64
+#define DETOURS_EIP         Pc
+#endif // DETOURS_ARM64
+
+typedef ULONG_PTR DETOURS_EIP_TYPE;
+
+    if (GetThreadContext(hThread, &cxt)) {
+        for (DetourOperation *o = s_pPendingOperations; o != NULL; o = o->pNext) {
+            if (o->fIsRemove) {
+                if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pTrampoline &&
+                    cxt.DETOURS_EIP < (DETOURS_EIP_TYPE)((ULONG_PTR)o->pTrampoline
+                                                            + sizeof(o->pTrampoline))
+                    ) {
+
+                    cxt.DETOURS_EIP = (DETOURS_EIP_TYPE)
+                        ((ULONG_PTR)o->pbTarget
+                            + detour_align_from_trampoline(o->pTrampoline,
+                                                        (BYTE)(cxt.DETOURS_EIP
+                                                                - (DETOURS_EIP_TYPE)(ULONG_PTR)
+                                                                o->pTrampoline)));
+
+                    SetThreadContext(hThread, &cxt);
+                }
+            }
+            else {
+                if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pbTarget &&
+                    cxt.DETOURS_EIP < (DETOURS_EIP_TYPE)((ULONG_PTR)o->pbTarget
+                                                            + o->pTrampoline->cbRestore)
+                    ) {
+
+                    cxt.DETOURS_EIP = (DETOURS_EIP_TYPE)
+                        ((ULONG_PTR)o->pTrampoline
+                            + detour_align_from_target(o->pTrampoline,
+                                                    (BYTE)(cxt.DETOURS_EIP
+                                                            - (DETOURS_EIP_TYPE)(ULONG_PTR)
+                                                            o->pbTarget)));
+
+                    SetThreadContext(hThread, &cxt);
+                }
+            }
+        }
+    }
+#undef DETOURS_EIP
+}
+
 LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 {
     if (pppFailedPointer != NULL) {
@@ -1776,7 +1857,7 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
 
     // Common variables.
     DetourOperation *o;
-    DetourThread *t;
+    DETOUR_THREAD_DATA *t;
     BOOL freed = FALSE;
 
     // Insert or remove each of the detours.
@@ -1912,76 +1993,16 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
     }
 
     // Update any suspended threads.
+    for (t = s_pUnownedPendingThreads; t != NULL; t = t->pNext) {
+        detour_move_thread_instruction_pointer_if_needed(t->hThread);
+    }
     for (t = s_pPendingThreads; t != NULL; t = t->pNext) {
-        CONTEXT cxt;
-        cxt.ContextFlags = CONTEXT_CONTROL;
-
-#undef DETOURS_EIP
-
-#ifdef DETOURS_X86
-#define DETOURS_EIP         Eip
-#endif // DETOURS_X86
-
-#ifdef DETOURS_X64
-#define DETOURS_EIP         Rip
-#endif // DETOURS_X64
-
-#ifdef DETOURS_IA64
-#define DETOURS_EIP         StIIP
-#endif // DETOURS_IA64
-
-#ifdef DETOURS_ARM
-#define DETOURS_EIP         Pc
-#endif // DETOURS_ARM
-
-#ifdef DETOURS_ARM64
-#define DETOURS_EIP         Pc
-#endif // DETOURS_ARM64
-
-typedef ULONG_PTR DETOURS_EIP_TYPE;
-
-        if (GetThreadContext(t->hThread, &cxt)) {
-            for (o = s_pPendingOperations; o != NULL; o = o->pNext) {
-                if (o->fIsRemove) {
-                    if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pTrampoline &&
-                        cxt.DETOURS_EIP < (DETOURS_EIP_TYPE)((ULONG_PTR)o->pTrampoline
-                                                             + sizeof(o->pTrampoline))
-                       ) {
-
-                        cxt.DETOURS_EIP = (DETOURS_EIP_TYPE)
-                            ((ULONG_PTR)o->pbTarget
-                             + detour_align_from_trampoline(o->pTrampoline,
-                                                            (BYTE)(cxt.DETOURS_EIP
-                                                                   - (DETOURS_EIP_TYPE)(ULONG_PTR)
-                                                                   o->pTrampoline)));
-
-                        SetThreadContext(t->hThread, &cxt);
-                    }
-                }
-                else {
-                    if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pbTarget &&
-                        cxt.DETOURS_EIP < (DETOURS_EIP_TYPE)((ULONG_PTR)o->pbTarget
-                                                             + o->pTrampoline->cbRestore)
-                       ) {
-
-                        cxt.DETOURS_EIP = (DETOURS_EIP_TYPE)
-                            ((ULONG_PTR)o->pTrampoline
-                             + detour_align_from_target(o->pTrampoline,
-                                                        (BYTE)(cxt.DETOURS_EIP
-                                                               - (DETOURS_EIP_TYPE)(ULONG_PTR)
-                                                               o->pbTarget)));
-
-                        SetThreadContext(t->hThread, &cxt);
-                    }
-                }
-            }
-        }
-#undef DETOURS_EIP
+        detour_move_thread_instruction_pointer_if_needed(t->hThread);
     }
 
     // Restore all of the page permissions and flush the icache.
     HANDLE hProcess = GetCurrentProcess();
-    for (o = s_pPendingOperations; o != NULL;) {
+    for (o = s_pPendingOperations; o != NULL; o = o->pNext) {
         // We don't care if this fails, because the code is still accessible.
         DWORD dwOld;
         VirtualProtect(o->pbTarget, o->pTrampoline->cbRestore, o->dwPerm, &dwOld);
@@ -1992,31 +2013,50 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
             o->pTrampoline = NULL;
             freed = true;
         }
-
-        DetourOperation *n = o->pNext;
-        delete o;
-        o = n;
     }
-    s_pPendingOperations = NULL;
 
-    // Free any trampoline regions that are now unused.
+    // Splice any trampoline regions that are now unused into a linked list at pRegionsToFree.
+    DETOUR_REGION *pRegionsToFree = NULL;
     if (freed && !s_fRetainRegions) {
-        detour_free_unused_trampoline_regions();
+        pRegionsToFree = detour_splice_unused_trampoline_regions();
     }
 
     // Make sure the trampoline pages are no longer writable.
     detour_runnable_trampoline_regions();
 
     // Resume any suspended threads.
-    for (t = s_pPendingThreads; t != NULL;) {
+    for (t = s_pUnownedPendingThreads; t != NULL; t = t->pNext) {
         // There is nothing we can do if this fails.
         ResumeThread(t->hThread);
+    }
+    for (t = s_pPendingThreads; t != NULL; t = t->pNext) {
+        // There is nothing we can do if this fails.
+        ResumeThread(t->hThread);
+    }
 
-        DetourThread *n = t->pNext;
+    // Free the trampoline regions in the linked list at pRegionsToFree. This needs to occur after resuming threads
+    // to avoid deadlocks when AppVerifier has hooked VirtualFree.
+    while (pRegionsToFree != NULL) {
+        DETOUR_REGION *n = pRegionsToFree->pNext;
+        VirtualFree(pRegionsToFree, 0, MEM_RELEASE);
+        pRegionsToFree = n;
+    }
+
+    // Free all memory we allocated with new. This needs to occur after resuming threads to avoid deadlocks.
+    for (o = s_pPendingOperations; o != NULL;) {
+        DetourOperation *n = o->pNext;
+        delete o;
+        o = n;
+    }
+    for (t = s_pPendingThreads; t != NULL;) {
+        DETOUR_THREAD_DATA *n = t->pNext;
         delete t;
         t = n;
     }
+
+    s_pPendingOperations = NULL;
     s_pPendingThreads = NULL;
+    s_pUnownedPendingThreads = NULL;
     s_nPendingThreadId = 0;
 
     if (pppFailedPointer != NULL) {
@@ -2040,7 +2080,7 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
         return NO_ERROR;
     }
 
-    DetourThread *t = new NOTHROW DetourThread;
+    DETOUR_THREAD_DATA *t = new NOTHROW DETOUR_THREAD_DATA;
     if (t == NULL) {
         error = ERROR_NOT_ENOUGH_MEMORY;
       fail:
@@ -2063,6 +2103,33 @@ LONG WINAPI DetourUpdateThread(_In_ HANDLE hThread)
     t->hThread = hThread;
     t->pNext = s_pPendingThreads;
     s_pPendingThreads = t;
+
+    return NO_ERROR;
+}
+
+LONG WINAPI DetourUpdateThreadPreallocated(_In_ HANDLE hThread, _In_ DETOUR_THREAD_DATA* pData)
+{
+    // If any of the pending operations failed, then we don't need to do this.
+    if (s_nPendingError != NO_ERROR) {
+        return s_nPendingError;
+    }
+
+    // Silently (and safely) drop any attempt to suspend our own thread.
+    if (hThread == GetCurrentThread()) {
+        return NO_ERROR;
+    }
+
+    if (SuspendThread(hThread) == (DWORD)-1) {
+        const LONG error = GetLastError();
+        s_nPendingError = error;
+        s_ppPendingError = NULL;
+        DETOUR_BREAK();
+        return error;
+    }
+
+    pData->hThread = hThread;
+    pData->pNext = s_pUnownedPendingThreads;
+    s_pUnownedPendingThreads = pData;
 
     return NO_ERROR;
 }
