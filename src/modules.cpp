@@ -229,7 +229,7 @@ PVOID WINAPI DetourFindFunction(_In_ LPCSTR pszModule,
     // and have to convert it to a wrapped [code pointer, global pointer].
     //
     PPLABEL_DESCRIPTOR pldEntry = (PPLABEL_DESCRIPTOR)DetourGetEntryPoint(hModule);
-    PPLABEL_DESCRIPTOR pldSymbol = new PLABEL_DESCRIPTOR;
+    PPLABEL_DESCRIPTOR pldSymbol = DetourCreateObject<PLABEL_DESCRIPTOR>();
 
     pldSymbol->EntryPoint = symbol.Address;
     pldSymbol->GlobalPointer = pldEntry->GlobalPointer;
