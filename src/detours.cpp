@@ -1911,35 +1911,40 @@ LONG WINAPI DetourTransactionCommitEx(_Out_opt_ PVOID **pppFailedPointer)
         }
     }
 
-    // Update any suspended threads.
-    for (t = s_pPendingThreads; t != NULL; t = t->pNext) {
-        CONTEXT cxt;
-        cxt.ContextFlags = CONTEXT_CONTROL;
-
 #undef DETOURS_EIP
+#undef DETOURS_CONTEXT_FLAGS
 
 #ifdef DETOURS_X86
 #define DETOURS_EIP         Eip
+#define DETOURS_CONTEXT_FLAGS CONTEXT_CONTROL
 #endif // DETOURS_X86
 
 #ifdef DETOURS_X64
 #define DETOURS_EIP         Rip
+#define DETOURS_CONTEXT_FLAGS (CONTEXT_CONTROL | CONTEXT_INTEGER)
 #endif // DETOURS_X64
 
 #ifdef DETOURS_IA64
 #define DETOURS_EIP         StIIP
+#define DETOURS_CONTEXT_FLAGS CONTEXT_CONTROL
 #endif // DETOURS_IA64
 
 #ifdef DETOURS_ARM
 #define DETOURS_EIP         Pc
+#define DETOURS_CONTEXT_FLAGS CONTEXT_CONTROL
 #endif // DETOURS_ARM
 
 #ifdef DETOURS_ARM64
 #define DETOURS_EIP         Pc
+#define DETOURS_CONTEXT_FLAGS (CONTEXT_CONTROL | CONTEXT_INTEGER)
 #endif // DETOURS_ARM64
 
 typedef ULONG_PTR DETOURS_EIP_TYPE;
 
+    // Update any suspended threads.
+    for (t = s_pPendingThreads; t != NULL; t = t->pNext) {
+        CONTEXT cxt;
+        cxt.ContextFlags = DETOURS_CONTEXT_FLAGS;
         if (GetThreadContext(t->hThread, &cxt)) {
             for (o = s_pPendingOperations; o != NULL; o = o->pNext) {
                 if (o->fIsRemove) {
