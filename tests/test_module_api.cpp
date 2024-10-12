@@ -409,7 +409,9 @@ BOOL WINAPI ImportFileCallback(PVOID pContext, HMODULE, PCSTR pszFile)
         reinterpret_cast<EnumerateImportsTestContext*>(pContext);
 
     context->ImportCount++;
-    context->ImportModuleFound |= Catch::contains(pszFile, "ntdll");
+    if (pszFile != NULL) {
+        context->ImportModuleFound |= Catch::contains(pszFile, "ntdll");
+    }
 
     return TRUE;
 }
@@ -470,6 +472,20 @@ TEST_CASE("DetourEnumerateImports", "[module]")
 
         REQUIRE( context.ImportFuncCount == 0 );
         REQUIRE_FALSE( context.ImportFuncFound );
+    }
+
+    SECTION("The context transferred during the input parameter is the same as the context parsed in the callback.")
+    {
+        SetLastError(ERROR_INVALID_HANDLE);
+
+        EnumerateImportsTestContext context {};
+        auto success = DetourEnumerateImports(NULL, &context, ImportFileCallback, ImportFuncCallback);
+
+        REQUIRE( GetLastError() == 0 );
+        REQUIRE( success  == true );
+
+        REQUIRE( context.ImportFuncCount != 0 );
+        REQUIRE( context.ImportCount != 0 );
     }
 }
 
