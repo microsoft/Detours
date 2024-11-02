@@ -1410,6 +1410,21 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
     return NULL;
 }
 
+// Return pbTarget clamped into [pLo, pHi] range.
+
+static PBYTE detour_clamp(PBYTE pbTarget,
+                          PDETOUR_TRAMPOLINE pLo,
+                          PDETOUR_TRAMPOLINE pHi)
+{
+    if (pbTarget < (PBYTE)pLo) {
+        return (PBYTE)pLo;
+    }
+    if (pbTarget > (PBYTE)pHi) {
+        return (PBYTE)pHi;
+    }
+    return pbTarget;
+}
+
 static PVOID detour_alloc_trampoline_allocate_new(PBYTE pbTarget,
                                                   PDETOUR_TRAMPOLINE pLo,
                                                   PDETOUR_TRAMPOLINE pHi)
@@ -1422,29 +1437,29 @@ static PVOID detour_alloc_trampoline_allocate_new(PBYTE pbTarget,
 #if defined(DETOURS_64BIT)
     // Try looking 1GB below or lower.
     if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
-        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget - 0x40000000);
+        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, detour_clamp(pbTarget - 0x40000000, pLo, pHi));
     }
     // Try looking 1GB above or higher.
     if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
-        pbTry = detour_alloc_region_from_lo(pbTarget + 0x40000000, (PBYTE)pHi);
+        pbTry = detour_alloc_region_from_lo(detour_clamp(pbTarget + 0x40000000, pLo, pHi), (PBYTE)pHi);
     }
     // Try looking 1GB below or higher.
     if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
-        pbTry = detour_alloc_region_from_lo(pbTarget - 0x40000000, pbTarget);
+        pbTry = detour_alloc_region_from_lo(detour_clamp(pbTarget - 0x40000000, pLo, pHi), detour_clamp(pbTarget, pLo, pHi));
     }
     // Try looking 1GB above or lower.
     if (pbTry == NULL && pbTarget < (PBYTE)0xffffffff40000000) {
-        pbTry = detour_alloc_region_from_hi(pbTarget, pbTarget + 0x40000000);
+        pbTry = detour_alloc_region_from_hi(detour_clamp(pbTarget, pLo, pHi), detour_clamp(pbTarget + 0x40000000, pLo, pHi));
     }
 #endif
 
     // Try anything below.
     if (pbTry == NULL) {
-        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget);
+        pbTry = detour_alloc_region_from_hi((PBYTE)pLo, detour_clamp(pbTarget, pLo, pHi));
     }
     // try anything above.
     if (pbTry == NULL) {
-        pbTry = detour_alloc_region_from_lo(pbTarget, (PBYTE)pHi);
+        pbTry = detour_alloc_region_from_lo(detour_clamp(pbTarget, pLo, pHi), (PBYTE)pHi);
     }
 
     return pbTry;
