@@ -8,6 +8,7 @@
 //
 #include <stdio.h>
 #include <windows.h>
+#include <detours.h>
 #include "dtarge.h"
 
 DWORD_PTR WINAPI Target0()

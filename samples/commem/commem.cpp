@@ -86,7 +86,10 @@ int main(int argc, char **argv)
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-    DetourAttach(&(PVOID&)RealIStreamWrite, MineIStreamWrite);
+    if (DetourAttach(&(PVOID&)RealIStreamWrite, MineIStreamWrite) != NO_ERROR) {
+        printf("commem: DetourAttach failed.\n");
+        return 1;
+    }
     DetourTransactionCommit();
 
     printf("commem: Calling Write w/o after attach.\n");
