@@ -28,11 +28,21 @@ CFLAGS=$(CFLAGS) /DWIN32_LEAN_AND_MEAN /D_WIN32_WINNT=0x501
 CFLAGS=$(CFLAGS) /wd4163 # intrinsic rdtebex not available; using newer Windows headers with older compiler
 !ENDIF
 
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64EC"
+CFLAGS=/arm64EC $(CFLAGS)
+!ENDIF
+
 !if defined(DETOURS_WIN_7) && defined(DETOURS_CL_17_OR_NEWER)
 CFLAGS=$(CFLAGS) /D_USING_V110_SDK71_
 !elseif defined(DETOURS_ANALYZE)
 CFLAGS=$(CFLAGS) /analyze
 !endif
+
+LIBFLAGS=/nologo
+
+!IF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64EC"
+LIBFLAGS=$(LIBFLAGS) /machine:arm64x
+!ENDIF
 
 OBJS = \
     $(OBJD)\detours.obj     \
@@ -90,7 +100,7 @@ $(OBJD)\detours.bsc : $(OBJS)
     bscmake /v /n /o $@ $(OBJS:.obj=.sbr)
 
 $(LIBD)\detours.lib : $(OBJS)
-    link /lib /out:$@ /nologo $(OBJS)
+    link /lib $(LIBFLAGS) /out:$@ $(OBJS)
 
 $(INCD)\detours.h : detours.h
     copy detours.h $@

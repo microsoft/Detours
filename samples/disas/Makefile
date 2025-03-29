@@ -36,7 +36,7 @@ dirs:
 $(OBJD)\disasm.obj : x86.cpp
     cl $(CFLAGS) /Fe$@ /FAcs /Fa$(OBJD)\x86.lst \
         /Fd$(@R).pdb /Fo$(OBJD)\disasm.obj /c x86.cpp
-!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "X64"
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "X64" || "$(DETOURS_TARGET_PROCESSOR)" == "ARM64EC"
 $(OBJD)\disasm.obj : x64.asm
     $(ASM) $(AFLAGS) /Fo$(OBJD)\disasm.obj /Fl$(OBJD)\x64.lst x64.asm
 !ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "IA64"

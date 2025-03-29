@@ -12,7 +12,7 @@
 # ARM64 does not like base addresses below 4GB.
 # Append two extra zeros for it.
 #
-!if "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
+!if "$(DETOURS_TARGET_PROCESSOR)" == "ARM64" || "$(DETOURS_TARGET_PROCESSOR)" == "ARM64EC"
 EDLL1X_BASE=0x710000000
 EDLL2X_BASE=0x720000000
 EDLL3X_BASE=0x730000000

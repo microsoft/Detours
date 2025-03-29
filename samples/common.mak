@@ -61,6 +61,17 @@ CFLAGS=$(CFLAGS) /D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE
 
 CFLAGS=$(CFLAGS) /D_$(DETOURS_TARGET_PROCESSOR:X64=AMD64)_ # redundant with windows.h except for midl proxies
 
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64"
+
+ASM=armasm64
+
+!ELSEIF "$(DETOURS_TARGET_PROCESSOR)" == "ARM64EC"
+
+ASM=ml64
+CFLAGS=/arm64EC $(CFLAGS)
+LIBFLAGS=$(LIBFLAGS) /machine:arm64x
+LINKFLAGS=$(LINKFLAGS) /machine:arm64ec softintrin.lib
+
 !ENDIF
 
 DEPS = $(LIBD)\syelog.lib $(LIBD)\detours.lib
