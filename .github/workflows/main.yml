@@ -56,7 +56,7 @@ jobs:
         if: ${{ matrix.arch == 'x86' || matrix.arch == 'x64' }}
 
       - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.os }}
           path: |
