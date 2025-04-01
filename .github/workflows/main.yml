@@ -35,7 +35,7 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Initialize CodeQL for C++
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
         with:
           languages: cpp
@@ -56,14 +56,14 @@ jobs:
         if: ${{ matrix.arch == 'x86' || matrix.arch == 'x64' }}
 
       - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.os }}
+          name: artifacts-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.conf }}
           path: |
             lib.*/
             bin.*/
             include/
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
         if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
