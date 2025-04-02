@@ -159,7 +159,7 @@ static PCHAR do_estr(PCHAR pszOut, PCHAR pszEnd, PCSTR pszIn)
                 *pszOut++ = '0' + (c % 10);
                 *pszOut++ = ';';
             }
-            else if (c < 1000 && pszOut + 6 <= pszEnd) {
+            else if (pszOut + 6 <= pszEnd) {
                 *pszOut++ = '&';
                 *pszOut++ = '#';
                 *pszOut++ = '0' + ((c / 100) % 10);
