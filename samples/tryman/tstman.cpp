@@ -164,16 +164,16 @@ void DumpModuleInfo(HMODULE hModule)
     }
 
     if (pinh->FileHeader.Machine == 0x8664) {
-        StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "x64", pinh->FileHeader.Machine);
+        StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "x64");
     }
     else if (pinh->FileHeader.Machine == 0x014c) {
-        StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "x86", pinh->FileHeader.Machine);
+        StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "x86");
     }
     else if (pinh->FileHeader.Machine == 0x0200) {
-        StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "i64", pinh->FileHeader.Machine);
+        StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "i64");
     }
     else if (pinh->FileHeader.Machine == 0x01c0) {
-        StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "arm", pinh->FileHeader.Machine);
+        StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "arm");
     }
     else {
         StringCchPrintfA(szMachine, ARRAYSIZE(szMachine), "%04x", pinh->FileHeader.Machine);
