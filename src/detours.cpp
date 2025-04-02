@@ -1948,9 +1948,9 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
         if (GetThreadContext(t->hThread, &cxt)) {
             for (o = s_pPendingOperations; o != NULL; o = o->pNext) {
                 if (o->fIsRemove) {
-                    if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pTrampoline &&
-                        cxt.DETOURS_EIP < (DETOURS_EIP_TYPE)((ULONG_PTR)o->pTrampoline
-                                                             + sizeof(*o->pTrampoline))
+                    if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pTrampoline->rbCode &&
+                        cxt.DETOURS_EIP < (DETOURS_EIP_TYPE)((ULONG_PTR)o->pTrampoline->rbCode
+                                                             + RTL_FIELD_SIZE(DETOUR_TRAMPOLINE, rbCode))
                        ) {
 
                         cxt.DETOURS_EIP = (DETOURS_EIP_TYPE)
@@ -1961,7 +1961,16 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
                                                                    o->pTrampoline)));
 
                         SetThreadContext(t->hThread, &cxt);
+                        break;
                     }
+#ifdef _AMD64_
+                    else if (cxt.DETOURS_EIP == (DETOURS_EIP_TYPE)o->pTrampoline->rbCodeIn)
+                    {
+                        cxt.DETOURS_EIP = (DETOURS_EIP_TYPE)o->pbTarget;
+                        SetThreadContext(t->hThread, &cxt);
+                        break;
+                    }
+#endif
                 }
                 else {
                     if (cxt.DETOURS_EIP >= (DETOURS_EIP_TYPE)(ULONG_PTR)o->pbTarget &&
@@ -1977,6 +1986,7 @@ typedef ULONG_PTR DETOURS_EIP_TYPE;
                                                                o->pbTarget)));
 
                         SetThreadContext(t->hThread, &cxt);
+                        break;
                     }
                 }
             }
