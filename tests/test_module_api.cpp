@@ -28,6 +28,103 @@ extern "C" int mainCRTStartup();
 //
 void NoopFunction() { }
 
+#include <Windows.h>
+
+#if defined(_ARM64EC_)
+inline bool
+StdFFSMatch(
+    unsigned __int64 x64Address,
+    unsigned __int64 EcAddress
+    )
+{
+    unsigned __int64 FFSpart1;
+    unsigned short FFSpart2;
+    unsigned __int64 EcAddr;
+    int JmpOffset;
+
+    //
+    // A standard fast-forward sequence follows this pattern
+    //
+    //   488bc4          mov     rax,rsp
+    //   48895820        mov     qword ptr [rax+20h],rbx
+    //   55              push    rbp
+    //   5d              pop     rbp
+    //   e952df1600      jmp     ntdll!_swprintf (00000001`80178760)
+    //
+    // See https://learn.microsoft.com/en-us/cpp/cpp/hybrid-patchable?view=msvc-170 for details.
+    //
+
+    if (x64Address % 16 != 0)
+    {
+        //
+        // All standard FFS are 16-byte aligned guaranteed by compiler
+        //
+
+        return false;
+    }
+
+    if (RtlIsEcCode(x64Address))
+    {
+        //
+        // Arm64EC code is never a standard FFS
+        //
+
+        return false;
+    }
+
+    __try
+    {
+        FFSpart1 = ReadULong64NoFence((ULONG64*)x64Address);
+        FFSpart2 = ReadUShortNoFence((USHORT*)(x64Address + 8));
+        JmpOffset = ReadULongNoFence((ULONG*)(x64Address + 10));
+    }
+    __except(EXCEPTION_EXECUTE_HANDLER)
+    {
+        return false;
+    }
+
+    if (FFSpart1 == 0x5520588948c48b48 && FFSpart2 == 0xe95d)
+    {
+
+        EcAddr = (ULONG_PTR)((LONG_PTR)x64Address + 14 + JmpOffset);
+        if (!RtlIsEcCode(EcAddr))
+        {
+            return false;
+        }
+
+        if (EcAddress != EcAddr)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+#endif
+
+bool EquivalentFunctions(void* a, void* b)
+{
+    if (a == b)
+    {
+        return true;
+    }
+
+    // TODO: Remove Arm64EC-specific FFS matching logic when address taken operator
+    //       inconsistency in Arm64EC MSVC is fixed.
+    //       See https://developercommunity.visualstudio.com/t/Functions-dllimported-from-arm64ec-dlls/10670642
+#if defined(_ARM64EC_)
+    if (StdFFSMatch(reinterpret_cast<unsigned __int64>(a), reinterpret_cast<unsigned __int64>(b)) ||
+        StdFFSMatch(reinterpret_cast<unsigned __int64>(b), reinterpret_cast<unsigned __int64>(a)))
+    {
+        return true;
+    }
+#endif
+
+    return false;
+}
+
 TEST_CASE("DetourLoadImageHlp", "[module]")
 {
     SECTION("Passing own function, results in own HMODULE")
@@ -131,7 +228,7 @@ TEST_CASE("DetourGetEntyPoint", "[module]")
         auto entry = DetourGetEntryPoint(nullptr);
 
         REQUIRE( GetLastError() == NO_ERROR );
-        REQUIRE( entry == mainCRTStartup );
+        REQUIRE( EquivalentFunctions( entry, mainCRTStartup ) );
     }
 
     SECTION("Passing nullptr, equals executing image")
@@ -147,7 +244,7 @@ TEST_CASE("DetourGetEntyPoint", "[module]")
         auto entry = DetourGetEntryPoint(reinterpret_cast<HMODULE>(&__ImageBase));
 
         REQUIRE( GetLastError() == NO_ERROR );
-        REQUIRE( entry == mainCRTStartup );
+        REQUIRE( EquivalentFunctions( entry, mainCRTStartup ) );
     }
 
     SECTION("Corrupt image DOS header magic, results in bad exe format error")
@@ -729,9 +826,14 @@ TEST_CASE("DetourRestoreAfterWithEx", "[module]")
 }
 
 // Define the import symbol so that we can get the address of the IAT entry for a static import
-#ifdef _X86_
+#pragma warning(push)
 #pragma warning(disable:4483) // disable warning/error about __identifier(<string>)
+#if defined(_X86_)
 #define __imp_SetLastError      __identifier("_imp__SetLastError@4")
+#elif defined(_ARM64EC_)
+// In Arm64EC binaries, __imp_aux_foo points the primary IAT entry
+// for foo, and __imp_foo points to the auxiliary IAT entry for foo.
+#define __imp_SetLastError      __identifier("__imp_aux_SetLastError")
 #endif
 
 extern "C" extern void *__imp_SetLastError;
@@ -754,3 +856,4 @@ TEST_CASE("DetourIsFunctionImported", "[module]")
     }
 }
 
+#pragma warning(pop)

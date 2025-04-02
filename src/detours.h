@@ -83,11 +83,15 @@
 #undef DETOURS_32BIT
 #undef DETOURS_64BIT
 
+#ifndef DECLSPEC_HYBRID_PATCHABLE
+#define DECLSPEC_HYBRID_PATCHABLE DECLSPEC_CHPE_PATCHABLE
+#endif
+
 #if defined(_X86_)
 #define DETOURS_X86
 #define DETOURS_OPTION_BITS 64
 
-#elif defined(_AMD64_)
+#elif defined(_AMD64_) || defined(_ARM64EC_)
 #define DETOURS_X64
 #define DETOURS_OPTION_BITS 32
 
@@ -102,7 +106,7 @@
 #define DETOURS_ARM64
 
 #else
-#error Unknown architecture (x86, amd64, ia64, arm, arm64)
+#error Unknown architecture (x86, amd64, ia64, arm, arm64, arm64ec)
 #endif
 
 #ifdef _WIN64

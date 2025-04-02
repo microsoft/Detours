@@ -30,7 +30,7 @@
 #include <detours.h>
 #include "iping.h"
 
-// ARM64 ReadTimeStampCounter is a function.
+// ARM64/ARM64EC ReadTimeStampCounter is a function.
 // ARM ReadTimeStampCounter is a declared function but not implemented.
 // old IA64: ReadTimeStampCounter nonexisant.
 // new IA64: ReadTimeStampCounter is a macro.
@@ -38,7 +38,7 @@
 // new x86: ReadTimeStampCounter is a macro.
 // AMD64: ReadTimeStampCounter is a macro.
 
-#if defined(_ARM64_) || defined(ReadTimeStampCounter)
+#if defined(_ARM64_) || defined(_ARM64EC_) || defined(ReadTimeStampCounter)
 #define GetTimeStamp() ReadTimeStampCounter()
 #elif defined(_X86_) || defined(_AMD64_)
 extern "C"

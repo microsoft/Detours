@@ -2143,6 +2143,15 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
     DETOUR_TRACE(("  ppldTarget=%p, code=%p [gp=%p]\n",
                   ppldTarget, pbTarget, pTargetGlobals));
 #else // DETOURS_IA64
+#if defined(_M_ARM64EC)
+    if (RtlIsEcCode(reinterpret_cast<DWORD64>(*ppPointer))) {
+        DETOUR_TRACE(("*ppPointer is an Arm64EC address (ppPointer=%p). "
+                      "An Arm64EC address cannot be legitimately detoured with an x64 jmp. "
+                      "Mark the target function with __declspec(hybrid_patchable) to make it detour-able. "
+                      "We still allow an Arm64EC function to be detoured with an x64 jmp to make it easy (crash) to debug.\n", ppPointer));
+        DETOUR_BREAK();
+    }
+#endif
     pbTarget = (PBYTE)DetourCodeFromPointer(pbTarget, NULL);
     pDetour = DetourCodeFromPointer(pDetour, NULL);
 #endif // !DETOURS_IA64
