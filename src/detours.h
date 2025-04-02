@@ -467,6 +467,10 @@ typedef struct _DETOUR_EXE_RESTORE
 
 } DETOUR_EXE_RESTORE, *PDETOUR_EXE_RESTORE;
 
+#endif // _WIN32
+#ifdef __cplusplus
+}
+#endif
 #ifdef IMAGE_NT_OPTIONAL_HDR64_MAGIC
 C_ASSERT(sizeof(IMAGE_NT_HEADERS64) == 0x108);
 #endif
@@ -475,8 +479,14 @@ C_ASSERT(sizeof(IMAGE_NT_HEADERS64) == 0x108);
 #ifdef _WIN64
 C_ASSERT(sizeof(DETOUR_EXE_RESTORE) == 0x688);
 #else
+#ifdef _WIN32
 C_ASSERT(sizeof(DETOUR_EXE_RESTORE) == 0x678);
-#endif
+#endif // _WIN32
+#endif // _WIN64
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 typedef struct _DETOUR_EXE_HELPER
 {
