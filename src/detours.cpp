@@ -2102,6 +2102,33 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
         return ERROR_INVALID_PARAMETER;
     }
 
+#ifdef DETOURS_X64
+    // Detouring a function should not break our ability to walk the call stack.
+    // On X64 stack unwinding relies on RUNTIME_FUNCTION structures - except for
+    // the first frame which can be a leaf function with no stack allocations.
+    // See https://learn.microsoft.com/en-us/cpp/build/exception-handling-x64
+
+    // These structure are typically found in the .pdata section of PE32+ images.
+    // Allow all MEM_IMAGE detours.
+    MEMORY_BASIC_INFORMATION mbi;
+    if (!VirtualQuery(pDetour, &mbi, sizeof(mbi))) {
+        DETOUR_TRACE(("invalid detour\n"));
+        DETOUR_BREAK();
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    // Alternatively dynamic code should use RtlAddGrowableFunctionTable
+    // to register this information. This supports kernel stack walks.
+    // Require this for dynamic code - even though simple leaf functions
+    // don't strictly require it.
+    DWORD64 imageBase;
+    if (mbi.Type != MEM_IMAGE && NULL == RtlLookupFunctionEntry((DWORD64)pDetour, &imageBase, NULL)) {
+        DETOUR_TRACE(("dynamic detours must have function table entries\n"));
+        DETOUR_BREAK();
+        return ERROR_INVALID_PARAMETER;
+    }
+#endif // DETOURS_X64
+
     if (s_nPendingThreadId != (LONG)GetCurrentThreadId()) {
         DETOUR_TRACE(("transaction conflict with thread id=%ld\n", s_nPendingThreadId));
         return ERROR_INVALID_OPERATION;
