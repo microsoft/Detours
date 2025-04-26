@@ -1228,7 +1228,7 @@ inline BOOL detour_does_code_end_function(PBYTE pbCode)
     if (detour_is_code_os_patched(pbCode)) {
         return FALSE;
     }
-    if ((Opcode & 0xfffffc1f) == 0xd65f0000 ||      // br <reg>
+    if ((Opcode & 0xffbffc1f) == 0xd61f0000 ||      // ret/br <reg>
         (Opcode & 0xfc000000) == 0x14000000) {      // b <imm26>
         return TRUE;
     }
