@@ -40,7 +40,7 @@
 class CMember
 {
   public:
-    void Target(void);
+    DECLSPEC_HYBRID_PATCHABLE void Target(void);
 };
 
 void CMember::Target(void)

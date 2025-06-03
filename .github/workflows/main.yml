@@ -7,12 +7,17 @@ env:
   # Compile in parallel where possible.
   CL: /MP
 
-# Triggers the workflow on push or pull request events for the master branch.
+# Triggers the workflow on push or pull request events for the main branch.
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
 
 jobs:
   build:
@@ -21,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-2019, windows-2022]
-        arch: [x86, x64, x64_arm, x64_arm64]
+        arch: [x86, x64, x64_arm64]
         conf: [Release, Debug]
 
     steps:
@@ -58,7 +63,7 @@ jobs:
       - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }}
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.os }}
+          name: artifacts-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.conf }}
           path: |
             lib.*/
             bin.*/

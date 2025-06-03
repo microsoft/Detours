@@ -18,7 +18,7 @@
 #include <detours.h>
 #include "dtarge.h"
 
-DWORD_PTR WINAPI LocalTarget1(DWORD_PTR v1);
+DECLSPEC_HYBRID_PATCHABLE DWORD_PTR WINAPI LocalTarget1(DWORD_PTR v1);
 
 ////////////////////////////////////////////////////// Multi-Argument Detours.
 //
