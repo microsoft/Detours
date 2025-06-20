@@ -377,7 +377,7 @@ DWORD CopyEnvironment(PWCHAR pwzzOut, PCWSTR pwzzIn)
 
 //////////////////////////////////////////////////////////////////////////////
 //
-DWORD main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     HANDLE hCompletionPort;
     BOOL fNeedHelp = FALSE;
