@@ -449,7 +449,7 @@ BOOL WINAPI ControlHandler(DWORD dwCtrlType)
     return FALSE;
 }
 
-DWORD main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     HANDLE hCompletionPort;
     BOOL fNeedHelp = FALSE;

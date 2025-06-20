@@ -26,7 +26,7 @@ VOID MyErrExit(PCSTR pszMsg)
     exit(1);
 }
 
-DWORD main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     HANDLE hPipe;
     SYELOG_MESSAGE Message;
