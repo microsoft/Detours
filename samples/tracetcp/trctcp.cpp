@@ -948,7 +948,6 @@ INT WINAPI Mine_WSALookupServiceBeginW(
                 lpqsRestrictions,
                 dwControlFlags,
                 lphLookup);
-    __debugbreak();
 
     INT rv = 0;
     __try {
