@@ -579,7 +579,7 @@ TEST_CASE("DetourEnumerateImports", "[module]")
         auto success = DetourEnumerateImports(NULL, &context, ImportFileCallback, ImportFuncCallback);
 
         REQUIRE( GetLastError() == 0 );
-        REQUIRE( success  == true );
+        REQUIRE( success );
 
         REQUIRE( context.ImportFuncCount != 0 );
         REQUIRE( context.ImportCount != 0 );
