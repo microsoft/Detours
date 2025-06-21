@@ -53,8 +53,49 @@ C_ASSERT(sizeof(_DETOUR_ALIGN) == 1);
 //
 // Region reserved for system DLLs, which cannot be used for trampolines.
 //
-static PVOID    s_pSystemRegionLowerBound   = (PVOID)(ULONG_PTR)0x70000000;
-static PVOID    s_pSystemRegionUpperBound   = (PVOID)(ULONG_PTR)0x80000000;
+// On Windows 10, ntdll.dll is mapped at random location (ASLR) within a
+// range near the top of the usermode address space.
+// After that, further system DLLs are mapped top down within this range.
+// In the bottom of the range is reached, the allocator wraps to the top.
+//
+// We also want to exlcude any pages that share a CFG bitmap page with a system DLL
+// so leave an additional a 1MB buffer on each side of the range.
+//
+#if defined(DETOURS_64BIT)
+// On X64 the range is 0x7FF800000000..0x7FFFFFFF0000 - which is 32GB!
+// So we likely must allocate in the system DLL range to be +/- 2GB.
+// But we want to avoid at least the first 1GB that will be used for system DLLs.
+// Due to wrapping, this may be two seperate ranges.
+static PVOID    s_pSystemRegionUpperBound = (PVOID)((ULONG_PTR)GetModuleHandleW(L"ntdll.dll") + (ULONG_PTR)0x100000);
+static PVOID    s_pSystemRegionLowerBound = (PVOID)((ULONG_PTR)s_pSystemRegionUpperBound < (ULONG_PTR)0x7FF83F000000 ?
+                                                    (ULONG_PTR)0x7FF7FF000000 : ((ULONG_PTR)s_pSystemRegionUpperBound - (ULONG_PTR)0x40000000));
+static SIZE_T   s_pSystemRegionSize       = (ULONG_PTR)s_pSystemRegionUpperBound - (ULONG_PTR)s_pSystemRegionLowerBound; // up to 1GB
+
+static SIZE_T   s_pSystemRegion2Size       = (SIZE_T)0x40000000 - s_pSystemRegionSize;
+static PVOID    s_pSystemRegion2UpperBound = (PVOID)(ULONG_PTR)0x800000000000;
+static PVOID    s_pSystemRegion2LowerBound = (PVOID)((ULONG_PTR)s_pSystemRegion2UpperBound - s_pSystemRegion2Size);
+#else
+// On X86 the range was originally 0x70000000..0x80000000
+// However, since Windows 8, the range is now 0x50000000..0x78000000
+// Reference: Windows Internals, 7th Edition, page 368
+// We just exclude both ranges.
+static PVOID    s_pSystemRegionUpperBound = (PVOID)((ULONG_PTR)0x80000000);
+static PVOID    s_pSystemRegionLowerBound = (PVOID)((ULONG_PTR)0x50000000 - 0x100000);
+static SIZE_T   s_pSystemRegionSize       = (ULONG_PTR)s_pSystemRegionUpperBound - (ULONG_PTR)s_pSystemRegionLowerBound; // 769MB
+#endif
+
+inline SIZE_T should_skip_sytem_range_size(PBYTE pbTry)
+{
+    if (pbTry >= s_pSystemRegionLowerBound && pbTry <= s_pSystemRegionUpperBound) {
+        return s_pSystemRegionSize;
+    }
+#if defined(DETOURS_64BIT)
+    if (pbTry >= s_pSystemRegion2LowerBound && pbTry <= s_pSystemRegion2UpperBound) {
+        return s_pSystemRegion2Size;
+    }
+#endif
+    return 0;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -1321,9 +1362,10 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
     for (; pbTry < pbHi;) {
         MEMORY_BASIC_INFORMATION mbi;
 
-        if (pbTry >= s_pSystemRegionLowerBound && pbTry <= s_pSystemRegionUpperBound) {
+        const SIZE_T nSkipSize = should_skip_sytem_range_size(pbTry);
+        if (nSkipSize) {
             // Skip region reserved for system DLLs, but preserve address space entropy.
-            pbTry += 0x08000000;
+            pbTry += nSkipSize;
             continue;
         }
 
@@ -1371,9 +1413,10 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
         MEMORY_BASIC_INFORMATION mbi;
 
         DETOUR_TRACE(("  Try %p\n", pbTry));
-        if (pbTry >= s_pSystemRegionLowerBound && pbTry <= s_pSystemRegionUpperBound) {
+        const SIZE_T nSkipSize = should_skip_sytem_range_size(pbTry);
+        if (nSkipSize) {
             // Skip region reserved for system DLLs, but preserve address space entropy.
-            pbTry -= 0x08000000;
+            pbTry -= nSkipSize;
             continue;
         }
 
@@ -1420,6 +1463,9 @@ static PVOID detour_alloc_trampoline_allocate_new(PBYTE pbTarget,
     //     in order to maintain ASLR entropy.
 
 #if defined(DETOURS_64BIT)
+    DETOUR_TRACE(("  System DLL regions to skip: %p->%p and %p->%p\n",
+                  s_pSystemRegionLowerBound, s_pSystemRegionUpperBound,
+                  s_pSystemRegion2LowerBound, s_pSystemRegion2UpperBound));
     // Try looking 1GB below or lower.
     if (pbTry == NULL && pbTarget > (PBYTE)0x40000000) {
         pbTry = detour_alloc_region_from_hi((PBYTE)pLo, pbTarget - 0x40000000);
