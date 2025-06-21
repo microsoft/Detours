@@ -668,9 +668,9 @@ DetourEnumerateImportsThunk(_In_ PVOID VoidContext,
 static
 BOOL
 CALLBACK
-DetourEnumerateImportsFile(_In_opt_ PVOID VoidContext,
-                            _In_opt_ HMODULE hModule,
-                            _In_opt_ LPCSTR pszFile)
+DetourEnumerateImportsFile(_In_ PVOID VoidContext,
+                           _In_opt_ HMODULE hModule,
+                           _In_opt_ LPCSTR pszFile)
 {
     _DETOUR_ENUMERATE_IMPORTS_THUNK_CONTEXT const * const
         pContext = (_DETOUR_ENUMERATE_IMPORTS_THUNK_CONTEXT*)VoidContext;
