@@ -7,7 +7,7 @@ and allows the community to support Detours using open source tools and processe
 
 Detours is compatible with the Windows NT family of 
 operating systems: Windows NT, Windows XP, Windows Server 2003, Windows 7,
-Windows 8, and Windows 10.  It cannot be used by Windows Store apps
+Windows 8, Windows 10, and Windows 11.  It cannot be used by Windows Store apps
 because Detours requires APIs not available to those applications. 
 This repo contains the source code for version 4.0.1 of Detours.
 

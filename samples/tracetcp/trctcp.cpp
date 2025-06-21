@@ -948,7 +948,6 @@ INT WINAPI Mine_WSALookupServiceBeginW(
                 lpqsRestrictions,
                 dwControlFlags,
                 lphLookup);
-    __debugbreak();
 
     INT rv = 0;
     __try {
@@ -1235,14 +1234,14 @@ SOCKET WINAPI Mine_accept(SOCKET a0,
         rv = Real_accept(a0, a1, a2);
     } __finally {
         WCHAR wzAddress[512] = L"";
-        int err = WSAGetLastError();
-        if (rv != INVALID_SOCKET) {
+        if (rv != INVALID_SOCKET && a1 != NULL && a2 != NULL && *a2 > 0) {
+            int err = WSAGetLastError();
             DWORD nAddress = ARRAYSIZE(wzAddress);
             if (Real_WSAAddressToStringW(a1, *a2, NULL, wzAddress, &nAddress) != 0) {
                 wzAddress[0] = 0;
             }
+            WSASetLastError(err);
         }
-        WSASetLastError(err);
 
         if (wzAddress[0]) {
             _PrintEnter("%p: accept(,%ls,%p) -> %p\n", a0, wzAddress, a2, rv);

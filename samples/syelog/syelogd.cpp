@@ -75,7 +75,7 @@ static PCSTR FileTimeToString(PCHAR pszBuffer, DWORD cbBuffer, FILETIME ftTime)
     static TIME_ZONE_INFORMATION tzi;
     if (!bGotTzi) {
         dwTzi = GetTimeZoneInformation(&tzi);
-        if (dwTzi == TIME_ZONE_ID_UNKNOWN) {
+        if (dwTzi == TIME_ZONE_ID_INVALID) {
             ZeroMemory(&tzi, sizeof(tzi));
         }
         bGotTzi = TRUE;
@@ -449,7 +449,7 @@ BOOL WINAPI ControlHandler(DWORD dwCtrlType)
     return FALSE;
 }
 
-DWORD main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     HANDLE hCompletionPort;
     BOOL fNeedHelp = FALSE;

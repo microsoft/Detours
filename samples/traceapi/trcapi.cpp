@@ -352,7 +352,7 @@ BOOL ProcessEnumerate()
     Syelog(SYELOG_SEVERITY_INFORMATION, "###\n");
 
     LPVOID lpvEnv = Real_GetEnvironmentStrings();
-    Syelog(SYELOG_SEVERITY_INFORMATION, "### Env= %08x [%08x %08x]\n",
+    Syelog(SYELOG_SEVERITY_INFORMATION, "### Env= %p [%p %p]\n",
            lpvEnv, ((PVOID*)lpvEnv)[0], ((PVOID*)lpvEnv)[1]);
 
     return TRUE;
