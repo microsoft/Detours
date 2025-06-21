@@ -550,7 +550,11 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     //
     inh64.Signature = inh32.Signature;
     inh64.FileHeader = inh32.FileHeader;
-    inh64.FileHeader.Machine = machine;
+    inh64.FileHeader.Machine = machine;// If inh32.FileHeader.Machine is assigned here,
+    // the PE loader of win7 and below will not be able to pass,
+    // It will report an error STATUS_INVALID_IMAGE_FORMAT,
+    // so we need to save the value of Machine in the original PE header to "der",
+    // that is, the value of inh32.FileHeader.Machine.
     inh64.FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER64);
 
     inh64.OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR64_MAGIC;
@@ -619,6 +623,11 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
         return FALSE;
     }
 
+    // After the above RecordExeRestore call, the 64-bit PE header is saved in "der", 
+    // so it is necessary to restore the Machine value of the PE header saved in "der",
+    // so that the PE parser of .NET can load the CLR file normally
+    der.inh.FileHeader.Machine = inh32.FileHeader.Machine;
+
     // Remove the import table.
     if (der.pclr != NULL && (der.clr.Flags & COMIMAGE_FLAGS_ILONLY)) {
         inh64.IMPORT_DIRECTORY.VirtualAddress = 0;
@@ -641,35 +650,53 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
 }
 #endif // DETOURS_64BIT
 
-typedef BOOL(WINAPI *LPFN_ISWOW64PROCESS)(HANDLE, PBOOL);
-
-static BOOL IsWow64ProcessHelper(HANDLE hProcess,
-                                 PBOOL Wow64Process)
-{
-#ifdef _X86_
-    if (Wow64Process == NULL) {
-        return FALSE;
-    }
-
-    // IsWow64Process is not available on all supported versions of Windows.
-    //
-    HMODULE hKernel32 = LoadLibraryW(L"KERNEL32.DLL");
-    if (hKernel32 == NULL) {
-        DETOUR_TRACE(("LoadLibraryW failed: %lu\n", GetLastError()));
-        return FALSE;
-    }
-
-    LPFN_ISWOW64PROCESS pfnIsWow64Process = (LPFN_ISWOW64PROCESS)GetProcAddress(
-        hKernel32, "IsWow64Process");
-
-    if (pfnIsWow64Process == NULL) {
-        DETOUR_TRACE(("GetProcAddress failed: %lu\n", GetLastError()));
-        return FALSE;
-    }
-    return pfnIsWow64Process(hProcess, Wow64Process);
-#else
-    return IsWow64Process(hProcess, Wow64Process);
+#ifndef PROCESSOR_ARCHITECTURE_AMD64
+#define PROCESSOR_ARCHITECTURE_AMD64            9
 #endif
+
+#ifndef PROCESSOR_ARCHITECTURE_ARM64
+#define PROCESSOR_ARCHITECTURE_ARM64            12
+#endif
+
+static BOOL Is64BitOS()
+{
+    BOOL bRet = FALSE;
+    HMODULE hModule = GetModuleHandleW(L"kernel32.dll");
+    if (!hModule) {
+        return bRet;
+    }
+    VOID(WINAPI * _GetNativeSystemInfo)(OUT LPSYSTEM_INFO lpSystemInfo) = (void(__stdcall*)(LPSYSTEM_INFO))GetProcAddress(hModule, "GetNativeSystemInfo");
+    if (!_GetNativeSystemInfo) {
+        return bRet;
+    }
+
+    SYSTEM_INFO si;
+    _GetNativeSystemInfo(&si);
+    if (si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64 || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM64 ||
+        si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_IA64 || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ALPHA64) {
+        bRet = TRUE;
+    }
+    return bRet;
+};
+// The process handle hProcess needs to have PROCESS_QUERY_INFORMATION or PROCESS_QUERY_LIMITED_INFORMATION access rights
+static BOOL Is64BitProcess(HANDLE hProcess)
+{
+    BOOL bRet = FALSE;
+    if (hProcess) {
+        if (Is64BitOS()) {
+            HMODULE hModule = GetModuleHandleW(L"kernel32.dll");
+            if (hModule) {
+                BOOL(WINAPI * _IsWow64Process)(IN  HANDLE hProcess,
+                    OUT  PBOOL Wow64Process)
+                    = (BOOL(__stdcall*)(HANDLE, PBOOL))GetProcAddress(hModule, "IsWow64Process");
+                BOOL b32BitProcessRunAt64BitOS;
+                if (_IsWow64Process && _IsWow64Process(hProcess, &b32BitProcessRunAt64BitOS) && b32BitProcessRunAt64BitOS == FALSE) {
+                    bRet = TRUE;
+                }
+            }
+        }
+    }
+    return bRet;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -680,8 +707,9 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 {
     // Find the next memory region that contains a mapped PE image.
     //
+    BOOL bHas64BitDll = FALSE;
+    BOOL bHas32BitExe = FALSE;
     BOOL bIs32BitProcess;
-    BOOL bIs64BitOS = FALSE;
     HMODULE hModule = NULL;
     HMODULE hLast = NULL;
 
@@ -699,7 +727,19 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
 
         if ((inh.FileHeader.Characteristics & IMAGE_FILE_DLL) == 0) {
             hModule = hLast;
+            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC
+                && inh.FileHeader.Machine != 0) {
+
+                bHas32BitExe = TRUE;
+            }
             DETOUR_TRACE(("%p  Found EXE\n", hLast));
+        }
+        else {
+            if (inh.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC
+                && inh.FileHeader.Machine != 0) {
+
+                bHas64BitDll = TRUE;
+            }
         }
     }
 
@@ -708,37 +748,9 @@ BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
         return FALSE;
     }
 
-    // Determine if the target process is 32bit or 64bit. This is a two-stop process:
-    //
-    // 1. First, determine if we're running on a 64bit operating system.
-    //   - If we're running 64bit code (i.e. _WIN64 is defined), this is trivially true.
-    //   - If we're running 32bit code (i.e. _WIN64 is not defined), test if
-    //   we're running under Wow64. If so, it implies that the operating system
-    //   is 64bit.
-    //
-#ifdef _WIN64
-    bIs64BitOS = TRUE;
-#else
-    if (!IsWow64ProcessHelper(GetCurrentProcess(), &bIs64BitOS)) {
-        return FALSE;
-    }
-#endif
+    bIs32BitProcess = !Is64BitProcess(hProcess);
 
-    // 2. With the operating system bitness known, we can now consider the target process:
-    //   - If we're running on a 64bit OS, the target process is 32bit in case
-    //   it is running under Wow64. Otherwise, it's 64bit, running natively
-    //   (without Wow64).
-    //   - If we're running on a 32bit OS, the target process must be 32bit, too.
-    //
-    if (bIs64BitOS) {
-        if (!IsWow64ProcessHelper(hProcess, &bIs32BitProcess)) {
-            return FALSE;
-        }
-    } else {
-        bIs32BitProcess = TRUE;
-    }
-
-    DETOUR_TRACE(("    32BitProcess=%d\n", bIs32BitProcess));
+    DETOUR_TRACE(("    32BitExe=%d 32BitProcess=%d\n", bHas32BitExe, bIs32BitProcess));
 
     return DetourUpdateProcessWithDllEx(hProcess,
                                         hModule,
@@ -772,7 +784,7 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         bIs32BitExe = TRUE;
     }
 
-    DETOUR_TRACE(("    32BitExe=%d\n", bIs32BitExe));
+    DETOUR_TRACE(("    32BitExe=%d 32BitProcess=%d\n", bIs32BitExe, bIs32BitProcess));
 
     if (hModule == NULL) {
         SetLastError(ERROR_INVALID_OPERATION);
@@ -856,6 +868,10 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         DETOUR_CLR_HEADER clr;
         CopyMemory(&clr, &der.clr, sizeof(clr));
         clr.Flags &= ~COMIMAGE_FLAGS_ILONLY;    // Clear the IL_ONLY flag.
+        // The above sentence clears the IL_ONLY flag, 
+        // so we need to restore the IL_ONLY flag after the IAT is restored after starting the process completion 
+        // Not clearing the IL_ONLY flag will result in the inability to start the process, 
+        // because we replaced the original IAT with the new IAT containing the name of our DLL
 
         DWORD dwProtect;
         if (!DetourVirtualProtectSameExecuteEx(hProcess, der.pclr, sizeof(clr), PAGE_READWRITE, &dwProtect)) {
