@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Clone Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Setup build environment variables using vcvarsall.bat.
       - name: Configure MSCV Compiler for ${{ matrix.arch }}
