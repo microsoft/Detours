@@ -834,6 +834,24 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
 #define DetourProcessViaHelperDlls      DetourProcessViaHelperDllsA
 #endif // !UNICODE
 
+BOOL WINAPI DetourProcessViaHelperDllsExA(_In_ DWORD dwTargetPid,
+                                          _In_ LPCSTR runDll,
+                                          _In_ DWORD nDlls,
+                                          _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                          _In_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA);
+
+BOOL WINAPI DetourProcessViaHelperDllsExW(_In_ DWORD dwTargetPid,
+                                          _In_ LPCSTR runDll,
+                                          _In_ DWORD nDlls,
+                                          _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                          _In_ PDETOUR_CREATE_PROCESS_ROUTINEW pfCreateProcessW);
+
+#ifdef UNICODE
+#define DetourProcessViaHelperDllsEx    DetourProcessViaHelperDllsExW
+#else
+#define DetourProcessViaHelperDllsEx    DetourProcessViaHelperDllsExA
+#endif // !UNICODE
+
 BOOL WINAPI DetourUpdateProcessWithDll(_In_ HANDLE hProcess,
                                        _In_reads_(nDlls) LPCSTR *rlpDlls,
                                        _In_ DWORD nDlls);
