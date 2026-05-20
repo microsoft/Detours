@@ -244,10 +244,12 @@ class CDetourDis
 #define ENTRY_CopyF6                { ENTRY_DataIgnored &CDetourDis::CopyF6 }
 #define ENTRY_CopyF7                { ENTRY_DataIgnored &CDetourDis::CopyF7 }
 #define ENTRY_CopyFF                { ENTRY_DataIgnored &CDetourDis::CopyFF }
+#define ENTRY_CopyC7                { ENTRY_DataIgnored &CDetourDis::CopyC7 }
 #define ENTRY_CopyVex2              { ENTRY_DataIgnored &CDetourDis::CopyVex2 }
 #define ENTRY_CopyVex3              { ENTRY_DataIgnored &CDetourDis::CopyVex3 }
 #define ENTRY_CopyEvex              { ENTRY_DataIgnored &CDetourDis::CopyEvex } // 62, 3 byte payload, then normal with implied prefixes like vex
 #define ENTRY_CopyXop               { ENTRY_DataIgnored &CDetourDis::CopyXop }   // 0x8F ... POP /0 or AMD XOP
+#define ENTRY_CopyRex2              { ENTRY_DataIgnored &CDetourDis::CopyRex2 }  // 0xD5 Intel APX REX2 (x64 only)
 #define ENTRY_CopyBytesXop          { 5, 5, 4, 0, 0, &CDetourDis::CopyBytes } // 0x8F xop1 xop2 opcode modrm
 #define ENTRY_CopyBytesXop1         { 6, 6, 4, 0, 0, &CDetourDis::CopyBytes } // 0x8F xop1 xop2 opcode modrm ... imm8
 #define ENTRY_CopyBytesXop4         { 9, 9, 4, 0, 0, &CDetourDis::CopyBytes } // 0x8F xop1 xop2 opcode modrm ... imm32
@@ -276,12 +278,14 @@ class CDetourDis
     PBYTE CopyF6(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyF7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyFF(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
+    PBYTE CopyC7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyVex2(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyVex3(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyVexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p, BYTE fp16 = 0);
     PBYTE CopyEvex(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
     PBYTE CopyXop(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc);
+    PBYTE CopyRex2(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc); // AMD64 only, Intel APX REX2
 
   protected:
     static const COPYENTRY  s_rceCopyTable[];
@@ -362,12 +366,6 @@ PBYTE CDetourDis::CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
 {
     UINT nBytesFixed;
 
-    if (m_bVex || m_bEvex)
-    {
-        ASSERT(pEntry->nFlagBits == 0);
-        ASSERT(pEntry->nFixedSize == pEntry->nFixedSize16);
-    }
-
     UINT const nModOffset = pEntry->nModOffset;
     UINT const nFlagBits = pEntry->nFlagBits;
     UINT const nFixedSize = pEntry->nFixedSize;
@@ -382,6 +380,12 @@ PBYTE CDetourDis::CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
         nBytesFixed = nFixedSize + ((nFlagBits & RAX) ? 4 : 0);
     }
 #endif
+    else if (m_bVex || m_bEvex) {
+        // VEX/EVEX pp field does not shrink immediates to 16-bit.
+        // This matters for EVEX MAP4 (APX) where entries like opcode 81
+        // (Group 1 imm32) have nFixedSize=6 but nFixedSize16=4.
+        nBytesFixed = nFixedSize;
+    }
     else {
         nBytesFixed = m_bOperandOverride ? nFixedSize16 : nFixedSize;
     }
@@ -658,8 +662,10 @@ PBYTE CDetourDis::CopyF6(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
 {
     (void)pEntry;
 
-    // TEST BYTE /0
-    if (0x00 == (0x38 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 0
+    // TEST BYTE /0 and /1 (both encodings are TEST per Intel SDM Vol 2A Group 3
+    // and AMD APM Vol 3; /1 is an undocumented alias of /0 historically but is
+    // now documented in both manuals).
+    if (0x00 == (0x30 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 000 or 001
         static const COPYENTRY ce = /* f6 */ ENTRY_CopyBytes2Mod1;
         return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
     }
@@ -678,8 +684,8 @@ PBYTE CDetourDis::CopyF7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
 {
     (void)pEntry;
 
-    // TEST WORD /0
-    if (0x00 == (0x38 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 0
+    // TEST WORD /0 and /1 (see CopyF6 for /1 rationale).
+    if (0x00 == (0x30 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 000 or 001
         static const COPYENTRY ce = /* f7 */ ENTRY_CopyBytes2ModOperand;
         return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
     }
@@ -745,6 +751,21 @@ PBYTE CDetourDis::CopyFF(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
     return pbOut;
 }
 
+PBYTE CDetourDis::CopyC7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
+{
+    (void)pEntry;
+
+    // C7 /7 is XBEGIN rel32 (or rel16 with 66 prefix).
+    // It has a relative displacement that must be relocated like CALL/JMP.
+    if (0x38 == (0x38 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 111
+        static const COPYENTRY ce = /* c7 /7 */ { 6, 4, 0, 2, 0, &CDetourDis::CopyBytes };
+        return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
+    }
+    // MOV /0 r/m, imm16/32
+    static const COPYENTRY ce = /* c7 /0 */ ENTRY_CopyBytes2ModOperand;
+    return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
+}
+
 PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p, BYTE fp16)
 // m is first instead of last in the hopes of pbDst/pbSrc being
 // passed along efficiently in the registers they were already in.
@@ -763,14 +784,23 @@ PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p, BY
     REFCOPYENTRY pEntry;
 
     // see https://software.intel.com/content/www/us/en/develop/download/intel-avx512-fp16-architecture-specification.html
+    // EVEX maps (with FP16 and APX mmm-bit extension):
+    //   mmm=001 (MAP1) and mmm=101 (MAP5) share the legacy 0F opcode structure,
+    //     so per-opcode sizing must come from s_rceCopyTable0F (e.g. MAP5 C2 /r ib = VCMPPH/VCMPSH).
+    //   mmm=010 (MAP2) and mmm=110 (MAP6) share the legacy 0F 38 structure (ModR/M, no imm).
+    //   mmm=011 (MAP3) has the 0F 3A structure (ModR/M + imm8).
+    //   mmm=100 (MAP4, APX) mirrors legacy MAP0 opcode structure (per-opcode sizing).
     switch (m | fp16) {
     default: return Invalid(&ceInvalid, pbDst, pbSrc);
+    case 5:  // MAP5 (FP16) - opcode structure mirrors 0F (MAP1).
     case 1:  pEntry = &s_rceCopyTable0F[pbSrc[0]];
              return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
-    case 5:  // fallthrough
-    case 6:  // fallthrough
+    case 6:  // MAP6 (FP16) - opcode structure mirrors 0F 38 (MAP2).
     case 2:  return CopyBytes(&ceF38, pbDst, pbSrc);
     case 3:  return CopyBytes(&ceF3A, pbDst, pbSrc);
+    case 4:  // MAP4 (APX) - promoted legacy MAP0 instructions.
+             pEntry = &s_rceCopyTable[pbSrc[0]];
+             return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
     }
 }
 
@@ -862,11 +892,6 @@ PBYTE CDetourDis::CopyEvex(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
 
     static const COPYENTRY ceInvalid = /* 62 */ ENTRY_Invalid;
 
-    // This could also be handled by default in CopyVexEvexCommon
-    // if 4u changed to 4|8.
-    if (p0 & 8u)
-        return Invalid(&ceInvalid, pbDst, pbSrc);
-
     BYTE const p1 = pbSrc[2];
 
     if ((p1 & 0x04) != 0x04)
@@ -881,6 +906,10 @@ PBYTE CDetourDis::CopyEvex(REFCOPYENTRY, PBYTE pbDst, PBYTE pbSrc)
     m_bRaxOverride |= !!(p1 & 0x80); // w
 #endif
 
+    // P0 layout: R'(7) X(6) B3(5) R'4(4) B4(3) m(2) m(1) m(0)
+    // Bits [2:0] = map (1-7). Bit 3 = B4 (APX register extension, not a map bit).
+    // For FP16: bit 2 extends map (MAP5=101, MAP6=110).
+    // For APX:  map=4 (100) uses bit 2 as part of mmm field.
     return CopyVexEvexCommon(p0 & 3u, pbDst + 4, pbSrc + 4, p1 & 3u, p0 & 4u);
 }
 
@@ -916,6 +945,43 @@ pp is like VEX but only instructions with 0 are defined
     case 10: // modrm with 32bit immediate
         return CopyBytes(&ceXop4, pbDst, pbSrc);
     }
+}
+
+PBYTE CDetourDis::CopyRex2(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
+// Intel APX REX2 prefix 0xD5 (64-bit mode only)
+// Byte 0: D5
+// Byte 1: M(7) R4(6) X4(5) B4(4) W(3) R3(2) X3(1) B3(0)
+//   M: 0 = opcode from MAP0, 1 = opcode from MAP1 (no 0F escape needed)
+//   W: operand size override to 64-bit (same as REX.W)
+{
+    (void)pEntry;
+
+    BYTE const payload = pbSrc[1];
+
+    if (payload & 0x08) { // W bit (bit 3)
+        m_bRaxOverride = TRUE;
+    }
+
+    pbDst[0] = pbSrc[0];
+    pbDst[1] = pbSrc[1];
+
+    PBYTE pbOut;
+    if (payload & 0x80) { // M bit (bit 7) - MAP1
+        REFCOPYENTRY pEntry2 = &s_rceCopyTable0F[pbSrc[2]];
+        pbOut = (this->*pEntry2->pfCopy)(pEntry2, pbDst + 2, pbSrc + 2);
+    }
+    else { // MAP0
+        REFCOPYENTRY pEntry2 = &s_rceCopyTable[pbSrc[2]];
+        pbOut = (this->*pEntry2->pfCopy)(pEntry2, pbDst + 2, pbSrc + 2);
+    }
+
+    // JMPABS: REX2 with payload=0x00 (M=0, W=0, all ext bits 0) and opcode A1.
+    // This is an absolute 64-bit jump whose target is the 8-byte immediate.
+    if (payload == 0x00 && pbSrc[2] == 0xA1) {
+        *m_ppbTarget = *(UNALIGNED PBYTE*)&pbSrc[3];
+    }
+
+    return pbOut;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1227,7 +1293,7 @@ const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[] =
     /* C4 */ ENTRY_CopyVex3,                           // LES, VEX 3-byte opcodes.
     /* C5 */ ENTRY_CopyVex2,                           // LDS, VEX 2-byte opcodes.
     /* C6 */ ENTRY_CopyBytes2Mod1,                     // MOV
-    /* C7 */ ENTRY_CopyBytes2ModOperand,               // MOV/0 XBEGIN/7
+    /* C7 */ ENTRY_CopyC7,                             // MOV/0 XBEGIN/7
     /* C8 */ ENTRY_CopyBytes4,                         // ENTER
     /* C9 */ ENTRY_CopyBytes1,                         // LEAVE
     /* CA */ ENTRY_CopyBytes3Dynamic,                  // RET
@@ -1246,7 +1312,7 @@ const CDetourDis::COPYENTRY CDetourDis::s_rceCopyTable[] =
     /* D3 */ ENTRY_CopyBytes2Mod,                      // RCL/2, etc.
 #ifdef DETOURS_X64
     /* D4 */ ENTRY_Invalid,                            // Invalid
-    /* D5 */ ENTRY_Invalid,                            // Invalid
+    /* D5 */ ENTRY_CopyRex2,                           // REX2 (Intel APX)
 #else
     /* D4 */ ENTRY_CopyBytes2,                         // AAM
     /* D5 */ ENTRY_CopyBytes2,                         // AAD
