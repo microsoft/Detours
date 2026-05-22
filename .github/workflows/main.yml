@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2019, windows-2022]
+        os: [windows-2022]
         arch: [x86, x64, x64_arm64]
         conf: [Release, Debug]
 
