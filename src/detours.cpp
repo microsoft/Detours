@@ -1339,7 +1339,14 @@ static PVOID detour_alloc_region_from_lo(PBYTE pbLo, PBYTE pbHi)
                       mbi.State));
 
         if (mbi.State == MEM_FREE && mbi.RegionSize >= DETOUR_REGION_SIZE) {
-
+#ifdef DETOURS_X86
+            // Reduce memory fragmentation by allocating the end of the region
+            pbTry += mbi.RegionSize;        // Advance pbTry to the end of the free block.
+            if (pbTry > pbHi) {
+                pbTry = pbHi;
+            }
+            pbTry -= DETOUR_REGION_SIZE;    // Move pbTry backwards to ensure that the free block is large enough to hold a trampoline region.
+#endif
             PVOID pv = VirtualAlloc(pbTry,
                                     DETOUR_REGION_SIZE,
                                     MEM_COMMIT|MEM_RESERVE,
@@ -1389,7 +1396,14 @@ static PVOID detour_alloc_region_from_hi(PBYTE pbLo, PBYTE pbHi)
                       mbi.State));
 
         if (mbi.State == MEM_FREE && mbi.RegionSize >= DETOUR_REGION_SIZE) {
-
+#ifdef DETOURS_X86
+            // Reduce memory fragmentation by allocating the end of the region
+            pbTry += mbi.RegionSize;        // Advance pbTry to the end of the free block.
+            if (pbTry > pbHi) {
+                pbTry = pbHi;
+            }
+            pbTry -= DETOUR_REGION_SIZE;    // Move pbTry backwards to ensure that the free block is large enough to hold a trampoline region.
+#endif
             PVOID pv = VirtualAlloc(pbTry,
                                     DETOUR_REGION_SIZE,
                                     MEM_COMMIT|MEM_RESERVE,
