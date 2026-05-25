@@ -301,6 +301,7 @@ class CDetourDis
     BOOL                m_bRaxOverride; // AMD64 only
     BOOL                m_bVex;
     BOOL                m_bEvex;
+    BOOL                m_bEvexMap4;
     BOOL                m_bF2;
     BOOL                m_bF3; // x86 only
     BYTE                m_nSegmentOverride;
@@ -334,7 +335,8 @@ CDetourDis::CDetourDis(_Out_opt_ PBYTE *ppbTarget, _Out_opt_ LONG *plExtra) :
     m_bF2(FALSE),
     m_bF3(FALSE),
     m_bVex(FALSE),
-    m_bEvex(FALSE)
+    m_bEvex(FALSE),
+    m_bEvexMap4(FALSE)
 {
     m_ppbTarget = ppbTarget ? ppbTarget : &m_pbScratchTarget;
     m_plExtra = plExtra ? plExtra : &m_lScratchExtra;
@@ -380,10 +382,9 @@ PBYTE CDetourDis::CopyBytes(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
         nBytesFixed = nFixedSize + ((nFlagBits & RAX) ? 4 : 0);
     }
 #endif
-    else if (m_bVex || m_bEvex) {
-        // VEX/EVEX pp field does not shrink immediates to 16-bit.
-        // This matters for EVEX MAP4 (APX) where entries like opcode 81
-        // (Group 1 imm32) have nFixedSize=6 but nFixedSize16=4.
+    else if ((m_bVex || m_bEvex) && !m_bEvexMap4) {
+        // For non-MAP4 VEX/EVEX instructions, pp is a mandatory prefix and
+        // does not shrink immediates to 16-bit.
         nBytesFixed = nFixedSize;
     }
     else {
@@ -799,6 +800,7 @@ PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p, BY
     case 2:  return CopyBytes(&ceF38, pbDst, pbSrc);
     case 3:  return CopyBytes(&ceF3A, pbDst, pbSrc);
     case 4:  // MAP4 (APX) - promoted legacy MAP0 instructions.
+             m_bEvexMap4 = m_bEvex;
              pEntry = &s_rceCopyTable[pbSrc[0]];
              return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
     }
