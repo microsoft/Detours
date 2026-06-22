@@ -116,7 +116,8 @@ static UCHAR NTAPI detour_rtl_is_ec_code(ULONG64 Address)
             return TRUE;
         }
     }
-    __except(EXCEPTION_EXECUTE_HANDLER) {
+    __except(GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ?
+             EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
         return FALSE;
     }
     return FALSE;
