@@ -58,6 +58,114 @@ static PVOID    s_pSystemRegionUpperBound   = (PVOID)(ULONG_PTR)0x80000000;
 
 //////////////////////////////////////////////////////////////////////////////
 //
+// On ARM64 Windows, x64 code runs under emulation and jump targets
+// may point to ARM64EC/native code. Writing x64 instructions over such code
+// causes STATUS_ILLEGAL_INSTRUCTION.
+//
+// RtlIsEcCode() returns TRUE if an address is ARM64EC code.
+// The function is either not present or always returns FALSE on native x64
+// systems or other target architectures.
+//
+#if defined(DETOURS_X64) || defined(DETOURS_X86)
+
+#if defined(DETOURS_X86)
+// There is no RtlIsEcCode on 32-bit x86. Detect ARM64 code by checking
+// for common ARM64 function prologue instructions at the target address.
+// ARM64 instructions are 4 bytes, 4-byte aligned, with distinctive patterns
+// that do not occur as valid x86 instruction sequences.
+static UCHAR NTAPI detour_rtl_is_ec_code(ULONG64 Address)
+{
+    PBYTE pb = (PBYTE)(ULONG_PTR)Address;
+
+    // ARM64 instructions are always 4-byte aligned.
+    if (((ULONG_PTR)pb & 3) != 0) {
+        return FALSE;
+    }
+
+    __try {
+        ULONG opcode = *(ULONG *)pb;
+
+        // PACIBSP: 0xD503237F / PACISP: 0xD503233F
+        if (opcode == 0xD503237F || opcode == 0xD503233F) {
+            return TRUE;
+        }
+        // BTI variants: 0xD503241F, 0xD503245F, 0xD503249F, 0xD50324DF
+        if ((opcode & 0xFFFFFF1F) == 0xD503241F) {
+            return TRUE;
+        }
+        // STP with pre-index writeback (common prologue saving registers to stack):
+        //   stp Xt1, Xt2, [sp, #imm]!  — encoding 0xA9800000 family
+        if ((opcode & 0xFE000000) == 0xA8000000 ||  // STP (post/pre-index, 64-bit)
+            (opcode & 0xFE000000) == 0xA9000000) {  // STP (signed offset, 64-bit)
+            // Verify base register is SP (Rn field bits [9:5] == 31)
+            if (((opcode >> 5) & 0x1F) == 31) {
+                return TRUE;
+            }
+        }
+        // SUB SP, SP, #imm (stack frame allocation):
+        //   0xD1000000 family with Rd=SP and Rn=SP
+        if ((opcode & 0xFF000000) == 0xD1000000) {
+            ULONG rd = opcode & 0x1F;
+            ULONG rn = (opcode >> 5) & 0x1F;
+            if (rd == 31 && rn == 31) {
+                return TRUE;
+            }
+        }
+        // MOV x29, sp (set frame pointer): 0x910003FD
+        if (opcode == 0x910003FD) {
+            return TRUE;
+        }
+    }
+    __except(GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ?
+             EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        return FALSE;
+    }
+    return FALSE;
+}
+#endif
+
+static BOOL detour_is_arm64ec_code(ULONG64 Address)
+{
+#if defined(_M_ARM64EC)
+    return RtlIsEcCode(Address);
+#else
+    typedef UCHAR (NTAPI *PFN_RtlIsEcCode)(ULONG64);
+    static PFN_RtlIsEcCode pfnRtlIsEcCode = NULL;
+    static BOOL s_fInitialized = FALSE;
+
+    if (!s_fInitialized) {
+        s_fInitialized = TRUE;
+
+        typedef BOOL (WINAPI *PFN_IsWow64Process2)(HANDLE, USHORT*, USHORT*);
+        HMODULE hKernel32 = GetModuleHandleW(L"kernel32.dll");
+        if (hKernel32) {
+            PFN_IsWow64Process2 pfnIsWow64 = (PFN_IsWow64Process2)
+                GetProcAddress(hKernel32, "IsWow64Process2");
+            if (pfnIsWow64) {
+                USHORT processMachine = 0, nativeMachine = 0;
+                if (pfnIsWow64(GetCurrentProcess(), &processMachine, &nativeMachine) &&
+                    (nativeMachine == 0xAA64)) { //IMAGE_FILE_MACHINE_ARM64
+#if defined(DETOURS_X86)
+                    pfnRtlIsEcCode = &detour_rtl_is_ec_code;
+#else
+                    pfnRtlIsEcCode = (PFN_RtlIsEcCode)
+                        GetProcAddress(hKernel32, "RtlIsEcCode");
+#endif
+                }
+            }
+        }
+    }
+
+    if (pfnRtlIsEcCode) {
+        return pfnRtlIsEcCode(Address);
+    }
+    return FALSE;
+#endif // _M_ARM64EC
+}
+#endif // DETOURS_X64 || DETOURS_X86
+
+//////////////////////////////////////////////////////////////////////////////
+//
 static bool detour_is_imported(PBYTE pbCode, PBYTE pbAddress)
 {
     MEMORY_BASIC_INFORMATION mbi;
@@ -1018,7 +1126,7 @@ PBYTE detour_gen_jmp_indirect(BYTE *pbCode, ULONG64 *pbJmpVal)
     struct ARM64_INDIRECT_JMP *pIndJmp;
     union ARM64_INDIRECT_IMM jmpIndAddr;
 
-    jmpIndAddr.value = (((LONG64)pbJmpVal) & 0xFFFFFFFFFFFFF000) - 
+    jmpIndAddr.value = (((LONG64)pbJmpVal) & 0xFFFFFFFFFFFFF000) -
                        (((LONG64)pbCode) & 0xFFFFFFFFFFFFF000);
 
     pIndJmp = (struct ARM64_INDIRECT_JMP *)pbCode;
@@ -2143,15 +2251,17 @@ LONG WINAPI DetourAttachEx(_Inout_ PVOID *ppPointer,
     DETOUR_TRACE(("  ppldTarget=%p, code=%p [gp=%p]\n",
                   ppldTarget, pbTarget, pTargetGlobals));
 #else // DETOURS_IA64
-#if defined(_M_ARM64EC)
-    if (RtlIsEcCode(reinterpret_cast<DWORD64>(*ppPointer))) {
+#if defined(DETOURS_X64) || defined(DETOURS_X86)
+    if (detour_is_arm64ec_code((ULONG64)*ppPointer)) {
         DETOUR_TRACE(("*ppPointer is an Arm64EC address (ppPointer=%p). "
                       "An Arm64EC address cannot be legitimately detoured with an x64 jmp. "
-                      "Mark the target function with __declspec(hybrid_patchable) to make it detour-able. "
-                      "We still allow an Arm64EC function to be detoured with an x64 jmp to make it easy (crash) to debug.\n", ppPointer));
+                      "Mark the target function with __declspec(hybrid_patchable) to make it detour-able.\n",
+                      *ppPointer));
+        error = ERROR_INVALID_BLOCK;
         DETOUR_BREAK();
+        goto fail;
     }
-#endif
+#endif // DETOURS_X64 || DETOURS_X86
     pbTarget = (PBYTE)DetourCodeFromPointer(pbTarget, NULL);
     pDetour = DetourCodeFromPointer(pDetour, NULL);
 #endif // !DETOURS_IA64
