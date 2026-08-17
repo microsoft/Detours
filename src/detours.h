@@ -106,6 +106,8 @@
 #define DETOURS_ARM64
 
 #else
+// These macros come from <windef.h>; if you hit this, make sure <windows.h> is
+// included before detours.h.
 #error Unknown architecture (x86, amd64, ia64, arm, arm64, arm64ec)
 #endif
 
