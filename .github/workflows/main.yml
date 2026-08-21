@@ -31,16 +31,16 @@ jobs:
 
     steps:
       - name: Clone Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       # Setup build environment variables using vcvarsall.bat.
       - name: Configure MSVC Compiler for ${{ matrix.arch }}
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         with:
           arch: ${{ matrix.arch }}
 
       - name: Initialize CodeQL for C++
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
         with:
           languages: cpp
@@ -61,7 +61,7 @@ jobs:
         if: ${{ matrix.arch == 'x86' || matrix.arch == 'x64' }}
 
       - name: Upload artifacts for ${{ matrix.arch }} on ${{ matrix.os }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: artifacts-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.conf }}
           path: |
@@ -70,5 +70,5 @@ jobs:
             include/
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         if: ${{ matrix.os == 'windows-2019' && matrix.conf == 'Debug' }}
