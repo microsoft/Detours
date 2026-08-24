@@ -8,3 +8,5 @@ updates:
       interval: "daily"
     commit-message:
       prefix: "Dependencies:"
+    cooldown:
+      default-days: 7
