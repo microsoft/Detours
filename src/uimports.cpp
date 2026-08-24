@@ -207,6 +207,8 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 
     DWORD obBase = (DWORD)(pbNewIid - pbModule);
     DWORD dwProtect = 0;
+    DWORD dwOld = 0;
+    DWORD dwLastError = 0;
 
     if (inh.IMPORT_DIRECTORY.VirtualAddress != 0) {
         // Read the old import directory if it exists.
@@ -309,14 +311,16 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     inh.OptionalHeader.CheckSum = 0;
 
     if (!WriteProcessMemory(hProcess, pbModule, &idh, sizeof(idh), NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(idh) failed: %lu\n", GetLastError()));
-        goto finish;
+        dwLastError = GetLastError();
+        DETOUR_TRACE(("WriteProcessMemory(idh) failed: %lu\n", dwLastError));
+        goto restore;
     }
     DETOUR_TRACE(("WriteProcessMemory(idh:%p..%p)\n", pbModule, pbModule + sizeof(idh)));
 
     if (!WriteProcessMemory(hProcess, pbModule + idh.e_lfanew, &inh, sizeof(inh), NULL)) {
-        DETOUR_TRACE(("WriteProcessMemory(inh) failed: %lu\n", GetLastError()));
-        goto finish;
+        dwLastError = GetLastError();
+        DETOUR_TRACE(("WriteProcessMemory(inh) failed: %lu\n", dwLastError));
+        goto restore;
     }
     DETOUR_TRACE(("WriteProcessMemory(inh:%p..%p)\n",
                   pbModule + idh.e_lfanew,
@@ -329,5 +333,13 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
     }
 
     fSucceeded = TRUE;
+    goto finish;
+
+  restore:
+    if (!VirtualProtectEx(hProcess, pbModule, inh.OptionalHeader.SizeOfHeaders,
+                          dwProtect, &dwOld)) {
+        DETOUR_TRACE(("VirtualProtectEx(idh) restore failed: %lu\n", GetLastError()));
+    }
+    SetLastError(dwLastError);
     goto finish;
 }

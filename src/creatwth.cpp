@@ -591,15 +591,18 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
     /////////////////////////////////////////////////////// Write new headers.
     //
     DWORD dwProtect = 0;
+    DWORD dwOld = 0;
+    DWORD dwLastError = 0;
     if (!DetourVirtualProtectSameExecuteEx(hProcess, pbModule, inh64.OptionalHeader.SizeOfHeaders,
                                            PAGE_EXECUTE_READWRITE, &dwProtect)) {
         return FALSE;
     }
 
     if (!WriteProcessMemory(hProcess, pnh, &inh64, sizeof(inh64), NULL)) {
+        dwLastError = GetLastError();
         DETOUR_TRACE(("WriteProcessMemory(inh@%p..%p) failed: %lu\n",
-                      pnh, pnh + sizeof(inh64), GetLastError()));
-        return FALSE;
+                      pnh, pnh + sizeof(inh64), dwLastError));
+        goto restore;
     }
     DETOUR_TRACE(("WriteProcessMemory(inh@%p..%p)\n", pnh, pnh + sizeof(inh64)));
 
@@ -608,15 +611,17 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
         inh64.FileHeader.SizeOfOptionalHeader;
     cb = inh64.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER);
     if (!WriteProcessMemory(hProcess, psects, &sects, cb, NULL)) {
+        dwLastError = GetLastError();
         DETOUR_TRACE(("WriteProcessMemory(ish@%p..%p) failed: %lu\n",
-                      psects, psects + cb, GetLastError()));
-        return FALSE;
+                      psects, psects + cb, dwLastError));
+        goto restore;
     }
     DETOUR_TRACE(("WriteProcessMemory(ish@%p..%p)\n", psects, psects + cb));
 
     // Record the updated headers.
     if (!RecordExeRestore(hProcess, hModule, der)) {
-        return FALSE;
+        dwLastError = GetLastError();
+        goto restore;
     }
 
     // Remove the import table.
@@ -625,19 +630,27 @@ static BOOL UpdateFrom32To64(HANDLE hProcess, HMODULE hModule, WORD machine,
         inh64.IMPORT_DIRECTORY.Size = 0;
 
         if (!WriteProcessMemory(hProcess, pnh, &inh64, sizeof(inh64), NULL)) {
+            dwLastError = GetLastError();
             DETOUR_TRACE(("WriteProcessMemory(inh@%p..%p) failed: %lu\n",
-                          pnh, pnh + sizeof(inh64), GetLastError()));
-            return FALSE;
+                          pnh, pnh + sizeof(inh64), dwLastError));
+            goto restore;
         }
     }
 
-    DWORD dwOld = 0;
     if (!VirtualProtectEx(hProcess, pbModule, inh64.OptionalHeader.SizeOfHeaders,
                           dwProtect, &dwOld)) {
         return FALSE;
     }
 
     return TRUE;
+
+  restore:
+    if (!VirtualProtectEx(hProcess, pbModule, inh64.OptionalHeader.SizeOfHeaders,
+                          dwProtect, &dwOld)) {
+        DETOUR_TRACE(("VirtualProtectEx(inh) restore failed: %lu\n", GetLastError()));
+    }
+    SetLastError(dwLastError);
+    return FALSE;
 }
 #endif // DETOURS_64BIT
 
@@ -864,7 +877,13 @@ BOOL WINAPI DetourUpdateProcessWithDllEx(_In_ HANDLE hProcess,
         }
 
         if (!WriteProcessMemory(hProcess, der.pclr, &clr, sizeof(clr), NULL)) {
-            DETOUR_TRACE(("WriteProcessMemory(clr) failed: %lu\n", GetLastError()));
+            DWORD dwLastError = GetLastError();
+            DETOUR_TRACE(("WriteProcessMemory(clr) failed: %lu\n", dwLastError));
+            DWORD dwOld = 0;
+            if (!VirtualProtectEx(hProcess, der.pclr, sizeof(clr), dwProtect, &dwOld)) {
+                DETOUR_TRACE(("VirtualProtectEx(clr) restore failed: %lu\n", GetLastError()));
+            }
+            SetLastError(dwLastError);
             return FALSE;
         }
 
