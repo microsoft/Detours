@@ -928,12 +928,15 @@ BOOL WINAPI DetourCreateProcessWithDllA(_In_opt_ LPCSTR lpApplicationName,
                                lpStartupInfo,
                                &pi);
 
-    if (lpProcessInformation != NULL) {
-        CopyMemory(lpProcessInformation, &pi, sizeof(pi));
+    if (!fResult) {
+        if (lpProcessInformation != NULL) {
+            ZeroMemory(lpProcessInformation, sizeof(*lpProcessInformation));
+        }
+        return FALSE;
     }
 
-    if (!fResult) {
-        return FALSE;
+    if (lpProcessInformation != NULL) {
+        CopyMemory(lpProcessInformation, &pi, sizeof(pi));
     }
 
     LPCSTR rlpDlls[2];
@@ -985,12 +988,15 @@ BOOL WINAPI DetourCreateProcessWithDllW(_In_opt_ LPCWSTR lpApplicationName,
                                     lpStartupInfo,
                                     &pi);
 
-    if (lpProcessInformation) {
-        CopyMemory(lpProcessInformation, &pi, sizeof(pi));
+    if (!fResult) {
+        if (lpProcessInformation != NULL) {
+            ZeroMemory(lpProcessInformation, sizeof(*lpProcessInformation));
+        }
+        return FALSE;
     }
 
-    if (!fResult) {
-        return FALSE;
+    if (lpProcessInformation != NULL) {
+        CopyMemory(lpProcessInformation, &pi, sizeof(pi));
     }
 
     LPCSTR rlpDlls[2];
