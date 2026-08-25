@@ -975,9 +975,9 @@ PBYTE CDetourDis::CopyRex2(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
         pbOut = (this->*pEntry2->pfCopy)(pEntry2, pbDst + 2, pbSrc + 2);
     }
 
-    // JMPABS: REX2 with payload=0x00 (M=0, W=0, all ext bits 0) and opcode A1.
+    // JMPABS: REX2 with M=0, W=0, and opcode A1. Other payload bits are ignored.
     // This is an absolute 64-bit jump whose target is the 8-byte immediate.
-    if (payload == 0x00 && pbSrc[2] == 0xA1) {
+    if ((payload & 0x88) == 0x00 && pbSrc[2] == 0xA1) {
         *m_ppbTarget = *(UNALIGNED PBYTE*)&pbSrc[3];
     }
 
