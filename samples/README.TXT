@@ -22,16 +22,16 @@ that does not have spaces in the full path name.
 
 BUILDING:
 =========
-Open a Developer Command Prompt for VS.  Note there are several different
-flavors of the command prompt for different target architectures.  The
-default Visual Studio Command prompt targets x86.  To target x64, choose
-the "X64 Native Tools Command Prompt for VS"
+Open a Developer Command Prompt for VS, or run vcvarsall.bat for your target
+architecture, so that cmake can find the MSVC toolset. From the root of your
+git repo, configure and build with the samples option turned on:
 
-Change directory to the samples directory for your git repo.  To build the
-samples, type "nmake".
+    cmake -S . -B build -DDETOURS_BUILD_SAMPLES=ON
+    cmake --build build
 
 Note that you must build setdll and syslog in order to use many of the
-other sample programs.
+other sample programs; both are built automatically as part of the samples
+target above.
 
 INSTALLING AND BUILDING VIA VCPKG:
 ==================================
@@ -47,15 +47,15 @@ The detours port in vcpkg is kept up to date by Microsoft team members and commu
 
 TESTING:
 ========
-Each of the sample directories has a test, which can be invoked by typing
-"nmake test", to demonstrate the usage of the sample.  With very few
-exceptions, all of the executables also accept a "/?" command to display a
-usage message.
+A number of the samples have a test, registered with ctest, that demonstrates
+their usage. With very few exceptions, all of the executables also accept a
+"/?" command to display a usage message.
 
-To run all sample tests, change directory to the samples directory and type
-"nmake test".  Note that some samples are architecture-specific.  Tests for
-those samples be run only on supported architectures and will be skipped on
-other architectures.
+To run the sample tests, configure with tests enabled as well and use ctest:
+
+    cmake -S . -B build -DDETOURS_BUILD_SAMPLES=ON -DDETOURS_BUILD_TESTS=ON
+    cmake --build build
+    ctest --test-dir build
 
 COMMENTS:
 =========

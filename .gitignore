@@ -37,5 +37,12 @@ obj.*
 *.user
 *.recipe
 /bin.*
-*.vcxproj.FileListAbsolute.txt
-*.vcxprojAssemblyReference.cache
+
+# CMake
+build*/
+CMakeFiles/
+CMakeCache.txt
+CMakeUserPresets.json
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt

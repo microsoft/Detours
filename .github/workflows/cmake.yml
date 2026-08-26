@@ -1,0 +1,109 @@
+name: CI-CMake
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # windows-2022 ships VS 2022 (17.x); windows-2025 ships VS 2026 (18.x)
+        # -- each runner image only has one VS version installed, so the
+        # generator must be paired with its matching os, not cross-produced.
+        toolset:
+          - { os: windows-2022, generator: "Visual Studio 17 2022" }
+          - { os: windows-2022, generator: "Ninja Multi-Config" }
+          - { os: windows-2025, generator: "Visual Studio 18 2026" }
+          - { os: windows-2025, generator: "Ninja Multi-Config" }
+        arch: [x86, x64]
+        config: [Debug, Release]
+
+    runs-on: ${{ matrix.toolset.os }}
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v6
+
+      - name: Configure MSVC Compiler
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+
+      # Runs once, on the same job/matrix leg the old NMake-driven CI-Build
+      # workflow used (windows-2022, Debug) -- ported here since main.yml
+      # (and the NMake build it drove) has been removed.
+      - name: Initialize CodeQL for C++
+        uses: github/codeql-action/init@v4
+        if: ${{ matrix.toolset.os == 'windows-2022' && matrix.toolset.generator == 'Ninja Multi-Config' && matrix.arch == 'x64' && matrix.config == 'Debug' }}
+        with:
+          languages: cpp
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Configure
+        run: |
+          $platformArg = @()
+          if ('${{ matrix.toolset.generator }}' -ne 'Ninja Multi-Config') {
+            $platformArg = @('-A', '${{ matrix.arch == 'x86' && 'Win32' || 'x64' }}')
+          }
+          cmake -S . -B build -G '${{ matrix.toolset.generator }}' @platformArg -DDETOURS_BUILD_INTEGRATION_TESTS=ON -DDETOURS_BUILD_SAMPLES=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }} --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C ${{ matrix.config }} --output-on-failure
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        if: ${{ matrix.toolset.os == 'windows-2022' && matrix.toolset.generator == 'Ninja Multi-Config' && matrix.arch == 'x64' && matrix.config == 'Debug' }}
+
+  # Builds and runs on real ARM64 hardware (windows-11-arm) using cl.exe's
+  # /arm64EC switch. CFLAGS/CXXFLAGS force /arm64EC because only the Visual
+  # Studio generator's "-A ARM64EC" configures this automatically -- Ninja
+  # has no equivalent mechanism. See:
+  # https://devblogs.microsoft.com/cppblog/arm64ec-support-in-visual-studio/
+  test-arm64ec:
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    runs-on: windows-11-arm
+    env:
+      # Also needed by Test: the find_package integration test spawns its own
+      # nested CMake configure via ctest, which must be forced to /arm64EC too.
+      CFLAGS: /arm64EC
+      CXXFLAGS: /arm64EC
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v6
+
+      - name: Configure MSVC Compiler
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: arm64
+
+      - name: Configure
+        run: |
+          # vcvarsarm64.bat doesn't reliably put ml64.exe on PATH (it lives in a
+          # Host*\x64 tools dir that the arm64-hosted dev environment doesn't add),
+          # so CMake's default ASM_MASM search falls back to a nonexistent "ml.exe"
+          # and disas/x64.asm fails with "CreateProcess failed". Locate ml64.exe
+          # explicitly via vswhere and hand it to CMake instead.
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $ml64 = Get-ChildItem -Path "$vsPath\VC\Tools\MSVC" -Recurse -Filter ml64.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          cmake -S . -B build -G "Ninja Multi-Config" -DDETOURS_BUILD_INTEGRATION_TESTS=ON -DDETOURS_BUILD_SAMPLES=ON -DCMAKE_ASM_MASM_COMPILER="$ml64"
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }} --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C ${{ matrix.config }} --output-on-failure
