@@ -114,7 +114,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 
         PIMAGE_IMPORT_DESCRIPTOR pImageImport = (PIMAGE_IMPORT_DESCRIPTOR)(pbModule + inh.IMPORT_DIRECTORY.VirtualAddress);
 
-        do {
+        for (; ; ) {
             IMAGE_IMPORT_DESCRIPTOR ImageImport;
             if (!ReadProcessMemory(hProcess, pImageImport, &ImageImport, sizeof(ImageImport), NULL)) {
                 DETOUR_TRACE(("ReadProcessMemory failed: %lu\n", GetLastError()));
@@ -125,7 +125,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
                 break;
             }
             ++pImageImport;
-        } while (TRUE);
+        }
 
         DWORD dwLastError = GetLastError();
         OutputDebugString(TEXT("[This PE file has an import table, but the import table size is marked as 0. This is an error.")
