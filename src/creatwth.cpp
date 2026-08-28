@@ -1338,11 +1338,19 @@ BOOL WINAPI DetourProcessViaHelperA(_In_ DWORD dwTargetPid,
     return DetourProcessViaHelperDllsA(dwTargetPid, 1, &lpDllName, pfCreateProcessA);
 }
 
-
 BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
                                         _In_ DWORD nDlls,
                                         _In_reads_(nDlls) LPCSTR *rlpDlls,
                                         _In_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA)
+{
+    return DetourProcessViaHelperDllsExA(dwTargetPid, NULL, nDlls, rlpDlls, pfCreateProcessA);
+}
+
+BOOL WINAPI DetourProcessViaHelperDllsExA(_In_ DWORD dwTargetPid,
+                                          _In_ LPCSTR runDll,
+                                          _In_ DWORD nDlls,
+                                          _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                          _In_ PDETOUR_CREATE_PROCESS_ROUTINEA pfCreateProcessA)
 {
     BOOL Result = FALSE;
     PROCESS_INFORMATION pi;
@@ -1381,8 +1389,12 @@ BOOL WINAPI DetourProcessViaHelperDllsA(_In_ DWORD dwTargetPid,
 
     //for East Asia languages and so on, like Chinese, print format with "%hs" can not work fine before user call _tsetlocale(LC_ALL,_T(".ACP"));
     //so we can't use "%hs" in format string, because the dll that contain this code would inject to any process, even not call _tsetlocale(LC_ALL,_T(".ACP")) before
+    if (!runDll)
+    {
+        runDll = &helper->rDlls[0];
+    }
     hr = StringCchPrintfA(szCommand, ARRAYSIZE(szCommand),
-                          "rundll32.exe \"%s\",#1", &helper->rDlls[0]);
+                          "rundll32.exe \"%s\",#1", runDll);
     if (!SUCCEEDED(hr)) {
         goto Cleanup;
     }
@@ -1442,6 +1454,15 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
                                         _In_reads_(nDlls) LPCSTR *rlpDlls,
                                         _In_ PDETOUR_CREATE_PROCESS_ROUTINEW pfCreateProcessW)
 {
+    return DetourProcessViaHelperDllsExW(dwTargetPid, NULL, nDlls, rlpDlls, pfCreateProcessW);
+}
+
+BOOL WINAPI DetourProcessViaHelperDllsExW(_In_ DWORD dwTargetPid,
+                                     _In_ LPCSTR runDll,
+                                     _In_ DWORD nDlls,
+                                     _In_reads_(nDlls) LPCSTR *rlpDlls,
+                                     _In_ PDETOUR_CREATE_PROCESS_ROUTINEW pfCreateProcessW)
+{
     BOOL Result = FALSE;
     PROCESS_INFORMATION pi;
     STARTUPINFOW si;
@@ -1482,7 +1503,11 @@ BOOL WINAPI DetourProcessViaHelperDllsW(_In_ DWORD dwTargetPid,
     //for East Asia languages and so on, like Chinese, print format with "%hs" can not work fine before user call _tsetlocale(LC_ALL,_T(".ACP"));
     //so we can't use "%hs" in format string, because the dll that contain this code would inject to any process, even not call _tsetlocale(LC_ALL,_T(".ACP")) before
     
-    cchWrittenWideChar = MultiByteToWideChar(CP_ACP, 0, &helper->rDlls[0], -1, szDllName, ARRAYSIZE(szDllName));
+    if (!runDll)
+    {
+        runDll = &helper->rDlls[0];
+    }
+    cchWrittenWideChar = MultiByteToWideChar(CP_ACP, 0, runDll, -1, szDllName, ARRAYSIZE(szDllName));
     if (cchWrittenWideChar >= ARRAYSIZE(szDllName) || cchWrittenWideChar <= 0) {
         goto Cleanup;
     }
