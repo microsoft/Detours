@@ -257,7 +257,7 @@ private:
 
     IMAGE_DOS_HEADER        m_DosHeader;                // Read & Write
     IMAGE_NT_HEADERS        m_NtHeader;                 // Read & Write
-    IMAGE_SECTION_HEADER    m_SectionHeaders[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+    IMAGE_SECTION_HEADER    m_SectionHeaders[DETOUR_MAX_SUPPORTED_IMAGE_SECTION_HEADERS];
 
     DWORD                   m_nPrePE;
     DWORD                   m_cbPrePE;
