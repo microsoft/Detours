@@ -421,6 +421,22 @@ inline PBYTE detour_gen_jmp_indirect(PBYTE pbCode, PBYTE *ppbJmpVal)
     return pbCode;
 }
 
+inline BOOL detour_decode_jmp_indirect(PBYTE pbCode, PBYTE *ppbTarget)
+{
+    ULONG cbPrefix = 0;
+
+    if ((pbCode[0] & 0xf0) == 0x40) {
+        cbPrefix = 1;
+    }
+
+    if (pbCode[cbPrefix] != 0xff || pbCode[cbPrefix + 1] != 0x25) {
+        return FALSE;
+    }
+
+    *ppbTarget = pbCode + cbPrefix + 6 + *(UNALIGNED INT32 *)&pbCode[cbPrefix + 2];
+    return TRUE;
+}
+
 inline PBYTE detour_gen_brk(PBYTE pbCode, PBYTE pbLimit)
 {
     while (pbCode < pbLimit) {
@@ -432,6 +448,7 @@ inline PBYTE detour_gen_brk(PBYTE pbCode, PBYTE pbLimit)
 inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
 {
     PBYTE pbCodeOriginal;
+    PBYTE pbTarget;
 
     if (pbCode == NULL) {
         return NULL;
@@ -441,9 +458,8 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
     }
 
     // First, skip over the import vector if there is one.
-    if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [+imm32]
+    if (detour_decode_jmp_indirect(pbCode, &pbTarget)) {   // jmp [+imm32]
         // Looks like an import alias jump, then get the code it points to.
-        PBYTE pbTarget = pbCode + 6 + *(UNALIGNED INT32 *)&pbCode[2];
         if (detour_is_imported(pbCode, pbTarget)) {
             PBYTE pbNew = *(UNALIGNED PBYTE *)pbTarget;
             DETOUR_TRACE(("%p->%p: skipped over import table.\n", pbCode, pbNew));
@@ -459,9 +475,8 @@ inline PBYTE detour_skip_jmp(PBYTE pbCode, PVOID *ppGlobals)
         pbCodeOriginal = pbCode;
 
         // First, skip over the import vector if there is one.
-        if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [+imm32]
+        if (detour_decode_jmp_indirect(pbCode, &pbTarget)) {   // jmp [+imm32]
             // Looks like an import alias jump, then get the code it points to.
-            PBYTE pbTarget = pbCode + 6 + *(UNALIGNED INT32 *)&pbCode[2];
             if (detour_is_imported(pbCode, pbTarget)) {
                 pbNew = *(UNALIGNED PBYTE *)pbTarget;
                 DETOUR_TRACE(("%p->%p: skipped over import table.\n", pbCode, pbNew));
@@ -500,17 +515,16 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
     // We have to place trampolines within +/- 2GB of code.
     ULONG_PTR lo = detour_2gb_below((ULONG_PTR)pbCode);
     ULONG_PTR hi = detour_2gb_above((ULONG_PTR)pbCode);
+    PBYTE pbJmpTarget;
     DETOUR_TRACE(("[%p..%p..%p]\n", (PVOID)lo, pbCode, (PVOID)hi));
 
     // And, within +/- 2GB of relative jmp vectors.
-    if (pbCode[0] == 0xff && pbCode[1] == 0x25) {   // jmp [+imm32]
-        PBYTE pbNew = pbCode + 6 + *(UNALIGNED INT32 *)&pbCode[2];
-
-        if (pbNew < pbCode) {
-            hi = detour_2gb_above((ULONG_PTR)pbNew);
+    if (detour_decode_jmp_indirect(pbCode, &pbJmpTarget)) {   // jmp [+imm32]
+        if (pbJmpTarget < pbCode) {
+            hi = detour_2gb_above((ULONG_PTR)pbJmpTarget);
         }
         else {
-            lo = detour_2gb_below((ULONG_PTR)pbNew);
+            lo = detour_2gb_below((ULONG_PTR)pbJmpTarget);
         }
         DETOUR_TRACE(("[%p..%p..%p] [+imm32]\n", (PVOID)lo, pbCode, (PVOID)hi));
     }
@@ -533,6 +547,8 @@ inline void detour_find_jmp_bounds(PBYTE pbCode,
 
 inline BOOL detour_does_code_end_function(PBYTE pbCode)
 {
+    PBYTE pbTarget;
+
     if (pbCode[0] == 0xeb ||    // jmp +imm8
         pbCode[0] == 0xe9 ||    // jmp +imm32
         pbCode[0] == 0xe0 ||    // jmp eax
@@ -544,7 +560,7 @@ inline BOOL detour_does_code_end_function(PBYTE pbCode)
     else if (pbCode[0] == 0xf3 && pbCode[1] == 0xc3) {  // rep ret
         return TRUE;
     }
-    else if (pbCode[0] == 0xff && pbCode[1] == 0x25) {  // jmp [+imm32]
+    else if (detour_decode_jmp_indirect(pbCode, &pbTarget)) {  // jmp [+imm32]
         return TRUE;
     }
     else if ((pbCode[0] == 0x26 ||      // jmp es:
