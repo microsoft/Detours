@@ -43,20 +43,11 @@ int Detour_AssertExprWithFunctionName(int reportType, const char* filename, int 
 //
 struct _DETOUR_ALIGN
 {
-#if defined(DETOURS_ARM64) || defined(_M_ARM64EC)
     BYTE    obTarget;
     BYTE    obTrampoline;
-#else
-    BYTE    obTarget        : 3;
-    BYTE    obTrampoline    : 5;
-#endif
 };
 
-#if defined(DETOURS_ARM64) || defined(_M_ARM64EC)
 C_ASSERT(sizeof(_DETOUR_ALIGN) == 2);
-#else
-C_ASSERT(sizeof(_DETOUR_ALIGN) == 1);
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -149,7 +140,7 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbDetour;       // first instruction of detour function.
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 72);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 80);
 
 enum {
     SIZE_OF_JMP = 5
@@ -394,7 +385,7 @@ struct _DETOUR_TRAMPOLINE
 #ifdef _M_ARM64EC
 C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 208);
 #else
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 96);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 104);
 #endif
 
 enum {
@@ -701,7 +692,7 @@ struct _DETOUR_TRAMPOLINE
 };
 
 C_ASSERT(sizeof(DETOUR_IA64_BUNDLE) == 16);
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 256 + DETOUR_IA64_INSTRUCTIONS_PER_BUNDLE * 16);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 272 + DETOUR_IA64_INSTRUCTIONS_PER_BUNDLE * 16);
 
 enum {
     SIZE_OF_JMP = sizeof(DETOUR_IA64_BUNDLE)
@@ -814,7 +805,7 @@ struct _DETOUR_TRAMPOLINE
     PBYTE           pbDetour;       // first instruction of detour function.
 };
 
-C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 104);
+C_ASSERT(sizeof(_DETOUR_TRAMPOLINE) == 112);
 
 enum {
     SIZE_OF_JMP = 8
