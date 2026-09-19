@@ -3377,11 +3377,6 @@ BYTE CDetourDis::CopyLoadAndStoreSingle(BYTE* pSource, BYTE* pDest)
         return PureCopy32(pSource, pDest);
     }
 
-    if ((instruction & 0xF81F0000) == 0xF81F0000) {
-        // 1111100xxxx11111xxxxxxxxxxxxxxxx : PC +/- Imm12
-        return CopyLiteralLoad32(pSource, pDest);
-    }
-
     if ((instruction & 0xFE70F000) == 0xF810F000) {
         // 1111100xx001xxxx1111xxxxxxxxxxxx : PLD, PLI
         // Convert PC-Relative PLD/PLI instructions to noops (1111100Xx00111111111xxxxxxxxxxxx)
@@ -3394,6 +3389,11 @@ BYTE CDetourDis::CopyLoadAndStoreSingle(BYTE* pSource, BYTE* pDest)
 
         // All other PLD/PLI instructions are blitt-able
         return PureCopy32(pSource, pDest);
+    }
+
+    if ((instruction & 0xF81F0000) == 0xF81F0000) {
+        // 1111100xxxx11111xxxxxxxxxxxxxxxx : PC +/- Imm12
+        return CopyLiteralLoad32(pSource, pDest);
     }
 
     // If the load is writing to PC
