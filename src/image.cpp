@@ -323,7 +323,7 @@ static LPCSTR DuplicateString(_In_ LPCSTR pszIn)
         return NULL;
     }
 
-    PCHAR pszOut = new NOTHROW CHAR [cch + 1];
+    PCHAR pszOut = DetourCreateObjectArray<CHAR>(cch + 1);
     if (pszOut == NULL) {
         SetLastError(ERROR_OUTOFMEMORY);
         return NULL;
@@ -331,7 +331,7 @@ static LPCSTR DuplicateString(_In_ LPCSTR pszIn)
 
     hr = StringCchCopyA(pszOut, cch + 1, pszIn);
     if (FAILED(hr)) {
-        delete[] pszOut;
+        DetourDestroyObjectArray(pszOut);
         return NULL;
     }
 
@@ -341,7 +341,7 @@ static LPCSTR DuplicateString(_In_ LPCSTR pszIn)
 static VOID ReleaseString(_In_opt_ LPCSTR psz)
 {
     if (psz != NULL) {
-        delete[] psz;
+        DetourDestroyObjectArray(psz);
     }
 }
 
@@ -366,20 +366,20 @@ CImageImportFile::CImageImportFile()
 CImageImportFile::~CImageImportFile()
 {
     if (m_pNextFile) {
-        delete m_pNextFile;
+        DetourDestroyObject(m_pNextFile);
         m_pNextFile = NULL;
     }
     if (m_pImportNames) {
-        delete[] m_pImportNames;
+        DetourDestroyObjectArray(m_pImportNames);
         m_pImportNames = NULL;
         m_nImportNames = 0;
     }
     if (m_pszName) {
-        delete[] m_pszName;
+        DetourDestroyObjectArray(m_pszName);
         m_pszName = NULL;
     }
     if (m_pszOrig) {
-        delete[] m_pszOrig;
+        DetourDestroyObjectArray(m_pszOrig);
         m_pszOrig = NULL;
     }
 }
@@ -396,11 +396,11 @@ CImageImportName::CImageImportName()
 CImageImportName::~CImageImportName()
 {
     if (m_pszName) {
-        delete[] m_pszName;
+        DetourDestroyObjectArray(m_pszName);
         m_pszName = NULL;
     }
     if (m_pszOrig) {
-        delete[] m_pszOrig;
+        DetourDestroyObjectArray(m_pszOrig);
         m_pszOrig = NULL;
     }
 }
@@ -422,7 +422,7 @@ CImageData::~CImageData()
         m_pbData = NULL;
     }
     if (m_pbData) {
-        delete[] m_pbData;
+        DetourDestroyObjectArray(m_pbData);
         m_pbData = NULL;
     }
     m_cbData = 0;
@@ -437,7 +437,7 @@ BOOL CImageData::SizeTo(DWORD cbData)
         return TRUE;
     }
 
-    PBYTE pbNew = new NOTHROW BYTE [cbData];
+    PBYTE pbNew = DetourCreateObjectArray<BYTE>(cbData);
     if (pbNew == NULL) {
         SetLastError(ERROR_OUTOFMEMORY);
         return FALSE;
@@ -446,7 +446,7 @@ BOOL CImageData::SizeTo(DWORD cbData)
     if (m_pbData) {
         CopyMemory(pbNew, m_pbData, m_cbData);
         if (m_cbAlloc > 0) {
-            delete[] m_pbData;
+            DetourDestroyObjectArray(m_pbData);
         }
         m_pbData = NULL;
     }
@@ -789,13 +789,13 @@ CImage::~CImage()
 BOOL CImage::Close()
 {
     if (m_pImportFiles) {
-        delete m_pImportFiles;
+        DetourDestroyObject(m_pImportFiles);
         m_pImportFiles = NULL;
         m_nImportFiles = 0;
     }
 
     if (m_pImageData) {
-        delete m_pImageData;
+        DetourDestroyObject(m_pImageData);
         m_pImageData = NULL;
     }
 
@@ -810,7 +810,7 @@ BOOL CImage::Close()
     }
 
     if (m_pbOutputBuffer) {
-        delete[] m_pbOutputBuffer;
+        DetourDestroyObjectArray(m_pbOutputBuffer);
         m_pbOutputBuffer = NULL;
         m_cbOutputBuffer = 0;
     }
@@ -869,7 +869,7 @@ BOOL CImage::SizeOutputBuffer(DWORD cbData)
         }
         cbData = FileAlign(cbData);
 
-        PBYTE pOutput = new NOTHROW BYTE [cbData];
+        PBYTE pOutput = DetourCreateObjectArray<BYTE>(cbData);
         if (pOutput == NULL) {
             SetLastError(ERROR_OUTOFMEMORY);
             return FALSE;
@@ -878,7 +878,7 @@ BOOL CImage::SizeOutputBuffer(DWORD cbData)
         if (m_pbOutputBuffer) {
             CopyMemory(pOutput, m_pbOutputBuffer, m_cbOutputBuffer);
 
-            delete[] m_pbOutputBuffer;
+            DetourDestroyObjectArray(m_pbOutputBuffer);
             m_pbOutputBuffer = NULL;
         }
 
@@ -1150,7 +1150,7 @@ BOOL CImage::Read(HANDLE hFile)
             goto fail;
         }
 
-        CImageImportFile *pImportFile = new NOTHROW CImageImportFile;
+        CImageImportFile *pImportFile = DetourCreateObject<CImageImportFile>();
         if (pImportFile == NULL) {
             SetLastError(ERROR_OUTOFMEMORY);
             goto fail;
@@ -1210,7 +1210,7 @@ BOOL CImage::Read(HANDLE hFile)
 
         if (pAddrThunk && nNames) {
             pImportFile->m_nImportNames = nNames;
-            pImportFile->m_pImportNames = new NOTHROW CImageImportName [nNames];
+            pImportFile->m_pImportNames = DetourCreateObjectArray<CImageImportName>(nNames);
             if (pImportFile->m_pImportNames == NULL) {
                 SetLastError(ERROR_OUTOFMEMORY);
                 goto fail;
@@ -1320,7 +1320,7 @@ BOOL CImage::Read(HANDLE hFile)
         }
     }
 
-    m_pImageData = new NOTHROW CImageData(pbData, cbData);
+    m_pImageData = DetourCreateObject<CImageData>(pbData, cbData);
     if (m_pImageData == NULL) {
         SetLastError(ERROR_OUTOFMEMORY);
     }
@@ -1397,7 +1397,7 @@ BOOL CImage::CheckImportsNeeded(DWORD *pnTables, DWORD *pnThunks, DWORD *pnChars
 //
 CImageImportFile * CImage::NewByway(_In_ LPCSTR pszName)
 {
-    CImageImportFile *pImportFile = new NOTHROW CImageImportFile;
+    CImageImportFile *pImportFile = DetourCreateObject<CImageImportFile>();
     if (pImportFile == NULL) {
         SetLastError(ERROR_OUTOFMEMORY);
         goto fail;
@@ -1422,7 +1422,7 @@ CImageImportFile * CImage::NewByway(_In_ LPCSTR pszName)
 
 fail:
     if (pImportFile) {
-        delete pImportFile;
+        DetourDestroyObject(pImportFile);
         pImportFile = NULL;
     }
     return NULL;
@@ -1484,7 +1484,7 @@ BOOL CImage::EditImports(PVOID pContext,
                 else {                                  // Delete Byway
                     *ppLastFile = pImportFile->m_pNextFile;
                     pImportFile->m_pNextFile = NULL;
-                    delete pImportFile;
+                    DetourDestroyObject(pImportFile);
                     m_nImportFiles--;
                     continue;                           // Retry after delete.
                 }
@@ -1547,7 +1547,7 @@ BOOL CImage::EditImports(PVOID pContext,
                         pImportName->m_nOrdinal = nOrdinal;
 
                         if (pImportName->m_pszName != NULL) {
-                            delete[] pImportName->m_pszName;
+                            DetourDestroyObjectArray(pImportName->m_pszName);
                             pImportName->m_pszName = NULL;
                         }
                     }
@@ -2031,15 +2031,14 @@ BOOL CImage::Write(HANDLE hFile)
 //
 PDETOUR_BINARY WINAPI DetourBinaryOpen(_In_ HANDLE hFile)
 {
-    Detour::CImage *pImage = new NOTHROW
-        Detour::CImage;
+    Detour::CImage *pImage = DetourCreateObject<Detour::CImage>();
     if (pImage == NULL) {
         SetLastError(ERROR_OUTOFMEMORY);
         return FALSE;
     }
 
     if (!pImage->Read(hFile)) {
-        delete pImage;
+        DetourDestroyObject(pImage);
         return FALSE;
     }
 
@@ -2207,7 +2206,7 @@ BOOL WINAPI DetourBinaryClose(_In_ PDETOUR_BINARY pBinary)
     }
 
     BOOL bSuccess = pImage->Close();
-    delete pImage;
+    DetourDestroyObject(pImage);
     pImage = NULL;
 
     return bSuccess;

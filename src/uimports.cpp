@@ -40,7 +40,7 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
 
       finish:
         if (pbNew != NULL) {
-            delete[] pbNew;
+            DetourDestroyObjectArray(pbNew);
             pbNew = NULL;
         }
         return fSucceeded;
@@ -178,9 +178,13 @@ static BOOL UPDATE_IMPORTS_XX(HANDLE hProcess,
             goto finish;
         }
     }
-    pbNew = new BYTE [cbNew];
+
+    _Analysis_assume_(cbNew >
+                      sizeof(IMAGE_IMPORT_DESCRIPTOR) * (nDlls + nOldDlls)
+                      + sizeof(DWORD_XX) * 4 * nDlls);
+    pbNew = DetourCreateObjectArray<BYTE>(cbNew);
     if (pbNew == NULL) {
-        DETOUR_TRACE(("new BYTE [cbNew] failed.\n"));
+        DETOUR_TRACE(("DetourCreateObjectArray<BYTE>(cbNew) failed.\n"));
         goto finish;
     }
     ZeroMemory(pbNew, cbNew);
