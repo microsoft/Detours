@@ -755,9 +755,9 @@ PBYTE CDetourDis::CopyC7(REFCOPYENTRY pEntry, PBYTE pbDst, PBYTE pbSrc)
 {
     (void)pEntry;
 
-    // C7 /7 is XBEGIN rel32 (or rel16 with 66 prefix).
+    // C7 F8 is XBEGIN rel32 (or rel16 with 66 prefix).
     // It has a relative displacement that must be relocated like CALL/JMP.
-    if (0x38 == (0x38 & pbSrc[1])) {    // reg(bits 543) of ModR/M == 111
+    if (pbSrc[1] == 0xF8) {
         static const COPYENTRY ce = /* c7 /7 */ { 6, 4, 0, 2, 0, &CDetourDis::CopyBytes };
         return (this->*ce.pfCopy)(&ce, pbDst, pbSrc);
     }
