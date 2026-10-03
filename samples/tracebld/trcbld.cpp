@@ -4262,7 +4262,7 @@ PWCHAR LoadCommandLine(PCWSTR pwz, PWCHAR pwzDst, PWCHAR pwzDstEnd)
             // More arguments!
             WCHAR wzPath[MAX_PATH];
             PWCHAR pwzPath = wzPath;
-            PCWSTR pwzTmp = pwzArgBeg + 1;
+            PCWSTR pwzTmp = pwzArgBeg;
             while (pwzTmp < pwzArgEnd && pwzPath < wzPath + ARRAYSIZE(wzPath)-2) {
                 *pwzPath++ = *pwzTmp++;
             }
@@ -4492,11 +4492,15 @@ int WINAPI Mine_EntryPoint(VOID)
 
         FileNames::ParameterizeLine(pwzFin, pwzFin + wcNew);
         if (HasSpace(wzPath)) {
-            Tblog("<t:Line>&quot;%le&quot; %le</t:Line>\n", wzPath, pwzFin);
+            Tblog("<t:Line>&quot;%le&quot; ", wzPath);
         }
         else {
-            Tblog("<t:Line>%le %le</t:Line>\n", wzPath, pwzFin);
+            Tblog("<t:Line>%le ", wzPath);
         }
+        for(PWCHAR pwzTmp = pwzFin; pwzTmp < pwzFin + wcNew; pwzTmp += 32764) {
+            Tblog("%le", pwzTmp);
+        }
+        Tblog("</t:Line>\n");
 
         TestHandle("t:StdIn", GetStdHandle(STD_INPUT_HANDLE));
         TestHandle("t:StdOut", GetStdHandle(STD_OUTPUT_HANDLE));
