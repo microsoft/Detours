@@ -357,7 +357,7 @@ DWORD WINAPI WorkerThread(LPVOID pvVoid)
         b = GetQueuedCompletionStatus(hCompletionPort,
                                       &nBytes, (PULONG_PTR)&pClient, &lpo, INFINITE);
 
-        if (!b || lpo == NULL) {
+        if (!b && lpo == NULL) {
             fKeepLooping = FALSE;
             MyErrExit("GetQueuedCompletionState");
             break;
