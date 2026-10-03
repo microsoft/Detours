@@ -1126,7 +1126,7 @@ inline INT64 detour_sign_extend(UINT64 value, UINT bits)
     const UINT left = 64 - bits;
     const INT64 m1 = -1;
     const INT64 wide = (INT64)(value << left);
-    const INT64 sign = (wide < 0) ? (m1 << left) : 0;
+    const INT64 sign = (wide < 0) ? (m1 << bits) : 0;
     return value | sign;
 }
 
