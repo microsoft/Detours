@@ -785,17 +785,19 @@ PBYTE CDetourDis::CopyVexEvexCommon(BYTE m, PBYTE pbDst, PBYTE pbSrc, BYTE p, BY
 
     // see https://software.intel.com/content/www/us/en/develop/download/intel-avx512-fp16-architecture-specification.html
     // EVEX maps (with FP16 and APX mmm-bit extension):
-    //   mmm=001 (MAP1) and mmm=101 (MAP5) share the legacy 0F opcode structure,
-    //     so per-opcode sizing must come from s_rceCopyTable0F (e.g. MAP5 C2 /r ib = VCMPPH/VCMPSH).
-    //   mmm=010 (MAP2) and mmm=110 (MAP6) share the legacy 0F 38 structure (ModR/M, no imm).
+    //   mmm=001 (MAP1) shares the legacy 0F opcode structure,
+    //     so per-opcode sizing must come from s_rceCopyTable0F.
+    //   mmm=010 (MAP2) shares the legacy 0F 38 structure (ModR/M, no imm).
+    //   mmm=101 (MAP5) and mmm=110 (MAP6) are FP16 maps where every opcode is
+    //     ModR/M with no imm (VCMPPH/VCMPSH live in MAP3, not MAP5).
     //   mmm=011 (MAP3) has the 0F 3A structure (ModR/M + imm8).
     //   mmm=100 (MAP4, APX) mirrors legacy MAP0 opcode structure (per-opcode sizing).
     switch (m | fp16) {
     default: return Invalid(&ceInvalid, pbDst, pbSrc);
-    case 5:  // MAP5 (FP16) - opcode structure mirrors 0F (MAP1).
     case 1:  pEntry = &s_rceCopyTable0F[pbSrc[0]];
              return (this->*pEntry->pfCopy)(pEntry, pbDst, pbSrc);
-    case 6:  // MAP6 (FP16) - opcode structure mirrors 0F 38 (MAP2).
+    case 5:  // MAP5 (FP16) - ModR/M, no immediate.
+    case 6:  // MAP6 (FP16) - ModR/M, no immediate.
     case 2:  return CopyBytes(&ceF38, pbDst, pbSrc);
     case 3:  return CopyBytes(&ceF3A, pbDst, pbSrc);
     case 4:  // MAP4 (APX) - promoted legacy MAP0 instructions.

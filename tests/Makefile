@@ -29,6 +29,7 @@ dirs:
 $(OBJD)\main.obj : main.cpp
 $(OBJD)\test_module_api.obj : test_module_api.cpp
 $(OBJD)\test_image_api.obj : test_image_api.cpp
+$(OBJD)\test_disasm_api.obj : test_disasm_api.cpp
 $(OBJD)\corruptor.obj : corruptor.cpp
 $(OBJD)\process_helpers.obj : process_helpers.cpp
 $(OBJD)\payload.obj : payload.cpp
@@ -36,6 +37,7 @@ $(OBJD)\payload.obj : payload.cpp
 $(BIND)\unittests.exe : $(OBJD)\main.obj \
                         $(OBJD)\test_module_api.obj \
                         $(OBJD)\test_image_api.obj \
+                        $(OBJD)\test_disasm_api.obj \
                         $(OBJD)\corruptor.obj \
                         $(OBJD)\process_helpers.obj \
                         $(OBJD)\payload.obj $(DEPS)
@@ -43,6 +45,7 @@ $(BIND)\unittests.exe : $(OBJD)\main.obj \
         $(OBJD)\main.obj \
         $(OBJD)\test_module_api.obj \
         $(OBJD)\test_image_api.obj \
+        $(OBJD)\test_disasm_api.obj \
         $(OBJD)\corruptor.obj \
         $(OBJD)\process_helpers.obj \
         $(OBJD)\payload.obj \
